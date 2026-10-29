@@ -1,0 +1,15 @@
+# Copy to mobile/.fvmrc and set ONE explicit Flutter SDK version for this repo.
+# Do not leave this unset. Do not rely on a global flutter install.
+#
+# Example (replace with the version your team agrees on):
+# 3.24.5
+#
+# Then from repo root:
+#   make install-tools CONFIRM=yes
+#   make setup
+#
+# Maintainers: change the pin deliberately (PR + team notice), then:
+#   cd mobile && fvm use <new-version> --force
+#   git add .fvmrc .fvm/fvm_config.json
+#
+# This example file is NOT a pin — Make will fail until mobile/.fvmrc exists.

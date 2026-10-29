@@ -1,0 +1,14 @@
+# Build context hygiene — never bake secrets or local artifacts into the image.
+.env
+.env.*
+!.env.example
+**/target/
+.git/
+.idea/
+*.iml
+*.log
+.DS_Store
+*.md
+!README.md
+src/test/
+.cursor/

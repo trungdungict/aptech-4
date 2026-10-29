@@ -1,0 +1,18 @@
+---
+description: Spring Boot backend conventions (Java, Security, Liquibase, Redis, tests)
+globs: backend/**/*
+alwaysApply: false
+---
+
+# Backend (Spring Boot)
+
+Details: `.cursor/plans/02-backend-database-auth.md`, `03-backend-tests-mock-data.md`.
+
+- Java 21, Spring Boot 4.x (pinned, see ADR-003), Maven Wrapper — prefer `./mvnw` or Docker Temurin when host JDK missing.
+- Package by feature/module inside a modular monolith (`domain`, `application`, `api`, `infrastructure`).
+- Persist schema only via Liquibase; no silent `ddl-auto=update` in shared envs.
+- Auth: JWT access + refresh tokens, RBAC (`CUSTOMER`, `ADMIN`); enforce ownership on user resources.
+- Redis for cache with explicit invalidation on mutating catalog/admin writes.
+- OpenAPI for public API contracts.
+- Tests: JUnit 5, Mockito, Testcontainers; unit + integration + security tests required for auth/order paths.
+- Seed/demo data must be deterministic and resettable; keep test fixtures separate from demo seed.

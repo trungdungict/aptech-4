@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 090-products-public-query-indexes
+      author: aptech4
+      comment: Indexes for public product list filters (price, created_at) while active
+      changes:
+        - createIndex:
+            indexName: idx_products_active_unit_price
+            tableName: products
+            columns:
+              - column:
+                  name: active
+              - column:
+                  name: unit_price
+        - createIndex:
+            indexName: idx_products_active_created_at
+            tableName: products
+            columns:
+              - column:
+                  name: active
+              - column:
+                  name: created_at

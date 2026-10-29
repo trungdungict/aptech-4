@@ -1,0 +1,29 @@
+---
+description: Mandatory session resume, task selection, and checkpoint protocol
+alwaysApply: true
+---
+
+# Resume and tracking
+
+Do not rely on chat history for project state.
+
+## Session start (every new Agent session)
+
+1. Read `.cursor/PROJECT_PLAYBOOK.md`
+2. Read `.cursor/state/PROGRESS.md`, `TASKS.md`, `CURRENT_SESSION.md`, `BLOCKERS.md`
+3. Read the relevant phase plan under `.cursor/plans/`
+4. Inspect Git status and relevant source files
+5. Reconcile tracking vs actual code (stale DONE without evidence → reopen; code done but tracking stale → verify and update)
+6. Continue the smallest next verifiable task — do not restart Phase 0 after a context reset
+
+## During work
+
+- Update `TASKS.md` when status or evidence changes
+- Checkpoint after each meaningful completed task
+- Record blockers in `BLOCKERS.md` with reproduction and proposed fix
+
+## Session end / before context exhaustion
+
+Update `CURRENT_SESSION.md`, `TASKS.md`, `PROGRESS.md`, and `BLOCKERS.md` with: objective, task ID, changes, commands + outcomes, remaining work, exact next action.
+
+Never leave a task `IN_PROGRESS` without a useful checkpoint.

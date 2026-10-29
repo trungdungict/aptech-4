@@ -1,0 +1,16 @@
+---
+description: Docker Compose, Makefile, Nginx, and EC2 deployment conventions
+globs: "{docker-compose*.yml,Dockerfile*,Makefile,deploy/**/*,infra/**/*,.github/**/*,.env*}"
+alwaysApply: false
+---
+
+# Infrastructure
+
+Details: `.cursor/plans/06-docker-makefile-local.md`, `07-ec2-deployment.md`.
+
+- Docker Compose for local deps and production-like local stack.
+- Root Makefile is a first-class deliverable: dev, test, seed/reset, local deploy, health/logs, EC2 deploy/status, APK build, cleanup.
+- Local deploy must not require AWS credentials; EC2 deploy must not silently use localhost.
+- Normal stop/deploy preserves DB volumes; destructive resets are explicit targets.
+- Nginx terminates HTTP :80 on EC2; Postgres/Redis private; SSH IP-restricted.
+- Real EC2 deploy only with explicit host config and user approval.

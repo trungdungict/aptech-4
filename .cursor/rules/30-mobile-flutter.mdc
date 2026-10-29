@@ -1,0 +1,15 @@
+---
+description: Flutter Android customer app conventions
+globs: mobile/**/*
+alwaysApply: false
+---
+
+# Mobile (Flutter)
+
+Details: `.cursor/plans/05-flutter-android.md`.
+
+- Flutter/Dart, Riverpod, GoRouter, Dio, secure token storage.
+- Same backend API as React; API base URL is build-time configurable.
+- Document how physical Android devices reach the backend (LAN IP / emulator `10.0.2.2` / EC2).
+- Unit + widget tests; release APK via Makefile with explicit API URL.
+- Do not claim APK verification if Flutter SDK is unavailable — mark `BLOCKED`/`IN_REVIEW` with evidence.

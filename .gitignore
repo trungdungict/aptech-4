@@ -1,24 +1,85 @@
-# Compiled class file
+# --- OS / IDE ---
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*.swo
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+id_rsa
+id_ed25519
+
+# --- Java / Maven ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
 *.class
-
-# Log file
-*.log
-
-# BlueJ files
-*.ctxt
-
-# Mobile Tools for Java (J2ME)
-.mtj.tmp/
-
-# Package Files #
 *.jar
 *.war
-*.nar
 *.ear
-*.zip
-*.tar.gz
-*.rar
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+*.nar
 hs_err_pid*
 replay_pid*
+.mtj.tmp/
+
+# --- Node / frontend ---
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+.npm
+.vite/
+coverage/
+
+# --- Flutter / mobile ---
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/.pub-cache/
+mobile/.pub/
+mobile/ios/Pods/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+# FVM: ignore local SDK symlink/cache; keep .fvmrc and fvm_config.json when added
+mobile/.fvm/flutter_sdk
+mobile/.fvm/versions
+mobile/.fvm/release
+mobile/.fvm/version
+# Shorebird local artifacts (token never belongs in git)
+mobile/shorebird.yaml.bak
+**/.shorebird/
+# Keep committed shorebird.yaml after init; do not commit tokens
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# --- Docker / Compose overrides (local) ---
+docker-compose.override.yml
+
+# --- Postman runtime exports (may contain JWTs after local runs) ---
+postman/*.local.json
+postman/runtime/
+postman/newman-report*
+
+# --- Logs / temp ---
+*.log
+tmp/
+temp/
+.cache/
+
+# --- Cursor local (keep project playbook tracked) ---
+# Do not ignore .cursor/ — playbook and state must be versioned.

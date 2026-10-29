@@ -1,0 +1,32 @@
+---
+description: Non-negotiable architecture, security, and delivery principles for Aptech-4
+alwaysApply: true
+---
+
+# Project governance
+
+Canonical docs: `.cursor/PROJECT_PLAYBOOK.md`, `.cursor/plans/`, `.cursor/state/`.
+
+## Architecture
+
+- Modular monolith only — no microservices split.
+- Stack: Java 21 + Spring Boot 4.x REST API, PostgreSQL + Liquibase, Redis, React+TS storefront/admin, Flutter Android customer app.
+- Both React and Flutter consume the same backend API.
+- Environment-dependent URLs must be configurable (never hardcode production hosts).
+
+## Security
+
+- Spring Security + JWT access tokens + refresh-token lifecycle + RBAC.
+- Do not weaken auth, CORS, or validation to make tests pass.
+- EC2 demo may use HTTP on public IPv4 for school demo only — document risk; never claim production-secure.
+- PostgreSQL and Redis stay private on EC2; expose Nginx :80; restrict SSH to admin IP.
+- Never commit secrets, real `.env`, private keys, or credentials.
+
+## Delivery integrity
+
+- Authoritative task state lives in `.cursor/state/TASKS.md` — not chat history.
+- Mark DONE only with acceptance criteria met, verification run, and evidence recorded.
+- Never fabricate test counts, coverage, or deployment results.
+- Never delete user work or reset Git to "clean up".
+- Destructive DB/Git/EC2 ops require explicit authorization.
+- Prefer small, verifiable tasks; finish and checkpoint before starting a new phase.

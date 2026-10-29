@@ -1,0 +1,15 @@
+# Build context hygiene — never bake secrets or node_modules into the image.
+.env
+.env.*
+!.env.example
+.env.local
+node_modules/
+dist/
+coverage/
+.git/
+.idea/
+*.log
+.DS_Store
+.vite/
+*.tsbuildinfo
+.cursor/

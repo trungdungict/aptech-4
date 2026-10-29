@@ -1,0 +1,50 @@
+databaseChangeLog:
+  - changeSet:
+      id: 000-baseline-marker
+      author: aptech4
+      comment: Baseline marker — domain tables added in later changelogs (P03-T02+)
+      changes:
+        - tagDatabase:
+            tag: baseline
+
+  # Schema only — demo seed data is a separate workflow (P08), never mixed here.
+  - include:
+      file: changes/010-identity.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/020-catalog.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/030-cart.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/040-addresses.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/050-orders.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/060-payments.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/070-refresh-tokens.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/080-categories-active.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/090-products-public-query-indexes.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/100-inventory-reservation.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/110-checkout-idempotency.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/111-checkout-locks.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/120-notifications.yaml
+      relativeToChangelogFile: true
+

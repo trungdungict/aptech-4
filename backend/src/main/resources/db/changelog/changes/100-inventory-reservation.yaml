@@ -1,0 +1,162 @@
+databaseChangeLog:
+  - changeSet:
+      id: 100-inventory-quantity-reserved
+      author: aptech4
+      comment: Soft-hold counter; available = on_hand - reserved (ADR-006)
+      changes:
+        - addColumn:
+            tableName: inventory
+            columns:
+              - column:
+                  name: quantity_reserved
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: >
+              ALTER TABLE inventory
+              ADD CONSTRAINT chk_inventory_reserved_nonneg
+              CHECK (quantity_reserved >= 0);
+        - sql:
+            sql: >
+              ALTER TABLE inventory
+              ADD CONSTRAINT chk_inventory_reserved_lte_on_hand
+              CHECK (quantity_reserved <= quantity_on_hand);
+
+  - changeSet:
+      id: 100-stock-reservations
+      author: aptech4
+      comment: Reservation header with TTL and idempotency (ADR-006)
+      changes:
+        - createTable:
+            tableName: stock_reservations
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: idempotency_key
+                  type: VARCHAR(100)
+              - column:
+                  name: status
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expires_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: stock_reservations
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_stock_reservations_user
+            onDelete: RESTRICT
+        - sql:
+            sql: >
+              ALTER TABLE stock_reservations
+              ADD CONSTRAINT chk_stock_reservations_status
+              CHECK (status IN ('ACTIVE', 'CONFIRMED', 'RELEASED'));
+        - createIndex:
+            indexName: idx_stock_reservations_user_id
+            tableName: stock_reservations
+            columns:
+              - column:
+                  name: user_id
+        - createIndex:
+            indexName: idx_stock_reservations_status_expires
+            tableName: stock_reservations
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: expires_at
+        - sql:
+            sql: >
+              CREATE UNIQUE INDEX uq_stock_reservations_user_idempotency
+              ON stock_reservations (user_id, idempotency_key)
+              WHERE idempotency_key IS NOT NULL;
+
+  - changeSet:
+      id: 100-stock-reservation-items
+      author: aptech4
+      comment: Reservation lines; unique product per reservation
+      changes:
+        - createTable:
+            tableName: stock_reservation_items
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: reservation_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: stock_reservation_items
+            baseColumnNames: reservation_id
+            referencedTableName: stock_reservations
+            referencedColumnNames: id
+            constraintName: fk_stock_reservation_items_reservation
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: stock_reservation_items
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_stock_reservation_items_product
+            onDelete: RESTRICT
+        - addUniqueConstraint:
+            tableName: stock_reservation_items
+            columnNames: reservation_id, product_id
+            constraintName: uq_stock_reservation_items_res_product
+        - sql:
+            sql: >
+              ALTER TABLE stock_reservation_items
+              ADD CONSTRAINT chk_stock_reservation_items_qty_positive
+              CHECK (quantity > 0);
+        - createIndex:
+            indexName: idx_stock_reservation_items_product_id
+            tableName: stock_reservation_items
+            columns:
+              - column:
+                  name: product_id

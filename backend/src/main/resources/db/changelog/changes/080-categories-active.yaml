@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 080-categories-active
+      author: aptech4
+      comment: Soft-disable flag for categories; case-insensitive unique name
+      changes:
+        - addColumn:
+            tableName: categories
+            columns:
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+        - createIndex:
+            indexName: idx_categories_active
+            tableName: categories
+            columns:
+              - column:
+                  name: active
+        - sql:
+            sql: >
+              CREATE UNIQUE INDEX uq_categories_name_lower
+              ON categories (LOWER(name));

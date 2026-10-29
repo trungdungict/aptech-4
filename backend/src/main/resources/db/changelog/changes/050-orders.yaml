@@ -1,0 +1,209 @@
+databaseChangeLog:
+  - changeSet:
+      id: 050-orders
+      author: aptech4
+      comment: Orders with denormalized shipping snapshot fields
+      changes:
+        - createTable:
+            tableName: orders
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: currency
+                  type: CHAR(3)
+                  defaultValue: VND
+                  constraints:
+                    nullable: false
+              - column:
+                  name: subtotal_amount
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: shipping_amount
+                  type: NUMERIC(12,2)
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: total_amount
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: shipping_recipient_name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: shipping_line1
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: shipping_line2
+                  type: VARCHAR(200)
+              - column:
+                  name: shipping_city
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: shipping_state_region
+                  type: VARCHAR(120)
+              - column:
+                  name: shipping_postal_code
+                  type: VARCHAR(32)
+              - column:
+                  name: shipping_country_code
+                  type: CHAR(2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: shipping_phone
+                  type: VARCHAR(32)
+              - column:
+                  name: placed_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: orders
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_orders_user
+            onDelete: RESTRICT
+        - sql:
+            sql: >
+              ALTER TABLE orders
+              ADD CONSTRAINT chk_orders_status
+              CHECK (status IN (
+                'PENDING_PAYMENT', 'PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'FAILED'
+              ));
+        - sql:
+            sql: >
+              ALTER TABLE orders
+              ADD CONSTRAINT chk_orders_amounts_nonneg
+              CHECK (
+                subtotal_amount >= 0
+                AND shipping_amount >= 0
+                AND total_amount >= 0
+              );
+        - createIndex:
+            indexName: idx_orders_user_id_placed_at
+            tableName: orders
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: placed_at
+                  descending: true
+        - createIndex:
+            indexName: idx_orders_status
+            tableName: orders
+            columns:
+              - column:
+                  name: status
+
+  - changeSet:
+      id: 050-order-items
+      author: aptech4
+      comment: Line items with product name and unit-price snapshots
+      changes:
+        - createTable:
+            tableName: order_items
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: order_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: UUID
+              - column:
+                  name: product_sku
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: unit_price
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: line_total
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: order_items
+            baseColumnNames: order_id
+            referencedTableName: orders
+            referencedColumnNames: id
+            constraintName: fk_order_items_order
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: order_items
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_order_items_product
+            onDelete: SET NULL
+        - sql:
+            sql: >
+              ALTER TABLE order_items
+              ADD CONSTRAINT chk_order_items_qty_positive
+              CHECK (quantity > 0);
+        - sql:
+            sql: >
+              ALTER TABLE order_items
+              ADD CONSTRAINT chk_order_items_prices_nonneg
+              CHECK (unit_price >= 0 AND line_total >= 0);
+        - createIndex:
+            indexName: idx_order_items_order_id
+            tableName: order_items
+            columns:
+              - column:
+                  name: order_id

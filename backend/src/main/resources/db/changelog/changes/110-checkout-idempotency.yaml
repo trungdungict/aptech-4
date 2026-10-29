@@ -1,0 +1,66 @@
+databaseChangeLog:
+  - changeSet:
+      id: 110-checkout-idempotency
+      author: aptech4
+      comment: Per-user checkout idempotency keys bound to created orders (P06-T03)
+      changes:
+        - createTable:
+            tableName: checkout_idempotency
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: idempotency_key
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: request_hash
+                  type: CHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: order_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: checkout_idempotency
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_checkout_idempotency_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: checkout_idempotency
+            baseColumnNames: order_id
+            referencedTableName: orders
+            referencedColumnNames: id
+            constraintName: fk_checkout_idempotency_order
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: checkout_idempotency
+            columnNames: user_id, idempotency_key
+            constraintName: uq_checkout_idempotency_user_key
+        - createIndex:
+            indexName: idx_checkout_idempotency_order_id
+            tableName: checkout_idempotency
+            columns:
+              - column:
+                  name: order_id

@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+/*
+  Design tokens aligned for future shadcn/ui (CSS variables).
+  Palette: charcoal + teal — commerce-friendly, not a generic AI purple theme.
+*/
+:root {
+  --background: 210 20% 98%;
+  --foreground: 210 24% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 210 24% 12%;
+  --muted: 210 16% 93%;
+  --muted-foreground: 210 10% 40%;
+  --border: 210 14% 88%;
+  --primary: 174 62% 32%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 174 40% 92%;
+  --accent-foreground: 174 62% 22%;
+  --ring: 174 62% 32%;
+  --radius: 0.75rem;
+  font-family:
+    'Segoe UI',
+    'Helvetica Neue',
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-border: hsl(var(--border));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-ring: hsl(var(--ring));
+  --radius-lg: var(--radius);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-color: hsl(var(--border));
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, hsl(174 50% 88% / 0.55), transparent 55%),
+    radial-gradient(900px 420px at 100% 0%, hsl(210 30% 90% / 0.8), transparent 50%),
+    hsl(var(--background));
+}
+
+#root {
+  min-height: 100vh;
+}

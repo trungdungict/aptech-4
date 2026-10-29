@@ -1,0 +1,15 @@
+---
+description: React TypeScript storefront and admin dashboard conventions
+globs: frontend/**/*
+alwaysApply: false
+---
+
+# Frontend (React)
+
+Details: `.cursor/plans/04-frontend-customer-admin.md`.
+
+- React + TypeScript strict, Vite, Tailwind, shadcn/ui, TanStack Query, React Router, RHF + Zod, Vitest + RTL.
+- Customer storefront and admin dashboard share API client patterns; role-gate admin routes.
+- API base URL from env (`VITE_API_BASE_URL`); never hardcode hosts.
+- Prefer small focused components; colocate tests with features.
+- Verify with targeted Vitest first, then lint/typecheck/build at phase gates.

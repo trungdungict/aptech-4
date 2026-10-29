@@ -1,0 +1,62 @@
+# Mobile Flutter + Shorebird toolchain (optional; does not start Postgres/Redis).
+# Usage:
+#   make mobile-build-image
+#   make mobile-doctor
+#
+# Pass SHOREBIRD_TOKEN from the host environment — never commit the token.
+# Image targets linux/amd64 for Android SDK compatibility (emulated on Apple Silicon).
+
+name: aptech4-mobile
+
+services:
+  mobile-toolchain:
+    platform: linux/amd64
+    build:
+      context: ./mobile/docker
+      dockerfile: Dockerfile
+      args:
+        FLUTTER_VERSION: ${FLUTTER_VERSION:-3.47.8}
+        JAVA_VERSION: ${JAVA_VERSION:-17}
+        ANDROID_CMDLINE_TOOLS: ${ANDROID_CMDLINE_TOOLS:-13114758}
+        ANDROID_PLATFORM: ${ANDROID_PLATFORM:-android-36}
+        ANDROID_BUILD_TOOLS: ${ANDROID_BUILD_TOOLS:-36.0.0}
+        HOST_UID: ${HOST_UID:-1000}
+        HOST_GID: ${HOST_GID:-1000}
+    image: aptech4-mobile-toolchain:${FLUTTER_VERSION:-3.47.8}
+    working_dir: /workspace/mobile
+    # Load secrets from repo-root .env (gitignored). Compose also interpolates ${SHOREBIRD_TOKEN}.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOME: /home/developer
+      PUB_CACHE: /home/developer/.pub-cache
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
+      FLUTTER_HOME: /opt/flutter
+      PATH: /home/developer/.shorebird/bin:/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:/opt/java-home/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      # Convenience for tooling only — Flutter app still needs --dart-define at build (ADR-014).
+      API_BASE_URL: ${API_BASE_URL:-http://10.0.2.2:8080/api/v1}
+      # Prefer process env / .env interpolation; never hardcode a token here.
+      SHOREBIRD_TOKEN: ${SHOREBIRD_TOKEN:-}
+      MOBILE_PREFLIGHT_MODE: ${MOBILE_PREFLIGHT_MODE:-quick}
+      # Volume mount on ~/.shorebird/bin/cache is a filesystem boundary; allow git to walk up for shorebird doctor.
+      GIT_DISCOVERY_ACROSS_FILESYSTEM: "1"
+    volumes:
+      - ./mobile:/workspace/mobile
+      - aptech4_pub_cache:/home/developer/.pub-cache
+      # Cache only — do not mount over ~/.shorebird or the CLI binary disappears.
+      - aptech4_shorebird_cache:/home/developer/.shorebird/bin/cache
+      - aptech4_gradle_cache:/home/developer/.gradle
+    entrypoint: ["/usr/local/bin/mobile-preflight"]
+    command: ["bash"]
+    profiles:
+      - mobile
+
+volumes:
+  aptech4_pub_cache:
+    name: aptech4_pub_cache
+  aptech4_shorebird_cache:
+    name: aptech4_shorebird_cache
+  aptech4_gradle_cache:
+    name: aptech4_gradle_cache

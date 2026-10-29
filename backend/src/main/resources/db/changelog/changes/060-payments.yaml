@@ -1,0 +1,90 @@
+databaseChangeLog:
+  - changeSet:
+      id: 060-payments
+      author: aptech4
+      comment: Mock/payment records linked to orders (no card PAN storage)
+      changes:
+        - createTable:
+            tableName: payments
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: order_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: provider
+                  type: VARCHAR(32)
+                  defaultValue: MOCK
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: amount
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: currency
+                  type: CHAR(3)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: provider_reference
+                  type: VARCHAR(120)
+              - column:
+                  name: failure_reason
+                  type: VARCHAR(255)
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: payments
+            baseColumnNames: order_id
+            referencedTableName: orders
+            referencedColumnNames: id
+            constraintName: fk_payments_order
+            onDelete: CASCADE
+        - sql:
+            sql: >
+              ALTER TABLE payments
+              ADD CONSTRAINT chk_payments_status
+              CHECK (status IN ('PENDING', 'SUCCEEDED', 'FAILED', 'CANCELLED'));
+        - sql:
+            sql: >
+              ALTER TABLE payments
+              ADD CONSTRAINT chk_payments_amount_nonneg
+              CHECK (amount >= 0);
+        - createIndex:
+            indexName: idx_payments_order_id
+            tableName: payments
+            columns:
+              - column:
+                  name: order_id
+        - createIndex:
+            indexName: idx_payments_provider_reference
+            tableName: payments
+            columns:
+              - column:
+                  name: provider_reference
+            unique: false

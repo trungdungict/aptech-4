@@ -1,0 +1,14 @@
+# Production-like / EC2 demo hardening for API docs surface.
+# Activate with SPRING_PROFILES_ACTIVE=prod (or include prod among active profiles).
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# Demo seed must never run under prod (DemoSeedService also refuses unless allow-on-prod).
+aptech:
+  seed:
+    enabled: false
+    allow-on-prod: false

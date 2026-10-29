@@ -1,0 +1,88 @@
+databaseChangeLog:
+  - changeSet:
+      id: 040-addresses
+      author: aptech4
+      comment: Customer shipping/billing addresses
+      changes:
+        - createTable:
+            tableName: addresses
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: label
+                  type: VARCHAR(80)
+              - column:
+                  name: recipient_name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: line1
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: line2
+                  type: VARCHAR(200)
+              - column:
+                  name: city
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: state_region
+                  type: VARCHAR(120)
+              - column:
+                  name: postal_code
+                  type: VARCHAR(32)
+              - column:
+                  name: country_code
+                  type: CHAR(2)
+                  defaultValue: VN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: phone
+                  type: VARCHAR(32)
+              - column:
+                  name: is_default
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: addresses
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_addresses_user
+            onDelete: CASCADE
+        - createIndex:
+            indexName: idx_addresses_user_id
+            tableName: addresses
+            columns:
+              - column:
+                  name: user_id

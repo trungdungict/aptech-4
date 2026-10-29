@@ -1,0 +1,185 @@
+databaseChangeLog:
+  - changeSet:
+      id: 020-categories
+      author: aptech4
+      changes:
+        - createTable:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: slug
+                  type: VARCHAR(140)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: parent_id
+                  type: UUID
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: categories
+            baseColumnNames: parent_id
+            referencedTableName: categories
+            referencedColumnNames: id
+            constraintName: fk_categories_parent
+            onDelete: SET NULL
+        - createIndex:
+            indexName: idx_categories_parent_id
+            tableName: categories
+            columns:
+              - column:
+                  name: parent_id
+
+  - changeSet:
+      id: 020-products
+      author: aptech4
+      changes:
+        - createTable:
+            tableName: products
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: category_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sku
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: unit_price
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: currency
+                  type: CHAR(3)
+                  defaultValue: VND
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: products
+            baseColumnNames: category_id
+            referencedTableName: categories
+            referencedColumnNames: id
+            constraintName: fk_products_category
+            onDelete: RESTRICT
+        - sql:
+            sql: >
+              ALTER TABLE products
+              ADD CONSTRAINT chk_products_unit_price_nonneg
+              CHECK (unit_price >= 0);
+        - createIndex:
+            indexName: idx_products_category_id
+            tableName: products
+            columns:
+              - column:
+                  name: category_id
+        - createIndex:
+            indexName: idx_products_active_name
+            tableName: products
+            columns:
+              - column:
+                  name: active
+              - column:
+                  name: name
+
+  - changeSet:
+      id: 020-inventory
+      author: aptech4
+      comment: Stock quantity per product (1:1)
+      changes:
+        - createTable:
+            tableName: inventory
+            columns:
+              - column:
+                  name: product_id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: quantity_on_hand
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: inventory
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_inventory_product
+            onDelete: CASCADE
+        - sql:
+            sql: >
+              ALTER TABLE inventory
+              ADD CONSTRAINT chk_inventory_qty_nonneg
+              CHECK (quantity_on_hand >= 0);
