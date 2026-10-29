@@ -96,6 +96,33 @@ deploy-local: env-check ## Start full local stack (build if needed); keeps volum
 	WEB_PORT="$(WEB_PORT)" $(COMPOSE_STACK) up -d --build
 	@$(MAKE) --no-print-directory health-local
 
+# Optional AI profile: Ollama + API with Spring AI enabled. Does NOT pull a model automatically.
+up-ai: env-check ## Start Ollama only (profile ai); preserves volumes
+	$(COMPOSE) --profile ai up -d ollama
+	@echo "Ollama up on 127.0.0.1:11434. Pull a model: make ollama-pull MODEL=llama3.2"
+
+deploy-local-ai: env-check ## Full stack + Ollama; enables chat against service DNS `ollama`
+	APTECH_AI_ENABLED=true \
+	SPRING_AI_MODEL_CHAT=ollama \
+	OLLAMA_BASE_URL=http://ollama:11434 \
+	SPRING_PROFILES_ACTIVE=local,ai \
+	WEB_PORT="$(WEB_PORT)" $(COMPOSE) --profile stack --profile ai up -d --build
+	@$(MAKE) --no-print-directory health-local
+	@echo "AI stack up. Pull model if needed: make ollama-pull MODEL=$${APTECH_AI_MODEL:-llama3.2}"
+
+ollama-pull: ## Pull Ollama model into the ai volume (does not wipe DB)
+	@model="$(or $(MODEL),$(APTECH_AI_MODEL),llama3.2)"; \
+	echo "Pulling $$model (may take several minutes / GBs)..."; \
+	$(COMPOSE) --profile ai exec ollama ollama pull "$$model"
+
+ollama-health: ## Check Ollama HTTP health on loopback
+	@curl -fsS http://127.0.0.1:11434/api/tags | head -c 400; echo
+
+down-ai: ## Stop Ollama only; keeps ollama + DB volumes
+	$(COMPOSE) stop ollama || true
+	$(COMPOSE) rm -f ollama || true
+	@echo "Stopped ollama. Volumes preserved (including aptech4_ollama)."
+
 down-local: ## Stop api + web (and optionally leave deps); never removes volumes
 	$(COMPOSE) stop api web || true
 	$(COMPOSE) rm -f api web || true

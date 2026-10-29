@@ -1,5 +1,9 @@
 package com.aptech.aptech4.order.persistence;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,4 +51,53 @@ public interface ShopOrderRepository extends JpaRepository<ShopOrder, UUID>, Jpa
 	Page<ShopOrder> findByUser_IdAndStatus(UUID userId, OrderStatus status, Pageable pageable);
 
 	Page<ShopOrder> findByStatus(OrderStatus status, Pageable pageable);
+
+	List<ShopOrder> findByStatusIn(Collection<OrderStatus> statuses, Pageable pageable);
+
+	@Query("""
+			select o.status, count(o) from ShopOrder o
+			where o.placedAt >= :from and o.placedAt < :to
+			group by o.status
+			""")
+	List<Object[]> countGroupedByStatus(@Param("from") Instant from, @Param("to") Instant to);
+
+	@Query("""
+			select coalesce(sum(o.totalAmount), 0) from ShopOrder o
+			where o.status in :statuses and o.placedAt >= :from and o.placedAt < :to
+			""")
+	BigDecimal sumTotalsByStatuses(
+			@Param("statuses") Collection<OrderStatus> statuses,
+			@Param("from") Instant from,
+			@Param("to") Instant to
+	);
+
+	@Query("""
+			select count(o) from ShopOrder o
+			where o.status in :statuses and o.placedAt >= :from and o.placedAt < :to
+			""")
+	long countByStatuses(
+			@Param("statuses") Collection<OrderStatus> statuses,
+			@Param("from") Instant from,
+			@Param("to") Instant to
+	);
+
+	@Query("""
+			select count(o) from ShopOrder o
+			where o.placedAt >= :from and o.placedAt < :to
+			""")
+	long countPlacedBetween(@Param("from") Instant from, @Param("to") Instant to);
+
+	@Query("""
+			select oi.productSku, oi.productName, oi.product.id, sum(oi.quantity), sum(oi.lineTotal)
+			from OrderItem oi join oi.order o
+			where o.status in :statuses and o.placedAt >= :from and o.placedAt < :to
+			group by oi.productSku, oi.productName, oi.product.id
+			order by sum(oi.quantity) desc
+			""")
+	List<Object[]> topSellingProducts(
+			@Param("statuses") Collection<OrderStatus> statuses,
+			@Param("from") Instant from,
+			@Param("to") Instant to,
+			Pageable pageable
+	);
 }

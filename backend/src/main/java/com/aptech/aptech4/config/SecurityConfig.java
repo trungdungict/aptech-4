@@ -13,6 +13,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -30,6 +32,12 @@ import com.aptech.aptech4.identity.security.RestAuthenticationEntryPoint;
  * CSRF is disabled because clients authenticate via Authorization header, not cookies.
  * Deny-by-default: public allow-list, then {@code /api/v1/admin/**} requires {@code ROLE_ADMIN},
  * everything else authenticated. Method security ({@code @PreAuthorize}) adds finer checks.
+ *
+ * <p>{@link RequestAttributeSecurityContextRepository} keeps the authenticated
+ * {@code SecurityContext} on the HTTP request so Tomcat async dispatch (SSE / {@code SseEmitter})
+ * can re-authorize without re-parsing the JWT. Without this, async completion hits
+ * {@code AuthorizationFilter} with an empty context, fails with Access Denied on an already
+ * committed {@code text/event-stream}, and browsers report {@code ERR_INCOMPLETE_CHUNKED_ENCODING}.
  */
 @Configuration
 @EnableMethodSecurity
@@ -42,16 +50,26 @@ import com.aptech.aptech4.identity.security.RestAuthenticationEntryPoint;
 public class SecurityConfig {
 
 	@Bean
+	SecurityContextRepository securityContextRepository() {
+		return new RequestAttributeSecurityContextRepository();
+	}
+
+	@Bean
 	SecurityFilterChain securityFilterChain(
 			HttpSecurity http,
 			JwtAuthenticationFilter jwtAuthenticationFilter,
 			RestAuthenticationEntryPoint authenticationEntryPoint,
-			RestAccessDeniedHandler accessDeniedHandler
+			RestAccessDeniedHandler accessDeniedHandler,
+			SecurityContextRepository securityContextRepository
 	) throws Exception {
 		http
 			.csrf(AbstractHttpConfigurer::disable)
 			.cors(Customizer.withDefaults())
 			.sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.securityContext(securityContext -> securityContext
+					.securityContextRepository(securityContextRepository)
+					.requireExplicitSave(true)
+			)
 			.exceptionHandling(ex -> ex
 				.authenticationEntryPoint(authenticationEntryPoint)
 				.accessDeniedHandler(accessDeniedHandler)

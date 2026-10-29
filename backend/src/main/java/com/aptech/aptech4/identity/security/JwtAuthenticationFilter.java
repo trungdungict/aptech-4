@@ -6,8 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -23,9 +25,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
 	private final JwtService jwtService;
+	private final SecurityContextRepository securityContextRepository;
 
-	public JwtAuthenticationFilter(JwtService jwtService) {
+	public JwtAuthenticationFilter(
+			JwtService jwtService,
+			SecurityContextRepository securityContextRepository
+	) {
 		this.jwtService = jwtService;
+		this.securityContextRepository = securityContextRepository;
 	}
 
 	@Override
@@ -54,7 +61,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 					SecurityRoles.authorities(principal.roles())
 			);
 			authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-			SecurityContextHolder.getContext().setAuthentication(authentication);
+			SecurityContext context = SecurityContextHolder.createEmptyContext();
+			context.setAuthentication(authentication);
+			SecurityContextHolder.setContext(context);
+			// Persist on the request so Tomcat async dispatch (SSE) can restore auth.
+			securityContextRepository.saveContext(context, request, response);
 		}
 		catch (JwtException | IllegalArgumentException ex) {
 			// Do not log the token or Authorization header.

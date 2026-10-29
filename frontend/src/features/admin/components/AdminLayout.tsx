@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/features/auth/hooks/useAuth'
+import { ChatPanel } from '@/features/chat/components/ChatPanel'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 
 import { ADMIN_NAV_ITEMS } from '../nav'
@@ -100,6 +101,7 @@ export function AdminLayout() {
         <main className="flex-1 px-4 py-8 md:px-8">
           <Outlet />
         </main>
+        {user ? <ChatPanel key={user.id} variant="admin" /> : null}
       </div>
     </div>
   )

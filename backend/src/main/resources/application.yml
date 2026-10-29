@@ -28,6 +28,18 @@ spring:
         default-page-size: 20
         max-page-size: 100
         one-indexed-parameters: false
+  # Spring AI — chat model off unless APTECH_AI_ENABLED=true (see application-ai.yml / Compose profile ai).
+  ai:
+    model:
+      chat: ${SPRING_AI_MODEL_CHAT:none}
+      # Embedding unused by the assistant; keep off so Ollama embedding does not auto-enable.
+      embedding: ${SPRING_AI_MODEL_EMBEDDING:none}
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        # Spring AI 2.0 binds model/temperature on spring.ai.ollama.chat.* (flat, not options.*).
+        model: ${APTECH_AI_MODEL:llama3.2}
+        temperature: 0.2
 
 server:
   port: ${SERVER_PORT:8080}
@@ -60,6 +72,15 @@ aptech:
       default-outcome: ${MOCK_PAYMENT_DEFAULT_OUTCOME:SUCCEEDED}
       # When true, CheckoutRequest.simulateFailure is honored (tests/demo only).
       allow-client-force-failure: ${MOCK_PAYMENT_ALLOW_CLIENT_FORCE_FAILURE:false}
+  ai:
+    # Local Ollama assistant (ADR-019). Off by default so normal stack starts without a model.
+    enabled: ${APTECH_AI_ENABLED:false}
+    model: ${APTECH_AI_MODEL:llama3.2}
+    request-timeout-seconds: ${APTECH_AI_TIMEOUT_SECONDS:90}
+    max-history-messages: ${APTECH_AI_MAX_HISTORY:12}
+    max-message-chars: ${APTECH_AI_MAX_MESSAGE_CHARS:2000}
+    low-stock-threshold: ${APTECH_AI_LOW_STOCK_THRESHOLD:5}
+    max-tool-results: ${APTECH_AI_MAX_TOOL_RESULTS:20}
   seed:
     # Explicit one-shot only (make seed-demo / reset-demo). Never auto-run on normal API startup.
     enabled: ${APTECH_SEED_ENABLED:false}

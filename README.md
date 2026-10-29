@@ -46,6 +46,8 @@ make smoke-demo                # login + catalog via stack nginx (:8088)
 make reset-demo-dry            # print demo delete scope (no deletes)
 make reset-demo CONFIRM=yes    # scoped demo reset + reseed (not volume wipe)
 make down                      # stop Compose services; keeps volumes
+make deploy-local-ai           # optional Ollama + AI chat (see docs/AI_ASSISTANT.md)
+make up-ai && make ollama-pull # pull model without wiping DB volumes
 make clean                     # Maven + Flutter build artifacts (not DB/volumes)
 ```
 

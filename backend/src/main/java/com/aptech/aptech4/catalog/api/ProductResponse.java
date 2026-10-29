@@ -19,7 +19,7 @@ public record ProductResponse(
 		@Schema(description = "Parent category name") String categoryName,
 		@Schema(description = "Whether the product is active") boolean active,
 		@Schema(description = "Image URL when available; null until media is modeled", nullable = true) String imageUrl,
-		@Schema(description = "true if inventory quantity_on_hand > 0; false if 0; null if no inventory row", nullable = true)
+		@Schema(description = "true if available stock (on_hand - reserved) > 0; false if available <= 0; null if no inventory row", nullable = true)
 		Boolean inStock
 ) implements Serializable {
 	@Serial

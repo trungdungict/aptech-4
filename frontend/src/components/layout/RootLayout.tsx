@@ -1,6 +1,7 @@
 import { Link, Outlet } from 'react-router-dom'
 
 import { useAuth } from '@/features/auth/hooks/useAuth'
+import { ChatPanel } from '@/features/chat/components/ChatPanel'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 
 export function RootLayout() {
@@ -79,6 +80,7 @@ export function RootLayout() {
       <footer className="border-t border-border/80 py-6 text-center text-xs text-muted-foreground">
         Customer cart, mock checkout, and orders — payment is demo-only.
       </footer>
+      {status === 'authenticated' && user ? <ChatPanel key={user.id} variant="customer" /> : null}
     </div>
   )
 }

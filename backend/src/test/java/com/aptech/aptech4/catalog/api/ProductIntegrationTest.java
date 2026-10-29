@@ -227,6 +227,54 @@ class ProductIntegrationTest {
 	}
 
 	@Test
+	void inStockFilterUsesAvailableOnHandMinusReserved() throws Exception {
+		UUID reservedId = transactionTemplate.execute(status -> {
+			Category active = categoryRepository.findById(activeCategoryId).orElseThrow();
+			Product reserved = productRepository.saveAndFlush(Product.createNew(
+					active,
+					"SKU-R-" + suffix,
+					"Reserved Widget " + suffix,
+					"Fully reserved",
+					new BigDecimal("150.00"),
+					"VND",
+					true
+			));
+			Inventory inventory = Inventory.forProduct(reserved, 5);
+			inventory.setQuantityReserved(5);
+			inventoryRepository.saveAndFlush(inventory);
+			entityManager.flush();
+			entityManager.clear();
+			return reserved.getId();
+		});
+
+		MvcResult inStock = mockMvc.perform(get("/api/v1/products")
+						.param("q", suffix)
+						.param("inStock", "true")
+						.param("maxPrice", "200")
+						.param("categoryId", activeCategoryId.toString()))
+				.andExpect(status().isOk())
+				.andReturn();
+		for (JsonNode item : objectMapper.readTree(inStock.getResponse().getContentAsString()).get("items")) {
+			assertThat(item.get("id").asText()).isNotEqualTo(reservedId.toString());
+			assertThat(item.get("inStock").asBoolean()).isTrue();
+		}
+
+		MvcResult out = mockMvc.perform(get("/api/v1/products")
+						.param("q", "Reserved Widget " + suffix)
+						.param("inStock", "false"))
+				.andExpect(status().isOk())
+				.andReturn();
+		JsonNode outItems = objectMapper.readTree(out.getResponse().getContentAsString()).get("items");
+		assertThat(outItems).isNotEmpty();
+		assertThat(outItems.get(0).get("id").asText()).isEqualTo(reservedId.toString());
+		assertThat(outItems.get(0).get("inStock").asBoolean()).isFalse();
+
+		mockMvc.perform(get("/api/v1/products/" + reservedId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.inStock").value(false));
+	}
+
+	@Test
 	void paginationMetadataAndValidation() throws Exception {
 		mockMvc.perform(get("/api/v1/products")
 				.param("q", suffix)

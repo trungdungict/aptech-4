@@ -2,32 +2,34 @@
 
 ## Session objective
 
-Investigate intermittent ~10s WebSocket notification latency (ADR-018 path). Fix only proven causes.
+Customer AI regressions: paid-order listing, sold-out availability, admin analytics messaging, checkout copy.
 
 ## Task ID
 
-Ad-hoc latency investigation (extends ADR-018). Progress remains **54/64**.
+Ad-hoc (not a numbered roadmap task). Progress remains **54/64**.
 
-## Changes made
+## Root causes
 
-- Enabled STOMP simple-broker heartbeats (`10s/10s`) via dedicated `stompBrokerHeartbeatScheduler`
-- Dedicated STOMP inbound/outbound channel executors (override Boot shared `applicationTaskExecutor`)
-- Separate `applicationTaskScheduler` for `@Scheduled` (inventory no longer on MessageBroker threads)
-- DEBUG-only push timing in `NotificationPushService`
-- IT: CONNECTED negotiates non-zero heart-beat; push latency asserts `<2s`
-- ADR-018 heartbeat / executor notes
+| Issue | Cause |
+|-------|--------|
+| `List my paid orders.` | No deterministic route → LLM invented permissions / fake IDs |
+| Sold-Out Notebook in available search | Filter (`available > 0`) was correct; seed upsert used `max(onHand, reserved)` and left DEMO-HOME-OOS at on_hand=80 |
+| Store-wide analytics → “need JWT” | Authenticated Customer hit LLM; model mis-described auth instead of Admin-only |
+| `simulateFailure` in checkout | Copied into Customer-facing checkout help |
 
-## Commands + outcomes
+## Fixes
 
-| Command | Result |
-|---------|--------|
-| Live probe before (healthy WS) | direct/nginx push after HTTP **p50≈0.2–1.1ms**, max **2.6ms** (n=15); CONNECTED **`heart-beat:0,0`** |
-| `NotificationWebSocketIntegrationTest` | **5/0/0** |
-| `./mvnw verify` | **121/0/0** |
-| FE typecheck / lint / test / build | OK — **85** tests |
-| `make build-stack && deploy-local && health-local && smoke-local && postman-validate` | OK |
-| Live probe after | CONNECTED **`heart-beat:10000,10000`**; nginx push **p50=0.9ms, p95=1.7ms, max=1.8ms** (n=12) |
+- `ORDER_LIST_BY_STATUS` / `ORDER_COUNT_BY_STATUS` + `ADMIN_ANALYTICS_FORBIDDEN`
+- Seed inventory honors fixture on_hand=0 (clamp reserved); invalidate catalog cache after seed
+- Checkout copy without `simulateFailure`; ProductResponse `inStock` docs = available
+
+## Live verified
+
+- Paid list → `deterministic_orders_by_status`, total **22** (= `/orders?status=PAID`)
+- Products under 500000 → no Sold-Out; DB available=0 for DEMO-HOME-OOS
+- Store-wide → Admin-only message (no JWT ask)
+- Checkout → no `simulateFailure`
 
 ## Exact next action
 
-Playbook next: **P15-T01** or **P16-T02** as needed.
+Resume roadmap P15/P16. Keep **54/64**.

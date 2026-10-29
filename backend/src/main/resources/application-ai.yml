@@ -1,0 +1,12 @@
+# Activate with SPRING_PROFILES_ACTIVE=local,ai (or ai alone).
+# Requires a reachable Ollama at OLLAMA_BASE_URL and a pulled model (APTECH_AI_MODEL).
+
+aptech:
+  ai:
+    enabled: true
+
+spring:
+  ai:
+    model:
+      chat: ollama
+      embedding: none

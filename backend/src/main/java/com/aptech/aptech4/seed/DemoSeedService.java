@@ -9,12 +9,14 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.aptech.aptech4.catalog.cache.CatalogCacheInvalidator;
 import com.aptech.aptech4.catalog.domain.Category;
 import com.aptech.aptech4.catalog.domain.Inventory;
 import com.aptech.aptech4.catalog.domain.Product;
@@ -45,6 +47,7 @@ public class DemoSeedService {
 	private final ProductRepository productRepository;
 	private final InventoryRepository inventoryRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final ObjectProvider<CatalogCacheInvalidator> catalogCacheInvalidator;
 
 	public DemoSeedService(
 			DemoSeedProperties properties,
@@ -54,7 +57,8 @@ public class DemoSeedService {
 			CategoryRepository categoryRepository,
 			ProductRepository productRepository,
 			InventoryRepository inventoryRepository,
-			PasswordEncoder passwordEncoder
+			PasswordEncoder passwordEncoder,
+			ObjectProvider<CatalogCacheInvalidator> catalogCacheInvalidator
 	) {
 		this.properties = properties;
 		this.environment = environment;
@@ -64,6 +68,7 @@ public class DemoSeedService {
 		this.productRepository = productRepository;
 		this.inventoryRepository = inventoryRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.catalogCacheInvalidator = catalogCacheInvalidator;
 	}
 
 	@Transactional
@@ -133,6 +138,12 @@ public class DemoSeedService {
 			}
 			upsertInventory(fixture);
 			inventoryUpserts++;
+		}
+
+		CatalogCacheInvalidator invalidator = catalogCacheInvalidator.getIfAvailable();
+		if (invalidator != null) {
+			invalidator.onInventoryMutation();
+			invalidator.onCategoryMutation(null);
 		}
 
 		DemoSeedResult result = new DemoSeedResult(
@@ -243,16 +254,20 @@ public class DemoSeedService {
 		Product product = productRepository.findBySkuIgnoreCase(fixture.sku()).orElseThrow();
 		UUID productId = product.getId();
 		Inventory inventory = inventoryRepository.findById(productId).orElse(null);
-		int reserved = inventory == null ? 0 : inventory.getQuantityReserved();
-		int onHand = Math.max(fixture.onHand(), reserved);
+		int targetOnHand = Math.max(0, fixture.onHand());
 		if (inventory == null) {
-			Inventory created = Inventory.forProduct(product, onHand);
+			Inventory created = Inventory.forProduct(product, targetOnHand);
 			inventoryRepository.save(created);
+			return;
 		}
-		else {
-			inventory.setQuantityOnHand(onHand);
-			inventory.setUpdatedAt(Instant.now());
-			inventoryRepository.save(inventory);
+		int reserved = inventory.getQuantityReserved();
+		// Honor fixture on-hand (incl. explicit 0 for sold-out demos). Clamp reserved so
+		// available = on_hand - reserved stays non-negative and OOS fixtures stay unavailable.
+		if (reserved > targetOnHand) {
+			inventory.setQuantityReserved(targetOnHand);
 		}
+		inventory.setQuantityOnHand(targetOnHand);
+		inventory.setUpdatedAt(Instant.now());
+		inventoryRepository.save(inventory);
 	}
 }

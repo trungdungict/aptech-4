@@ -108,6 +108,16 @@ class DemoSeedIntegrationTest {
 		Category archive = categoryRepository.findBySlug("demo-archive").orElseThrow();
 		assertThat(archive.isActive()).isFalse();
 		assertThat(productRepository.findBySkuIgnoreCase("DEMO-HOME-OOS")).isPresent();
+		Integer oosAvailable = jdbcTemplate.queryForObject(
+				"""
+						select (i.quantity_on_hand - i.quantity_reserved)
+						from products p
+						join inventory i on i.product_id = p.id
+						where lower(p.sku) = lower('DEMO-HOME-OOS')
+						""",
+				Integer.class
+		);
+		assertThat(oosAvailable).isNotNull().isLessThanOrEqualTo(0);
 		Product inactive = productRepository.findBySkuIgnoreCase("DEMO-ELEC-OLD").orElseThrow();
 		assertThat(inactive.isActive()).isFalse();
 
