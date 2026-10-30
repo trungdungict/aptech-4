@@ -8,6 +8,7 @@ SHELL := /bin/bash
 
 COMPOSE := docker compose
 COMPOSE_STACK := $(COMPOSE) --profile stack
+COMPOSE_MONITORING := $(COMPOSE) --profile monitoring
 ENV_FILE := .env
 MOBILE_DIR := mobile
 DEV_FLUTTER := ./scripts/dev-flutter.sh
@@ -31,6 +32,7 @@ SEED_SERVER_PORT ?= 18081
 
 .PHONY: help env-check up-deps down-deps down clean ps logs-deps health-deps reset-deps-volumes \
 	build-stack deploy-local down-local health-local logs-local smoke-local smoke-demo \
+	monitoring-up monitoring-down monitoring-status monitoring-validate \
 	invalidate-catalog-cache \
 	seed-check seed-demo reset-demo-dry reset-demo \
 	postman-export postman-validate postman-info postman-help postman-smoke \
@@ -57,6 +59,9 @@ help: ## Show available targets
 	@printf '  make build-stack && make deploy-local — API + web + Postgres + Redis\n'
 	@printf '  Web: http://localhost:$(WEB_PORT)  (same-origin /api/v1 → Spring)\n'
 	@printf '  make health-local / logs-local / smoke-local / down-local (volumes kept)\n'
+	@printf '\nMonitoring (Compose profile monitoring; optional):\n'
+	@printf '  make monitoring-up / monitoring-status / monitoring-down — see docs/MONITORING.md\n'
+	@printf '  Grafana http://127.0.0.1:$${GRAFANA_PORT:-3001}  Prometheus http://127.0.0.1:$${PROMETHEUS_PORT:-9090}\n'
 	@printf '\nDemo seed/reset (Compose Postgres; never auto on deploy-local):\n'
 	@printf '  make seed-check → seed-demo → smoke-demo\n'
 	@printf '  make reset-demo-dry ; make reset-demo CONFIRM=yes\n'
@@ -178,6 +183,36 @@ health-local: ## Wait until api + web containers are healthy
 	$(COMPOSE_STACK) ps; \
 	$(COMPOSE_STACK) logs --tail=80 api web || true; \
 	exit 1
+
+monitoring-up: env-check ## Start Prometheus/Grafana/exporters (profile monitoring); starts Postgres+Redis
+	@$(COMPOSE) up -d postgres redis
+	@$(COMPOSE_MONITORING) up -d
+	@echo "Monitoring up (volumes aptech4_prometheus / aptech4_grafana preserved)."
+	@echo "Grafana:    http://127.0.0.1:$${GRAFANA_PORT:-3001}  (user/pass from .env GRAFANA_*)"
+	@echo "Prometheus: http://127.0.0.1:$${PROMETHEUS_PORT:-9090}"
+	@echo "API scrape needs profile stack (make deploy-local). Docs: docs/MONITORING.md"
+
+monitoring-down: ## Stop monitoring services only; never removes volumes or app data
+	@$(COMPOSE_MONITORING) stop prometheus grafana postgres-exporter redis-exporter cadvisor || true
+	@$(COMPOSE_MONITORING) rm -f prometheus grafana postgres-exporter redis-exporter cadvisor || true
+	@echo "Stopped monitoring profile. Volumes aptech4_prometheus / aptech4_grafana kept."
+
+monitoring-status: ## Show monitoring + scrape-related container status
+	@$(COMPOSE) ps postgres redis api ollama 2>/dev/null || true
+	@$(COMPOSE_MONITORING) ps prometheus grafana postgres-exporter redis-exporter cadvisor 2>/dev/null || true
+
+monitoring-validate: ## Check Prometheus/Grafana readiness (monitoring-up first)
+	@set -e; \
+	prom=http://127.0.0.1:$${PROMETHEUS_PORT:-9090}; \
+	graf=http://127.0.0.1:$${GRAFANA_PORT:-3001}; \
+	echo "GET $$prom/-/ready"; \
+	curl -fsS "$$prom/-/ready" | tee /tmp/aptech4-prom-ready.txt; echo; \
+	echo "GET $$prom/api/v1/targets"; \
+	curl -fsS "$$prom/api/v1/targets" | python3 -c 'import sys,json; d=json.load(sys.stdin); \
+print("targets", [(t["labels"].get("job"), t["health"]) for t in d.get("data",{}).get("activeTargets",[])])'; \
+	echo "GET $$graf/api/health"; \
+	curl -fsS "$$graf/api/health" | tee /tmp/aptech4-grafana-health.json; echo; \
+	echo "OK: monitoring-validate basic checks passed (inspect target health above)."
 
 smoke-local: ## HTTP smoke: web UI + public API via same-origin nginx proxy
 	@base="http://127.0.0.1:$(WEB_PORT)"; \

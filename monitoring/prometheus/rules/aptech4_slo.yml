@@ -1,0 +1,162 @@
+# Aptech-4 DEMO SLI/SLO recording rules (not a production SLA).
+# See docs/MONITORING.md — eligibility, targets, and limitations.
+#
+# Eligibility (HTTP):
+#   application="aptech4-api"
+#   uri=~"/api/v1/.*" AND uri!="/api/v1/health"
+#   Excludes actuator, /ws, and uri="UNKNOWN" (auth failures before routing).
+#
+# Availability (DEMO SLO A — 99.9% / 30d):
+#   good = status 2xx|3xx ; total = status 2xx|3xx|5xx (4xx excluded as expected client errors)
+#
+# Latency (DEMO SLO B — 95% ≤ 500ms / 30d):
+#   good = histogram bucket le="0.5" ; total = eligible request count (all statuses on eligible URIs)
+
+groups:
+  - name: aptech4_slo
+    interval: 30s
+    rules:
+      # --- Raw 30d event counts (debug / insufficient-data gates) ---
+      - record: aptech_slo:availability_good_events:30d
+        expr: |
+          sum(
+            increase(
+              http_server_requests_seconds_count{
+                application="aptech4-api",
+                uri=~"/api/v1/.*",
+                uri!="/api/v1/health",
+                status=~"2..|3.."
+              }[30d]
+            )
+          )
+
+      - record: aptech_slo:availability_bad_events:30d
+        expr: |
+          sum(
+            increase(
+              http_server_requests_seconds_count{
+                application="aptech4-api",
+                uri=~"/api/v1/.*",
+                uri!="/api/v1/health",
+                status=~"5.."
+              }[30d]
+            )
+          )
+
+      - record: aptech_slo:availability_total_events:30d
+        expr: |
+          sum(
+            increase(
+              http_server_requests_seconds_count{
+                application="aptech4-api",
+                uri=~"/api/v1/.*",
+                uri!="/api/v1/health",
+                status=~"2..|3..|5.."
+              }[30d]
+            )
+          )
+
+      # Latency good: requests observed in the le="0.5" cumulative bucket.
+      - record: aptech_slo:latency_good_events:30d
+        expr: |
+          sum(
+            increase(
+              http_server_requests_seconds_bucket{
+                application="aptech4-api",
+                uri=~"/api/v1/.*",
+                uri!="/api/v1/health",
+                le="0.5"
+              }[30d]
+            )
+          )
+
+      # Latency total: +Inf bucket ONLY for label sets that also expose le="0.5".
+      # Prevents pre-bucket / prior-process histogram history from inflating the denominator
+      # (would otherwise make the SLI look falsely poor after enabling the 500ms boundary).
+      - record: aptech_slo:latency_total_events:30d
+        expr: |
+          sum(
+            (
+              increase(
+                http_server_requests_seconds_bucket{
+                  application="aptech4-api",
+                  uri=~"/api/v1/.*",
+                  uri!="/api/v1/health",
+                  le="+Inf"
+                }[30d]
+              )
+              and ignoring (le)
+              increase(
+                http_server_requests_seconds_bucket{
+                  application="aptech4-api",
+                  uri=~"/api/v1/.*",
+                  uri!="/api/v1/health",
+                  le="0.5"
+                }[30d]
+              )
+            )
+          )
+
+      # --- Ratios (absent when total events == 0 → Grafana N/A / Insufficient data) ---
+      - record: aptech_slo:availability_ratio:30d
+        expr: |
+          (
+            aptech_slo:availability_good_events:30d
+            /
+            aptech_slo:availability_total_events:30d
+          )
+          and
+          (aptech_slo:availability_total_events:30d > 0)
+
+      - record: aptech_slo:latency_slow_events:30d
+        expr: |
+          (
+            aptech_slo:latency_total_events:30d
+            -
+            aptech_slo:latency_good_events:30d
+          )
+          and
+          (aptech_slo:latency_total_events:30d > 0)
+
+      - record: aptech_slo:latency_ratio:30d
+        expr: |
+          (
+            aptech_slo:latency_good_events:30d
+            /
+            aptech_slo:latency_total_events:30d
+          )
+          and
+          (aptech_slo:latency_total_events:30d > 0)
+          and
+          (aptech_slo:latency_good_events:30d >= 0)
+
+      # --- Error budgets (DEMO targets: avail 99.9% → allow 0.1% bad; latency 95% → allow 5% slow) ---
+      # Raw (may be <0 or >1 when over/under budget).
+      - record: aptech_slo:availability_error_budget_remaining:30d
+        expr: |
+          (1 - ((1 - aptech_slo:availability_ratio:30d) / (1 - 0.999)))
+          and on() (aptech_slo:availability_ratio:30d)
+
+      - record: aptech_slo:availability_error_budget_consumed:30d
+        expr: |
+          (((1 - aptech_slo:availability_ratio:30d) / (1 - 0.999)))
+          and on() (aptech_slo:availability_ratio:30d)
+
+      - record: aptech_slo:latency_error_budget_remaining:30d
+        expr: |
+          (1 - ((1 - aptech_slo:latency_ratio:30d) / (1 - 0.95)))
+          and on() (aptech_slo:latency_ratio:30d)
+
+      - record: aptech_slo:latency_error_budget_consumed:30d
+        expr: |
+          (((1 - aptech_slo:latency_ratio:30d) / (1 - 0.95)))
+          and on() (aptech_slo:latency_ratio:30d)
+
+      # Clamped display helpers for Grafana gauges (0..1). Raw series above kept for debugging.
+      - record: aptech_slo:availability_error_budget_remaining_clamped:30d
+        expr: |
+          clamp_min(clamp_max(aptech_slo:availability_error_budget_remaining:30d, 1), 0)
+
+      - record: aptech_slo:latency_error_budget_remaining_clamped:30d
+        expr: |
+          clamp_min(clamp_max(aptech_slo:latency_error_budget_remaining:30d, 1), 0)

@@ -22,6 +22,7 @@ Intent for Aptech-4. Exact patch versions are locked in lockfiles/`pom.xml` when
 | Mobile state/nav/http | Riverpod, GoRouter, Dio | — |
 | Containers | Docker Compose | v2+ CLI (`docker compose`) |
 | Edge (demo) | Nginx | Alpine stable |
+| Monitoring (optional) | Prometheus + Grafana + exporters | Profile `monitoring`; see `docs/MONITORING.md` |
 | Local LLM (optional) | Ollama + Spring AI **2.0.0** | Profile `ai`; default model `llama3.2` (ADR-019) |
 | Host automation | GNU Make | Root `Makefile` |
 | CI | GitHub Actions | — |

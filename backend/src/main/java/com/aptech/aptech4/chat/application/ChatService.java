@@ -116,13 +116,21 @@ public class ChatService {
 			}
 		}
 		long inferenceStarted = System.nanoTime();
-		String reply = invokeModel(turn, onDelta);
-		long inferenceMs = Math.max(0L, (System.nanoTime() - inferenceStarted) / 1_000_000L);
-		return finalizeTurn(
-				turn,
-				reply,
-				new ChatTiming(null, inferenceMs, inferenceMs, "llm")
-		);
+		try {
+			String reply = invokeModel(turn, onDelta);
+			long inferenceMs = Math.max(0L, (System.nanoTime() - inferenceStarted) / 1_000_000L);
+			return finalizeTurn(
+					turn,
+					reply,
+					new ChatTiming(null, inferenceMs, inferenceMs, "llm")
+			);
+		}
+		catch (ToolAuthorizationException ex) {
+			long ms = Math.max(0L, (System.nanoTime() - inferenceStarted) / 1_000_000L);
+			String reply = signInRequiredReply(turn.language());
+			emitDeterministic(reply, onDelta);
+			return finalizeTurn(turn, reply, new ChatTiming(ms, 0L, ms, "llm_auth_required"));
+		}
 	}
 
 	private static void emitDeterministic(String reply, Consumer<String> onDelta) {
@@ -186,17 +194,18 @@ public class ChatService {
 	private String invokeModel(PreparedTurn turn, Consumer<String> onDelta) {
 		ChatClient client = chatClient();
 		List<Message> history = turn.conversation().historySnapshot();
+		// Capture JWT SecurityContext once; wrap tools so Reactor/SSE tool threads still see it.
+		SecurityContext securityContext = SecurityContextHolder.getContext();
+		ChatToolSecuritySupport.SecuredTools<?> secured = turn.admin()
+				? ChatToolSecuritySupport.secure(adminChatTools, securityContext)
+				: ChatToolSecuritySupport.secure(customerChatTools, securityContext);
 		var promptSpec = client.prompt()
 				.system(systemPrompt(turn.admin(), turn.language()))
 				.messages(history)
 				.user(turn.userMessage());
-		final var prompt = turn.admin()
-				? promptSpec.tools(adminChatTools)
-				: promptSpec.tools(customerChatTools);
+		final var prompt = promptSpec.tools(secured.tools());
 
 		int timeoutSeconds = Math.max(5, aiProperties.getRequestTimeoutSeconds());
-		// Capture auth for tool @PreAuthorize — supplyAsync / Reactor hops must not drop ROLE_ADMIN.
-		SecurityContext securityContext = SecurityContextHolder.getContext();
 		try {
 			if (onDelta == null) {
 				String content = CompletableFuture.supplyAsync(() -> {
@@ -211,35 +220,57 @@ public class ChatService {
 						}, chatInferenceExecutor)
 						.orTimeout(timeoutSeconds, TimeUnit.SECONDS)
 						.join();
+				throwIfToolAuthFailed(secured.authFailure());
 				return content;
 			}
+			// Run the blocking stream on the security-delegating chat executor so the
+			// subscribe/tool orchestration thread starts with JWT context; tool proxies
+			// re-apply context on every @Tool callback (including boundedElastic).
 			AtomicReference<StringBuilder> buffer = new AtomicReference<>(new StringBuilder());
-			SecurityContextHolder.setContext(securityContext);
-			try {
-				prompt.stream().content().doOnNext(chunk -> {
-					SecurityContextHolder.setContext(securityContext);
-					if (chunk != null && !chunk.isEmpty()) {
-						buffer.get().append(chunk);
-						onDelta.accept(chunk);
-					}
-				}).timeout(Duration.ofSeconds(timeoutSeconds)).blockLast();
-			}
-			finally {
-				SecurityContextHolder.setContext(securityContext);
-			}
+			CompletableFuture.supplyAsync(() -> {
+						SecurityContextHolder.setContext(securityContext);
+						try {
+							prompt.stream().content().doOnNext(chunk -> {
+								SecurityContextHolder.setContext(securityContext);
+								if (chunk != null && !chunk.isEmpty()) {
+									buffer.get().append(chunk);
+									onDelta.accept(chunk);
+								}
+							}).timeout(Duration.ofSeconds(timeoutSeconds)).blockLast();
+							return buffer.get().toString();
+						}
+						finally {
+							SecurityContextHolder.clearContext();
+						}
+					}, chatInferenceExecutor)
+					.orTimeout(timeoutSeconds + 5L, TimeUnit.SECONDS)
+					.join();
+			throwIfToolAuthFailed(secured.authFailure());
 			return buffer.get().toString();
 		}
+		catch (ToolAuthorizationException ex) {
+			throw ex;
+		}
 		catch (ApiException ex) {
+			throwIfToolAuthFailed(secured.authFailure());
 			throw ex;
 		}
 		catch (CompletionException ex) {
+			throwIfToolAuthFailed(secured.authFailure());
 			Throwable cause = ex.getCause() == null ? ex : ex.getCause();
+			if (cause instanceof ToolAuthorizationException tae) {
+				throw tae;
+			}
 			if (cause instanceof TimeoutException) {
 				throw new ApiException(
 						HttpStatus.SERVICE_UNAVAILABLE,
 						"Model Unavailable",
 						"Assistant timed out waiting for Ollama. Check that the model is loaded and reachable."
 				);
+			}
+			ToolAuthorizationException nested = findToolAuthorization(cause);
+			if (nested != null) {
+				throw nested;
 			}
 			throw new ApiException(
 					HttpStatus.SERVICE_UNAVAILABLE,
@@ -248,6 +279,11 @@ public class ChatService {
 			);
 		}
 		catch (RuntimeException ex) {
+			throwIfToolAuthFailed(secured.authFailure());
+			ToolAuthorizationException nested = findToolAuthorization(ex);
+			if (nested != null) {
+				throw nested;
+			}
 			if (ex.getMessage() != null && ex.getMessage().toLowerCase().contains("timeout")) {
 				throw new ApiException(
 						HttpStatus.SERVICE_UNAVAILABLE,
@@ -261,6 +297,34 @@ public class ChatService {
 					"Assistant could not complete the request. Check Ollama health and model name."
 			);
 		}
+	}
+
+	private static void throwIfToolAuthFailed(AtomicReference<ToolAuthorizationException> authFailure) {
+		ToolAuthorizationException failure = authFailure == null ? null : authFailure.get();
+		if (failure != null) {
+			throw failure;
+		}
+	}
+
+	private static ToolAuthorizationException findToolAuthorization(Throwable ex) {
+		Throwable cursor = ex;
+		while (cursor != null) {
+			if (cursor instanceof ToolAuthorizationException tae) {
+				return tae;
+			}
+			Throwable next = cursor.getCause();
+			if (next == cursor) {
+				break;
+			}
+			cursor = next;
+		}
+		return null;
+	}
+
+	private static String signInRequiredReply(ChatLanguage language) {
+		return language == ChatLanguage.VI
+				? "Vui lòng đăng nhập để tiếp tục."
+				: "Sign in required.";
 	}
 
 	private ChatResponse finalizeTurn(PreparedTurn turn, String reply, ChatTiming timing) {
@@ -297,11 +361,12 @@ public class ChatService {
 				You are the Aptech-4 Customer shopping assistant. Use tools for the caller's own orders and public catalog.
 				Never invent order details or stock. Never access another customer's data.
 				For "latest / most recent / last order" status or total, call getMyLatestOrderSummary — never ask for an order ID.
-				For "how many orders have I placed" / order count, call getMyOrders and use totalElements — never invent 0 and never claim missing JWT when authenticated.
+				For "how many orders have I placed" / order count / total number of my orders, call getMyOrders and use totalElements — never invent 0 and never claim missing JWT when authenticated.
 				For "list my paid/processing/completed orders", call getMyOrders with that status — never invent order IDs.
 				Store-wide / admin analytics are unavailable to customers — say administrators only; do not ask for JWT again.
 				Do not claim payments/shipments without tool evidence. Link to /orders/{id} or /products/{id} when useful.
 				Never tell the user to invoke a tool after answering.
+				Never ask the user to paste a JWT or access token.
 				For simple greetings (hi/hello), reply briefly without calling tools.
 				Never print raw tool JSON; always answer in natural language after tools run.
 				Never discuss changing authorization or roles.

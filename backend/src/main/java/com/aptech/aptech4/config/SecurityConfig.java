@@ -81,6 +81,8 @@ public class SecurityConfig {
 					"/actuator/health",
 					"/actuator/health/**",
 					"/actuator/info",
+					// Scraped by Prometheus on the Compose network / loopback; keep API_PUBLISH loopback-only.
+					"/actuator/prometheus",
 					"/api/v1/health",
 					"/api/v1/auth/register",
 					"/api/v1/auth/login",

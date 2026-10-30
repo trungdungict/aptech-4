@@ -102,12 +102,27 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # prometheus is scraped on the Docker network / loopback API_PUBLISH only — not a public surface.
+        # Do not expose env, beans, heapdump, threaddump, or configprops.
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
       show-details: when_authorized
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: aptech4-api
+    distribution:
+      # Exponential histogram + explicit SLA/SLO boundaries (includes le="0.5" for DEMO latency SLI).
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,250ms,500ms,1s,2s,5s
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
 
 # OpenAPI / Swagger (springdoc 3.2.0). Disable on production-like hosts via profile `prod`
 # or env SPRINGDOC_SWAGGER_UI_ENABLED=false / SPRINGDOC_API_DOCS_ENABLED=false.

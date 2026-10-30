@@ -48,6 +48,7 @@ make reset-demo CONFIRM=yes    # scoped demo reset + reseed (not volume wipe)
 make down                      # stop Compose services; keeps volumes
 make deploy-local-ai           # optional Ollama + AI chat (see docs/AI_ASSISTANT.md)
 make up-ai && make ollama-pull # pull model without wiping DB volumes
+make monitoring-up             # optional Prometheus/Grafana (docs/MONITORING.md)
 make clean                     # Maven + Flutter build artifacts (not DB/volumes)
 ```
 

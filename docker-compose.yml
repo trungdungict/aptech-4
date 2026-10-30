@@ -5,6 +5,7 @@
 #   (default)  postgres + redis only — `make up-deps`
 #   stack      + api + web (nginx) — `make deploy-local`
 #   ai         + ollama (optional local LLM) — `make up-ai` / `make deploy-local-ai`
+#   monitoring Prometheus + Grafana + exporters — `make monitoring-up` (docs/MONITORING.md)
 #
 # Same-origin routing: browser → web:80 → /api/* → api:8080
 # Postgres data: named volume aptech4_pgdata (never removed by Make stop targets).
@@ -150,6 +151,118 @@ services:
     networks:
       - aptech4_net
 
+  # --- Optional monitoring (profile: monitoring) — loopback UI ports only ---
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:v2.55.1
+    container_name: aptech4-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # 30d default so DEMO SLO rolling windows can accumulate (override via PROMETHEUS_RETENTION).
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+      - --web.enable-lifecycle
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - aptech4_prometheus:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - aptech4_net
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:11.3.1
+    container_name: aptech4-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-aptech_grafana_change_me}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://127.0.0.1:3001}
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - aptech4_grafana:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    networks:
+      - aptech4_net
+
+  postgres-exporter:
+    profiles: ["monitoring"]
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: aptech4-postgres-exporter
+    restart: unless-stopped
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-aptech}:${POSTGRES_PASSWORD:-aptech_dev_change_me}@postgres:5432/${POSTGRES_DB:-aptech4}?sslmode=disable
+    # No host ports — scraped only on aptech4_net.
+    expose:
+      - "9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - aptech4_net
+
+  redis-exporter:
+    profiles: ["monitoring"]
+    image: oliver006/redis_exporter:v1.67.0
+    container_name: aptech4-redis-exporter
+    restart: unless-stopped
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    expose:
+      - "9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - aptech4_net
+
+  cadvisor:
+    profiles: ["monitoring"]
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: aptech4-cadvisor
+    restart: unless-stopped
+    # Required for container metrics. Privileged + docker.sock — local only; see docs/MONITORING.md.
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # No host ports — scraped only on aptech4_net.
+    expose:
+      - "8080"
+    command:
+      - --housekeeping_interval=30s
+      - --docker_only=true
+    networks:
+      - aptech4_net
+
 volumes:
   aptech4_pgdata:
     name: aptech4_pgdata
@@ -157,6 +270,10 @@ volumes:
     name: aptech4_redisdata
   aptech4_ollama:
     name: aptech4_ollama
+  aptech4_prometheus:
+    name: aptech4_prometheus
+  aptech4_grafana:
+    name: aptech4_grafana
 
 networks:
   aptech4_net:

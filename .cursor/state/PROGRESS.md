@@ -34,6 +34,7 @@ Completion ratio (DONE/total): **54/64**
 - **Customer chat render + intents (ad-hoc, 2026-10-29)** — JSON-encoded SSE deltas preserve spaces; bubble wrap/`min-w-0`; deterministic latest-order / products-under / checkout; FE **106**; chat package tests green; live API+nginx SSE join==done; **54/64**
 - **Customer order-count auth (ad-hoc, 2026-10-29)** — Deterministic `ORDER_COUNT` via JWT `listMine`; auth/tool failures never become 0; SSE 401 → Sign in required; live count **56** matches `/orders`; FE **109**; **54/64**
 - **Customer paid/oos/admin-msg (ad-hoc, 2026-10-29)** — Status list/count intents; seed OOS available=0; Admin-only store analytics copy; checkout without `simulateFailure`; live paid **22**; **54/64**
+- **Local monitoring stack (ad-hoc, 2026-10-29)** — Optional Compose profile `monitoring` (Prometheus/Grafana/exporters/cAdvisor); Actuator Prometheus + chat metrics; provisioned dashboards; `docs/MONITORING.md`; **54/64**
 
 ## Current blockers
 

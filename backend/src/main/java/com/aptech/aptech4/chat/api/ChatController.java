@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.aptech.aptech4.chat.application.ChatMetrics;
 import com.aptech.aptech4.chat.application.ChatService;
 import com.aptech.aptech4.chat.config.AiProperties;
 import com.aptech.aptech4.common.api.ApiException;
@@ -42,15 +43,18 @@ public class ChatController {
 	private final ChatService chatService;
 	private final AiProperties aiProperties;
 	private final Executor chatInferenceExecutor;
+	private final ChatMetrics chatMetrics;
 
 	public ChatController(
 			ChatService chatService,
 			AiProperties aiProperties,
-			@Qualifier("chatInferenceExecutor") Executor chatInferenceExecutor
+			@Qualifier("chatInferenceExecutor") Executor chatInferenceExecutor,
+			ChatMetrics chatMetrics
 	) {
 		this.chatService = chatService;
 		this.aiProperties = aiProperties;
 		this.chatInferenceExecutor = chatInferenceExecutor;
+		this.chatMetrics = chatMetrics;
 	}
 
 	@GetMapping("/health")
@@ -78,7 +82,27 @@ public class ChatController {
 	@PostMapping("/messages")
 	@Operation(summary = "Non-streaming chat completion")
 	public ChatResponse message(@Valid @RequestBody ChatRequest request) {
-		return chatService.chat(request);
+		long started = System.nanoTime();
+		try {
+			ChatResponse response = chatService.chat(request);
+			String handler = ChatMetrics.handlerFromPath(
+					response.timing() == null ? null : response.timing().path()
+			);
+			long ms = response.timing() != null && response.timing().totalMs() != null
+					? response.timing().totalMs()
+					: Math.max(0L, (System.nanoTime() - started) / 1_000_000L);
+			chatMetrics.recordRequest("rest", handler, "success", ms);
+			return response;
+		}
+		catch (RuntimeException ex) {
+			chatMetrics.recordRequest(
+					"rest",
+					"unknown",
+					"error",
+					Math.max(0L, (System.nanoTime() - started) / 1_000_000L)
+			);
+			throw ex;
+		}
 	}
 
 	@PostMapping(value = "/messages/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -113,6 +137,7 @@ public class ChatController {
 		));
 
 		log.info("chat_sse streamId={} stage=started", streamId);
+		long streamStartedNanos = System.nanoTime();
 		chatInferenceExecutor.execute(() -> {
 			try {
 				ChatResponse completed = chatService.chatStreaming(request, chunk -> {
@@ -141,6 +166,13 @@ public class ChatController {
 				}
 				String doneJson = OBJECT_MAPPER.writeValueAsString(completed);
 				sendTerminal(emitter, terminalSent, streamId, "done", doneJson);
+				String handler = ChatMetrics.handlerFromPath(
+						completed.timing() == null ? null : completed.timing().path()
+				);
+				long ms = completed.timing() != null && completed.timing().totalMs() != null
+						? completed.timing().totalMs()
+						: Math.max(0L, (System.nanoTime() - streamStartedNanos) / 1_000_000L);
+				chatMetrics.recordRequest("stream", handler, "success", ms);
 				log.info(
 						"chat_sse streamId={} stage=done deltas={} path={}",
 						streamId,
@@ -150,6 +182,13 @@ public class ChatController {
 			}
 			catch (ClientGoneException ex) {
 				log.info("chat_sse streamId={} stage=client_gone deltas={}", streamId, deltaCount[0]);
+				chatMetrics.recordSseDisconnect();
+				chatMetrics.recordRequest(
+						"stream",
+						"unknown",
+						"interrupted",
+						Math.max(0L, (System.nanoTime() - streamStartedNanos) / 1_000_000L)
+				);
 				safeComplete(emitter, terminalSent);
 			}
 			catch (ApiException ex) {
@@ -158,6 +197,13 @@ public class ChatController {
 						streamId,
 						deltaCount[0],
 						ex.getStatus()
+				);
+				chatMetrics.recordSseError();
+				chatMetrics.recordRequest(
+						"stream",
+						"unknown",
+						"error",
+						Math.max(0L, (System.nanoTime() - streamStartedNanos) / 1_000_000L)
 				);
 				sendTerminal(emitter, terminalSent, streamId, "error", safeErrorMessage(ex));
 			}
@@ -168,6 +214,13 @@ public class ChatController {
 						deltaCount[0],
 						ex.getClass().getSimpleName(),
 						ex
+				);
+				chatMetrics.recordSseError();
+				chatMetrics.recordRequest(
+						"stream",
+						"unknown",
+						"error",
+						Math.max(0L, (System.nanoTime() - streamStartedNanos) / 1_000_000L)
 				);
 				sendTerminal(emitter, terminalSent, streamId, "error", "Assistant stream failed");
 			}

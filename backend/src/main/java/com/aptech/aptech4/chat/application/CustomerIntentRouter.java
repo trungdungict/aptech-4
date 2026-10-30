@@ -45,16 +45,28 @@ public final class CustomerIntentRouter {
 			Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
 	);
 
-	/** Customer-scoped count only — avoid matching Admin "How many orders need processing?". */
+	/**
+	 * Customer-scoped total order count only.
+	 * Keep after {@link #ORDER_COUNT_BY_STATUS} / admin analytics so status-qualified and
+	 * store-wide prompts are not stolen. Avoid matching Admin "How many orders need processing?".
+	 */
 	private static final Pattern ORDER_COUNT = Pattern.compile(
 			"how\\s+many\\s+orders\\s+(have|did)\\s+i|"
+					+ "how\\s+many\\s+orders\\s+do\\s+i\\s+have|"
+					+ "how\\s+many\\s+orders\\s+i\\s+have|"
 					+ "orders?\\s+have\\s+i\\s+placed|"
 					+ "how\\s+many\\s+orders\\s+have\\s+i\\s+placed|"
+					+ "total\\s+number\\s+of\\s+my\\s+orders?|"
+					+ "number\\s+of\\s+(my\\s+)?orders?\\s+(i\\s+)?(have|placed)|"
+					+ "my\\s+(total\\s+)?orders?\\s+total|"
 					+ "my\\s+(total\\s+)?order\\s+count|"
 					+ "count\\s+(of\\s+)?my\\s+orders|"
 					+ "số\\s*đơn\\s*hàng|"
+					+ "tổng\\s*số\\s*đơn(\\s*hàng)?|"
+					+ "đếm\\s*đơn(\\s*hàng)?|"
 					+ "tôi\\s*đã\\s*đặt\\s*bao\\s*nhiêu|"
-					+ "bao\\s*nhiêu\\s*đơn\\s*hàng\\s*(của\\s*tôi)?",
+					+ "bao\\s*nhiêu\\s*đơn\\s*hàng\\s*(của\\s*tôi)?|"
+					+ "tôi\\s*có\\s*bao\\s*nhiêu\\s*đơn",
 			Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
 	);
 

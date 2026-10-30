@@ -1,0 +1,19 @@
+# EXAMPLE ONLY — copy into a production Grafana provisioning path after replacing
+# the URL with your private Prometheus endpoint (VPN / private network / SG-restricted).
+# Do not commit real hostnames, tokens, or passwords.
+#
+# uid must stay `prometheus-production` so the canonical dashboard datasource
+# variable can resolve both Local and Production names when both are available.
+#
+# apiVersion: 1
+# datasources:
+#   - name: Prometheus-Production
+#     type: prometheus
+#     access: proxy
+#     uid: prometheus-production
+#     url: http://REPLACE_WITH_PRIVATE_PROMETHEUS:9090
+#     isDefault: true
+#     editable: false
+#     jsonData:
+#       timeInterval: 15s
+#       httpMethod: POST
