@@ -1,6 +1,12 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+
+import { Pagination } from '@/components/pagination'
+import {
+  CHAT_LAUNCHER_CLEARANCE_BLOCK,
+  CHAT_LAUNCHER_CLEARANCE_INLINE,
+} from '../lib/chat-launcher'
 
 import { ChatPanel } from './ChatPanel'
 
@@ -19,6 +25,14 @@ vi.mock('../api/chat-api', () => ({
 describe('ChatPanel', () => {
   beforeEach(() => {
     localStorage.clear()
+    sessionStorage.clear()
+    document.documentElement.style.removeProperty(CHAT_LAUNCHER_CLEARANCE_INLINE)
+    document.documentElement.style.removeProperty(CHAT_LAUNCHER_CLEARANCE_BLOCK)
+  })
+
+  afterEach(() => {
+    document.documentElement.style.removeProperty(CHAT_LAUNCHER_CLEARANCE_INLINE)
+    document.documentElement.style.removeProperty(CHAT_LAUNCHER_CLEARANCE_BLOCK)
   })
 
   it('opens with English greeting by default', async () => {
@@ -26,6 +40,52 @@ describe('ChatPanel', () => {
     render(<ChatPanel variant="customer" />)
     await user.click(screen.getByRole('button', { name: /Aptech Assistant/i }))
     expect(screen.getByText(/Hello! I can help with your orders/i)).toBeInTheDocument()
+  })
+
+  it('minimizes the launcher and can reopen the assistant', async () => {
+    const user = userEvent.setup()
+    render(<ChatPanel variant="customer" />)
+
+    await user.click(screen.getByRole('button', { name: /minimize assistant/i }))
+    expect(screen.queryByRole('button', { name: /^Aptech Assistant$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /show aptech assistant/i })).toBeInTheDocument()
+    expect(document.documentElement.style.getPropertyValue(CHAT_LAUNCHER_CLEARANCE_INLINE)).toBe(
+      '3.5rem',
+    )
+
+    await user.click(screen.getByRole('button', { name: /show aptech assistant/i }))
+    expect(screen.getByText(/Hello! I can help with your orders/i)).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /close chat/i }).length).toBeGreaterThan(0)
+  })
+
+  it('keeps pagination controls interactive while the launcher is present', async () => {
+    const user = userEvent.setup()
+    const onPageChange = vi.fn()
+    render(
+      <div>
+        <Pagination
+          page={0}
+          totalPages={5}
+          totalElements={50}
+          onPageChange={onPageChange}
+        />
+        <ChatPanel variant="customer" />
+      </div>,
+    )
+
+    const nav = screen.getByRole('navigation', { name: 'Pagination' })
+    expect(nav.className).toMatch(/pr-\[max\(0px,var\(--chat-launcher-clearance-inline/)
+    expect(nav.className).toMatch(/pb-\[max\(0px,var\(--chat-launcher-clearance-block/)
+    expect(document.documentElement.style.getPropertyValue(CHAT_LAUNCHER_CLEARANCE_INLINE)).toBe(
+      '4.75rem',
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Last page' }))
+    expect(onPageChange).toHaveBeenCalledWith(4)
+
+    const root = screen.getByTestId('chat-launcher-root')
+    expect(root.className).toMatch(/max-w-\[calc\(100vw-1\.5rem\)\]/)
+    expect(root.className).not.toMatch(/overflow-x/)
   })
 
   it('switches UI copy to Vietnamese when selected', async () => {

@@ -1,20 +1,20 @@
 # PROGRESS
 
-Last updated: 2026-11-01 (FoodMart seed product images persisted DONE)
+Last updated: 2026-11-01 (Aptech Assistant launcher overlap DONE)
 
 ## Summary counts (from TASKS.md)
 
 | Status | Count |
 |--------|------:|
-| DONE | 85 |
+| DONE | 88 |
 | IN_PROGRESS | 0 |
 | IN_REVIEW | 0 |
 | BLOCKED | 0 |
 | TODO | 10 |
 | DEFERRED | 0 |
-| **Total** | **95** |
+| **Total** | **98** |
 
-Completion ratio (DONE/total): **85/95**
+Completion ratio (DONE/total): **88/98**
 
 ## Current phase
 
@@ -67,6 +67,26 @@ B-001/B-002/B-005 mitigated; B-003 EC2; B-004 `gh`; D-MOBILE-DEVICE deferred.
 - Root cause: demo seed never wrote product image files or `imageUrl`; FE SKU/name fallback only
 - Fix: classpath assets + `foodmart-product-images.json` → deterministic `/uploads/products/{uuid}.ext` on seed; Makefile volume sync; baseline restore on re-seed for `FOOD-*`
 - BE seed image/IT **7/7**; FE **34/34**; build OK; seed×2 → **48/48** non-null unique URLs (HTTP 200); smoke-promotions OK
+
+## Shared Admin/Customer list pagination (2026-11-01)
+
+- Shared `Pagination` + client hook; default size **10**; hide when ≤10 rows
+- Server: catalog products, admin products, admin/customer orders
+- Client slice: admin strategies, campaigns, categories
+- FE full suite **233/233**; build OK
+
+## Product card Add to Cart (2026-11-01)
+
+- Cards expose − / qty / + and Add to cart; reuse `cartApi.addCartItem` + cart query cache
+- Guests redirected to `/login?next=` via `safeInternalPath` (catalog query preserved); no guest cart
+- No favorite/heart existed on cards — none added
+- Focused **34/34**; full FE **242/242**; build OK
+
+## Aptech Assistant vs pagination (2026-11-01)
+
+- Root cause: wide fixed `bottom-right` text FAB covered pagination
+- Compact circular launcher + minimize/reopen; CSS clearance vars on shared Pagination
+- Focused chat/pagination **46/46**; full FE **247/247**; build OK
 
 ## Recent non-roadmap tooling / features
 

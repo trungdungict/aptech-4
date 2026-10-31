@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { TagsIcon } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
+import { DEFAULT_LIST_PAGE_SIZE, Pagination, useClientListPagination } from '@/components/pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,15 +24,11 @@ import * as api from '../api/admin-promotions-api'
 import { adminPromotionQueryKeys } from '../hooks/admin-promotion-query-keys'
 
 /** Client-side page size — admin strategies API returns a full list (no server page contract). */
-export const STRATEGY_LIST_PAGE_SIZE = 10
+export const STRATEGY_LIST_PAGE_SIZE = DEFAULT_LIST_PAGE_SIZE
 
 export function AdminStrategyListPage() {
   const queryClient = useQueryClient()
-  const [searchParams, setSearchParams] = useSearchParams()
   const [statusError, setStatusError] = useState<string | null>(null)
-
-  const pageRaw = Number(searchParams.get('page') ?? '0')
-  const page = Number.isInteger(pageRaw) && pageRaw >= 0 ? pageRaw : 0
 
   const strategiesQuery = useQuery({
     queryKey: adminPromotionQueryKeys.strategies(),
@@ -52,40 +49,10 @@ export function AdminStrategyListPage() {
   })
 
   const strategies = strategiesQuery.data
-  const totalElements = strategies?.length ?? 0
-  const totalPages = Math.max(1, Math.ceil(totalElements / STRATEGY_LIST_PAGE_SIZE))
-  const safePage = Math.min(page, totalPages - 1)
-
-  useEffect(() => {
-    if (!strategies || page === safePage) {
-      return
-    }
-    const next = new URLSearchParams(searchParams)
-    if (safePage === 0) {
-      next.delete('page')
-    } else {
-      next.set('page', String(safePage))
-    }
-    setSearchParams(next, { replace: true })
-  }, [strategies, page, safePage, searchParams, setSearchParams])
-
-  const pageItems = useMemo(() => {
-    if (!strategies) {
-      return []
-    }
-    const start = safePage * STRATEGY_LIST_PAGE_SIZE
-    return strategies.slice(start, start + STRATEGY_LIST_PAGE_SIZE)
-  }, [strategies, safePage])
-
-  const goToPage = (nextPage: number) => {
-    const next = new URLSearchParams(searchParams)
-    if (nextPage <= 0) {
-      next.delete('page')
-    } else {
-      next.set('page', String(nextPage))
-    }
-    setSearchParams(next)
-  }
+  const { page, totalPages, totalElements, pageItems, goToPage } = useClientListPagination(
+    strategies,
+    STRATEGY_LIST_PAGE_SIZE,
+  )
 
   return (
     <section className={adminPageSectionClass}>
@@ -143,9 +110,6 @@ export function AdminStrategyListPage() {
         </Card>
       ) : strategies ? (
         <>
-          <p className="text-sm text-muted-foreground" aria-live="polite">
-            Showing page {safePage + 1} of {totalPages} ({totalElements} total)
-          </p>
           <div className={adminTableWrapClass}>
             <table className={`${adminTableClass} min-w-[44rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
@@ -215,24 +179,14 @@ export function AdminStrategyListPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={safePage <= 0}
-              onClick={() => goToPage(safePage - 1)}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={safePage >= totalPages - 1}
-              onClick={() => goToPage(safePage + 1)}
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={STRATEGY_LIST_PAGE_SIZE}
+            itemLabel="strategies"
+            onPageChange={goToPage}
+          />
         </>
       ) : null}
     </section>

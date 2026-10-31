@@ -2,19 +2,19 @@
 
 ## Session objective
 
-Persist non-null `imageUrl` for every FoodMart seed product (not FE fallback only).
+Fix Aptech Assistant overlay overlapping pagination; add minimize/reopen.
 
 ## Task ID
 
-**Persist FoodMart seed product images — DONE**
+**Assistant launcher overlap — DONE**
 
 ## Delivered
 
-- `FoodMartProductImages` copies classpath assets → `/uploads/products/{deterministic-uuid}.ext` and returns public paths
-- `DemoSeedService.upsertProduct` sets/restores seed baseline `imageUrl` for `FOOD-*` only
-- `make seed-demo` syncs product images into `aptech4-api` uploads volume
-- Docs/tests updated; FE Edit Product continues to show persisted URL
+- Compact circular FAB (no wide text pill)
+- Minimize / Show assistant (sessionStorage)
+- Document CSS vars `--chat-launcher-clearance-*` consumed by shared Pagination
+- Panel stays viewport-bound; pointer-events only on interactive chrome
 
 ## Exact next action
 
-Stop after this seed-image persistence fix.
+Stop after this assistant overlay fix.

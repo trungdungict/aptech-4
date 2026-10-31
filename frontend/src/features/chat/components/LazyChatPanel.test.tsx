@@ -36,6 +36,7 @@ describe('LazyChatPanel', () => {
   beforeEach(() => {
     clearSession()
     localStorage.clear()
+    sessionStorage.clear()
     vi.stubGlobal('fetch', vi.fn())
   })
 

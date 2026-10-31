@@ -3,6 +3,7 @@ import { MegaphoneIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { DEFAULT_LIST_PAGE_SIZE, Pagination, useClientListPagination } from '@/components/pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -22,6 +23,9 @@ import {
 import * as api from '../api/admin-promotions-api'
 import { adminPromotionQueryKeys } from '../hooks/admin-promotion-query-keys'
 import { formatUtcInstant } from '../lib/format-utc'
+
+/** Client-side page size — admin campaigns API returns a full list (no server page contract). */
+export const CAMPAIGN_LIST_PAGE_SIZE = DEFAULT_LIST_PAGE_SIZE
 
 export function AdminCampaignListPage() {
   const queryClient = useQueryClient()
@@ -45,6 +49,10 @@ export function AdminCampaignListPage() {
   })
 
   const campaigns = campaignsQuery.data
+  const { page, totalPages, totalElements, pageItems, goToPage } = useClientListPagination(
+    campaigns,
+    CAMPAIGN_LIST_PAGE_SIZE,
+  )
 
   return (
     <section className={adminPageSectionClass}>
@@ -101,79 +109,89 @@ export function AdminCampaignListPage() {
           </CardContent>
         </Card>
       ) : campaigns ? (
-        <div className={adminTableWrapClass}>
-          <table className={`${adminTableClass} min-w-[56rem]`}>
-            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className={adminThClass}>Campaign</th>
-                <th className={adminThClass}>Strategy</th>
-                <th className={adminThClass}>Status</th>
-                <th className={adminThClass}>UTC window</th>
-                <th className={adminThClass}>Effective</th>
-                <th className={adminThClass}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {campaigns.map((campaign) => (
-                <tr key={campaign.id}>
-                  <td className={adminTdClass}>
-                    <div className="font-medium text-foreground">{campaign.name}</div>
-                    <div className="font-mono text-xs text-muted-foreground">{campaign.slug}</div>
-                  </td>
-                  <td className={adminTdClass}>
-                    <div>{campaign.strategy.name}</div>
-                    <Badge variant="outline" className="mt-1">
-                      {campaign.strategy.type}
-                    </Badge>
-                  </td>
-                  <td className={adminTdClass}>
-                    <Badge>{campaign.status}</Badge>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      effective: {campaign.effectiveStatus}
-                    </div>
-                  </td>
-                  <td className={`${adminTdClass} font-mono text-xs`}>
-                    <div>{formatUtcInstant(campaign.startsAt)}</div>
-                    <div>{formatUtcInstant(campaign.endsAt)}</div>
-                  </td>
-                  <td className={adminTdClass}>
-                    <div className="text-xs">
-                      pricing: {campaign.pricingEffective ? 'yes' : 'no'}
-                    </div>
-                    <div className="text-xs">
-                      placement: {campaign.placementEffective ? 'yes' : 'no'}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      placements: {campaign.placementCount}
-                    </div>
-                  </td>
-                  <td className={`${adminTdClass} space-x-2 whitespace-nowrap`}>
-                    <Button asChild variant="link" className="h-auto p-0">
-                      <Link to={`/admin/promotions/campaigns/${campaign.id}`}>Manage</Link>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={deleteMutation.isPending}
-                      onClick={() => {
-                        const ok = window.confirm(
-                          `Delete campaign “${campaign.name}”? Placements and eligibility rows will be removed. Historical order snapshots are unaffected.`,
-                        )
-                        if (!ok) {
-                          return
-                        }
-                        deleteMutation.mutate(campaign.id)
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  </td>
+        <>
+          <div className={adminTableWrapClass}>
+            <table className={`${adminTableClass} min-w-[56rem]`}>
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className={adminThClass}>Campaign</th>
+                  <th className={adminThClass}>Strategy</th>
+                  <th className={adminThClass}>Status</th>
+                  <th className={adminThClass}>UTC window</th>
+                  <th className={adminThClass}>Effective</th>
+                  <th className={adminThClass}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pageItems.map((campaign) => (
+                  <tr key={campaign.id}>
+                    <td className={adminTdClass}>
+                      <div className="font-medium text-foreground">{campaign.name}</div>
+                      <div className="font-mono text-xs text-muted-foreground">{campaign.slug}</div>
+                    </td>
+                    <td className={adminTdClass}>
+                      <div>{campaign.strategy.name}</div>
+                      <Badge variant="outline" className="mt-1">
+                        {campaign.strategy.type}
+                      </Badge>
+                    </td>
+                    <td className={adminTdClass}>
+                      <Badge>{campaign.status}</Badge>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        effective: {campaign.effectiveStatus}
+                      </div>
+                    </td>
+                    <td className={`${adminTdClass} font-mono text-xs`}>
+                      <div>{formatUtcInstant(campaign.startsAt)}</div>
+                      <div>{formatUtcInstant(campaign.endsAt)}</div>
+                    </td>
+                    <td className={adminTdClass}>
+                      <div className="text-xs">
+                        pricing: {campaign.pricingEffective ? 'yes' : 'no'}
+                      </div>
+                      <div className="text-xs">
+                        placement: {campaign.placementEffective ? 'yes' : 'no'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        placements: {campaign.placementCount}
+                      </div>
+                    </td>
+                    <td className={`${adminTdClass} space-x-2 whitespace-nowrap`}>
+                      <Button asChild variant="link" className="h-auto p-0">
+                        <Link to={`/admin/promotions/campaigns/${campaign.id}`}>Manage</Link>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={deleteMutation.isPending}
+                        onClick={() => {
+                          const ok = window.confirm(
+                            `Delete campaign “${campaign.name}”? Placements and eligibility rows will be removed. Historical order snapshots are unaffected.`,
+                          )
+                          if (!ok) {
+                            return
+                          }
+                          deleteMutation.mutate(campaign.id)
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={CAMPAIGN_LIST_PAGE_SIZE}
+            itemLabel="campaigns"
+            onPageChange={goToPage}
+          />
+        </>
       ) : null}
     </section>
   )

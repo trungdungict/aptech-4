@@ -66,5 +66,5 @@ export type OrderListParams = {
 
 export type OrderPage = PageResponse<Order>
 
-export const ORDER_DEFAULT_PAGE_SIZE = 20
+export const ORDER_DEFAULT_PAGE_SIZE = 10
 export const ORDER_DEFAULT_SORT = 'placedAt,desc'

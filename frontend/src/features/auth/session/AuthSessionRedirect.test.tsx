@@ -40,7 +40,7 @@ describe('auth session redirect on protected routes', () => {
         return jsonResponse(200, {
           items: [],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 0,
           totalPages: 0,
           first: true,
@@ -125,7 +125,7 @@ describe('auth session redirect on protected routes', () => {
         return jsonResponse(200, {
           items: [],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 0,
           totalPages: 0,
           first: true,
@@ -299,7 +299,7 @@ describe('auth session redirect on protected routes', () => {
         return jsonResponse(200, {
           items: [],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 0,
           totalPages: 0,
           first: true,

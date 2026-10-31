@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ClipboardListIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
+import { Pagination, parsePageParam, writePageParam } from '@/components/pagination'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -49,8 +50,7 @@ const SORT_OPTIONS = [
 
 export function AdminOrderListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const pageRaw = Number(searchParams.get('page') ?? '0')
-  const page = Number.isInteger(pageRaw) && pageRaw >= 0 ? pageRaw : 0
+  const page = parsePageParam(searchParams.get('page'))
   const status = searchParams.get('status') ?? ''
   const sortParam = searchParams.get('sort') ?? ORDER_DEFAULT_SORT
   const sort = SORT_OPTIONS.some((option) => option.value === sortParam)
@@ -62,6 +62,10 @@ export function AdminOrderListPage() {
     page,
     size: ORDER_DEFAULT_PAGE_SIZE,
     sort,
+  }
+
+  const goToPage = (nextPage: number) => {
+    setSearchParams(writePageParam(searchParams, nextPage))
   }
 
   const ordersQuery = useQuery({
@@ -96,7 +100,6 @@ export function AdminOrderListPage() {
               const nextSort = String(form.get('sort') ?? ORDER_DEFAULT_SORT)
               if (nextStatus) next.set('status', nextStatus)
               next.set('sort', nextSort)
-              next.set('page', '0')
               setSearchParams(next)
             }}
           >
@@ -167,10 +170,6 @@ export function AdminOrderListPage() {
         </Card>
       ) : data ? (
         <>
-          <p className="text-sm text-muted-foreground">
-            Showing page {data.page + 1} of {Math.max(data.totalPages, 1)} ({data.totalElements}{' '}
-            total)
-          </p>
           <div className={adminTableWrapClass}>
             <table className={`${adminTableClass} min-w-[44rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
@@ -216,32 +215,15 @@ export function AdminOrderListPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={data.first}
-              onClick={() => {
-                const next = new URLSearchParams(searchParams)
-                next.set('page', String(Math.max(0, page - 1)))
-                setSearchParams(next)
-              }}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={data.last}
-              onClick={() => {
-                const next = new URLSearchParams(searchParams)
-                next.set('page', String(page + 1))
-                setSearchParams(next)
-              }}
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            totalElements={data.totalElements}
+            pageSize={data.size}
+            itemLabel="orders"
+            disabled={ordersQuery.isFetching}
+            onPageChange={goToPage}
+          />
         </>
       ) : null}
     </section>

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { PackageIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
+import { Pagination, parsePageParam, writePageParam } from '@/components/pagination'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -31,13 +32,16 @@ export function OrderHistoryPage() {
   const { user } = useAuth()
   const userId = user?.id ?? ''
   const [searchParams, setSearchParams] = useSearchParams()
-  const pageRaw = Number(searchParams.get('page') ?? '0')
-  const page = Number.isInteger(pageRaw) && pageRaw >= 0 ? pageRaw : 0
+  const page = parsePageParam(searchParams.get('page'))
 
   const listParams = {
     page,
     size: ORDER_DEFAULT_PAGE_SIZE,
     sort: ORDER_DEFAULT_SORT,
+  }
+
+  const goToPage = (nextPage: number) => {
+    setSearchParams(writePageParam(searchParams, nextPage))
   }
 
   const ordersQuery = useQuery({
@@ -86,10 +90,6 @@ export function OrderHistoryPage() {
         </Card>
       ) : data ? (
         <>
-          <p className="text-sm text-muted-foreground">
-            Showing page {data.page + 1} of {Math.max(data.totalPages, 1)} ({data.totalElements}{' '}
-            total)
-          </p>
           <ul className="space-y-3">
             {data.items.map((order) => (
               <li key={order.id}>
@@ -125,32 +125,15 @@ export function OrderHistoryPage() {
               </li>
             ))}
           </ul>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={data.first}
-              onClick={() => {
-                const next = new URLSearchParams(searchParams)
-                next.set('page', String(Math.max(0, page - 1)))
-                setSearchParams(next)
-              }}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={data.last}
-              onClick={() => {
-                const next = new URLSearchParams(searchParams)
-                next.set('page', String(page + 1))
-                setSearchParams(next)
-              }}
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            totalElements={data.totalElements}
+            pageSize={data.size}
+            itemLabel="orders"
+            disabled={ordersQuery.isFetching}
+            onPageChange={goToPage}
+          />
         </>
       ) : null}
     </section>

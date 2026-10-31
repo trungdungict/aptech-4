@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 
 import { listAdminCategories } from '@/features/admin/categories/api/admin-categories-api'
 import { adminCategoryQueryKeys } from '@/features/admin/categories/hooks/admin-category-query-keys'
+import { Pagination, parsePageParam, writePageParam } from '@/components/pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -36,8 +37,7 @@ export function AdminProductListPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [statusError, setStatusError] = useState<string | null>(null)
 
-  const pageRaw = Number(searchParams.get('page') ?? '0')
-  const page = Number.isInteger(pageRaw) && pageRaw >= 0 ? pageRaw : 0
+  const page = parsePageParam(searchParams.get('page'))
   const q = searchParams.get('q') ?? ''
   const activeParam = searchParams.get('active')
   const active =
@@ -49,6 +49,10 @@ export function AdminProductListPage() {
     page,
     size: PRODUCT_DEFAULT_PAGE_SIZE,
     sort: PRODUCT_DEFAULT_SORT,
+  }
+
+  const goToPage = (nextPage: number) => {
+    setSearchParams(writePageParam(searchParams, nextPage))
   }
 
   const productsQuery = useQuery({
@@ -111,7 +115,7 @@ export function AdminProductListPage() {
               else next.delete('q')
               if (nextActive === 'true' || nextActive === 'false') next.set('active', nextActive)
               else next.delete('active')
-              next.set('page', '0')
+              next.delete('page')
               setSearchParams(next)
             }}
           >
@@ -182,11 +186,11 @@ export function AdminProductListPage() {
         </Card>
       ) : data ? (
         <>
-          <p className="text-sm text-muted-foreground">
-            Showing page {data.page + 1} of {Math.max(data.totalPages, 1)} ({data.totalElements}{' '}
-            total)
-            {categoriesQuery.isSuccess ? ` · ${categoriesQuery.data.length} categories loaded` : ''}
-          </p>
+          {categoriesQuery.isSuccess ? (
+            <p className="text-sm text-muted-foreground">
+              {categoriesQuery.data.length} categories loaded
+            </p>
+          ) : null}
           <div className={adminTableWrapClass}>
             <table className={`${adminTableClass} min-w-[40rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
@@ -252,32 +256,15 @@ export function AdminProductListPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={data.first}
-              onClick={() => {
-                const next = new URLSearchParams(searchParams)
-                next.set('page', String(Math.max(0, page - 1)))
-                setSearchParams(next)
-              }}
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={data.last}
-              onClick={() => {
-                const next = new URLSearchParams(searchParams)
-                next.set('page', String(page + 1))
-                setSearchParams(next)
-              }}
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination
+            page={data.page}
+            totalPages={data.totalPages}
+            totalElements={data.totalElements}
+            pageSize={data.size}
+            itemLabel="products"
+            disabled={productsQuery.isFetching}
+            onPageChange={goToPage}
+          />
         </>
       ) : null}
     </section>

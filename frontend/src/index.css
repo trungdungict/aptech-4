@@ -36,6 +36,10 @@
 
   --radius: 0.75rem;
 
+  /* Floating Aptech Assistant — Pagination/list footers read these when chat is mounted. */
+  --chat-launcher-clearance-inline: 0px;
+  --chat-launcher-clearance-block: 0px;
+
   font-family:
     'Segoe UI',
     'Helvetica Neue',

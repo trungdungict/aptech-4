@@ -22,7 +22,7 @@ describe('catalog-api', () => {
       maxPrice: undefined,
       inStock: undefined,
       page: 0,
-      size: 20,
+      size: 10,
       sort: 'name,asc',
     })
     expect(normalizeListParams({ sort: 'hacked,asc', size: 500, page: -2 }).sort).toBe('name,asc')
@@ -35,7 +35,7 @@ describe('catalog-api', () => {
         JSON.stringify({
           items: [],
           page: 1,
-          size: 20,
+          size: 10,
           totalElements: 0,
           totalPages: 0,
           first: false,
@@ -52,7 +52,7 @@ describe('catalog-api', () => {
       maxPrice: '5000',
       inStock: true,
       page: 1,
-      size: 20,
+      size: 10,
       sort: 'price,desc',
     })
 
@@ -65,7 +65,7 @@ describe('catalog-api', () => {
     expect(url).toContain('maxPrice=5000')
     expect(url).toContain('inStock=true')
     expect(url).toContain('page=1')
-    expect(url).toContain('size=20')
+    expect(url).toContain('size=10')
     expect(url).toContain('sort=price%2Cdesc')
   })
 

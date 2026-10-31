@@ -112,7 +112,7 @@ describe('Admin order pages', () => {
         return jsonResponse(200, {
           items: [orderDetail],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 1,
           totalPages: 1,
           first: true,
@@ -130,7 +130,7 @@ describe('Admin order pages', () => {
     expect(await screen.findByRole('heading', { name: /^orders$/i })).toBeInTheDocument()
     expect(await screen.findByRole('link', { name: orderId })).toBeInTheDocument()
     expect(screen.getByText(userId)).toBeInTheDocument()
-    expect(screen.getByText(/1 total/i)).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
     expect(screen.queryByText(/revenue/i)).not.toBeInTheDocument()
   })
 
@@ -139,7 +139,7 @@ describe('Admin order pages', () => {
       jsonResponse(200, {
         items: [],
         page: 0,
-        size: 20,
+        size: 10,
         totalElements: 0,
         totalPages: 0,
         first: true,
@@ -163,7 +163,7 @@ describe('Admin order pages', () => {
       return jsonResponse(200, {
         items: [],
         page: 0,
-        size: 20,
+        size: 10,
         totalElements: 0,
         totalPages: 0,
         first: true,

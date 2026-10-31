@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import * as cartApi from '@/features/cart/api/cart-api'
 import { cartQueryKeys } from '@/features/cart/hooks/cart-query-keys'
+import { clampCartQuantity } from '@/features/cart/lib/clamp-quantity'
 import { CART_MAX_QUANTITY } from '@/features/cart/types'
 import { ApiClientError } from '@/lib/api/api-error'
 import { safeInternalPath } from '@/lib/safe-redirect'
@@ -25,13 +26,6 @@ import type { Product } from '../types'
 /** Matches Java `UUID.fromString` hex shape (backend path variable). */
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function clampQuantity(value: number): number {
-  if (!Number.isInteger(value)) {
-    return 1
-  }
-  return Math.min(CART_MAX_QUANTITY, Math.max(1, value))
-}
 
 export function ProductDetailPage() {
   const { productId = '' } = useParams<{ productId: string }>()
@@ -246,7 +240,7 @@ function ProductDetailContent({
                     size="icon-sm"
                     aria-label="Decrease quantity"
                     disabled={qtyDisabled || quantity <= 1}
-                    onClick={() => setQuantity(clampQuantity(quantity - 1))}
+                    onClick={() => setQuantity(clampCartQuantity(quantity - 1))}
                   >
                     <MinusIcon />
                   </Button>
@@ -273,7 +267,7 @@ function ProductDetailContent({
                     size="icon-sm"
                     aria-label="Increase quantity"
                     disabled={qtyDisabled || quantity >= CART_MAX_QUANTITY}
-                    onClick={() => setQuantity(clampQuantity(quantity + 1))}
+                    onClick={() => setQuantity(clampCartQuantity(quantity + 1))}
                   >
                     <PlusIcon />
                   </Button>

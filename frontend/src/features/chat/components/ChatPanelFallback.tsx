@@ -1,18 +1,21 @@
 /**
  * Lightweight Suspense fallback while the ChatPanel chunk loads.
- * Matches ChatPanel launcher position; no SSE or chat API work.
+ * Matches compact ChatPanel launcher footprint; no SSE or chat API work.
  */
 export function ChatPanelFallback() {
   return (
-    <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-2">
+    <div
+      data-testid="chat-launcher-root"
+      className="pointer-events-none fixed right-3 bottom-3 z-50 flex flex-col items-end gap-2 sm:right-4 sm:bottom-4"
+    >
       <button
         type="button"
-        className="rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg opacity-80"
+        className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground shadow-lg opacity-80"
         disabled
         aria-busy="true"
         aria-label="Loading chat"
       >
-        Loading chat…
+        …
       </button>
     </div>
   )

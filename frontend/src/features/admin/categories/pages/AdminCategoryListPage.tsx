@@ -3,6 +3,7 @@ import { FolderTreeIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { DEFAULT_LIST_PAGE_SIZE, Pagination, useClientListPagination } from '@/components/pagination'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -23,6 +24,9 @@ import {
 
 import * as categoriesApi from '../api/admin-categories-api'
 import { adminCategoryQueryKeys } from '../hooks/admin-category-query-keys'
+
+/** Client-side page size — admin categories API returns a full list (no server page contract). */
+export const CATEGORY_LIST_PAGE_SIZE = DEFAULT_LIST_PAGE_SIZE
 
 export function AdminCategoryListPage() {
   const queryClient = useQueryClient()
@@ -50,6 +54,10 @@ export function AdminCategoryListPage() {
   })
 
   const categories = categoriesQuery.data
+  const { page, totalPages, totalElements, pageItems, goToPage } = useClientListPagination(
+    categories,
+    CATEGORY_LIST_PAGE_SIZE,
+  )
 
   return (
     <section className={adminPageSectionClass}>
@@ -105,67 +113,77 @@ export function AdminCategoryListPage() {
           </CardContent>
         </Card>
       ) : categories ? (
-        <div className={adminTableWrapClass}>
-          <table className={`${adminTableClass} min-w-[36rem]`}>
-            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-              <tr>
-                <th className={adminThClass}>Name</th>
-                <th className={adminThClass}>Slug</th>
-                <th className={adminThClass}>Status</th>
-                <th className={adminThClass}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {categories.map((category) => {
-                const pending =
-                  statusMutation.isPending && statusMutation.variables?.id === category.id
-                return (
-                  <tr key={category.id} className="hover:bg-muted/30">
-                    <td className={`${adminTdClass} font-medium text-foreground`}>{category.name}</td>
-                    <td className={`${adminTdClass} font-mono text-xs text-muted-foreground`}>
-                      {category.slug}
-                    </td>
-                    <td className={adminTdClass}>
-                      <Badge variant={category.active ? 'success' : 'warning'}>
-                        {category.active ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </td>
-                    <td className={adminTdClass}>
-                      <div className="flex flex-wrap gap-2">
-                        <Button asChild variant="link" size="sm" className="h-auto px-0">
-                          <Link to={`/admin/categories/${category.id}/edit`}>Edit</Link>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          disabled={pending}
-                          onClick={() => {
-                            const next = !category.active
-                            const ok = window.confirm(
-                              next
-                                ? `Activate “${category.name}”?`
-                                : `Deactivate “${category.name}”? Soft-disable only — the category is not deleted. Products may reject assignment to inactive categories.`,
-                            )
-                            if (!ok) return
-                            setStatusError(null)
-                            statusMutation.mutate({ id: category.id, active: next })
-                          }}
-                        >
-                          {pending
-                            ? 'Updating…'
-                            : category.active
-                              ? 'Deactivate'
-                              : 'Activate'}
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          <div className={adminTableWrapClass}>
+            <table className={`${adminTableClass} min-w-[36rem]`}>
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className={adminThClass}>Name</th>
+                  <th className={adminThClass}>Slug</th>
+                  <th className={adminThClass}>Status</th>
+                  <th className={adminThClass}>Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {pageItems.map((category) => {
+                  const pending =
+                    statusMutation.isPending && statusMutation.variables?.id === category.id
+                  return (
+                    <tr key={category.id} className="hover:bg-muted/30">
+                      <td className={`${adminTdClass} font-medium text-foreground`}>{category.name}</td>
+                      <td className={`${adminTdClass} font-mono text-xs text-muted-foreground`}>
+                        {category.slug}
+                      </td>
+                      <td className={adminTdClass}>
+                        <Badge variant={category.active ? 'success' : 'warning'}>
+                          {category.active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+                      <td className={adminTdClass}>
+                        <div className="flex flex-wrap gap-2">
+                          <Button asChild variant="link" size="sm" className="h-auto px-0">
+                            <Link to={`/admin/categories/${category.id}/edit`}>Edit</Link>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={pending}
+                            onClick={() => {
+                              const next = !category.active
+                              const ok = window.confirm(
+                                next
+                                  ? `Activate “${category.name}”?`
+                                  : `Deactivate “${category.name}”? Soft-disable only — the category is not deleted. Products may reject assignment to inactive categories.`,
+                              )
+                              if (!ok) return
+                              setStatusError(null)
+                              statusMutation.mutate({ id: category.id, active: next })
+                            }}
+                          >
+                            {pending
+                              ? 'Updating…'
+                              : category.active
+                                ? 'Deactivate'
+                                : 'Activate'}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageSize={CATEGORY_LIST_PAGE_SIZE}
+            itemLabel="categories"
+            onPageChange={goToPage}
+          />
+        </>
       ) : null}
     </section>
   )

@@ -48,7 +48,7 @@ export type ProductListParams = {
   sort?: string
 }
 
-export const PRODUCT_DEFAULT_PAGE_SIZE = 20
+export const PRODUCT_DEFAULT_PAGE_SIZE = 10
 export const PRODUCT_MAX_PAGE_SIZE = 100
 export const PRODUCT_DEFAULT_SORT = 'name,asc'
 

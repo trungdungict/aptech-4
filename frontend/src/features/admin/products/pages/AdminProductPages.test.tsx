@@ -84,7 +84,7 @@ describe('Admin product pages', () => {
         return jsonResponse(200, {
           items: [product],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 1,
           totalPages: 1,
           first: true,
@@ -105,7 +105,72 @@ describe('Admin product pages', () => {
     expect(await screen.findByRole('heading', { name: /^products$/i })).toBeInTheDocument()
     expect(await screen.findByText(/demo phone/i)).toBeInTheDocument()
     expect(screen.getByText(/demo-phone/i)).toBeInTheDocument()
-    expect(screen.getByText(/1 total/i)).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
+  })
+
+  it('uses shared server pagination without slicing the API page a second time', async () => {
+    const user = userEvent.setup()
+    const items = Array.from({ length: 10 }, (_, i) => ({
+      ...product,
+      id: `11111111-1111-4111-8111-1111111111${i.toString(16).padStart(2, '0')}`,
+      name: `Product ${i + 1}`,
+      sku: `SKU-${i + 1}`,
+    }))
+    const requests: string[] = []
+
+    mockAdminFetch((url) => {
+      if (url.includes('/admin/products')) {
+        requests.push(url)
+        const page = Number(new URL(url, 'http://local').searchParams.get('page') ?? '0')
+        if (page === 0) {
+          return jsonResponse(200, {
+            items,
+            page: 0,
+            size: 10,
+            totalElements: 11,
+            totalPages: 2,
+            first: true,
+            last: false,
+          })
+        }
+        return jsonResponse(200, {
+          items: [
+            {
+              ...product,
+              id: '11111111-1111-4111-8111-111111111199',
+              name: 'Product 11',
+              sku: 'SKU-11',
+            },
+          ],
+          page: 1,
+          size: 10,
+          totalElements: 11,
+          totalPages: 2,
+          first: false,
+          last: true,
+        })
+      }
+      if (url.includes('/admin/categories')) {
+        return jsonResponse(200, [category])
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: '/admin/products',
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByText('Product 1')).toBeInTheDocument()
+    expect(screen.getByText('Product 10')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toBeInTheDocument()
+    expect(screen.getByText(/page 1 of 2 · 11 products/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+    expect(await screen.findByText('Product 11')).toBeInTheDocument()
+    expect(screen.queryByText('Product 1')).not.toBeInTheDocument()
+    expect(requests.some((url) => url.includes('page=1'))).toBe(true)
+    expect(requests.some((url) => url.includes('size=10'))).toBe(true)
   })
 
   it('shows empty product list state', async () => {
@@ -114,7 +179,7 @@ describe('Admin product pages', () => {
         return jsonResponse(200, {
           items: [],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 0,
           totalPages: 0,
           first: true,
@@ -674,7 +739,7 @@ describe('Admin product pages', () => {
         return jsonResponse(200, {
           items: [productState],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 1,
           totalPages: 1,
           first: true,
@@ -718,7 +783,7 @@ describe('Admin product pages', () => {
         return jsonResponse(200, {
           items: [product],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 1,
           totalPages: 1,
           first: true,

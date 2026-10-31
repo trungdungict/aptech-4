@@ -1,9 +1,10 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
-import { renderWithProviders } from '@/test/render-app'
+import { demoCustomerSession, renderWithProviders } from '@/test/render-app'
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -77,5 +78,58 @@ describe('ProductDetailPage', () => {
     expect(
       vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/products/')),
     ).toBe(false)
+  })
+
+  it('still adds to cart from the product detail page for authenticated customers', async () => {
+    const user = userEvent.setup()
+    const cartPosts: unknown[] = []
+    const productId = '22222222-2222-2222-2222-222222222222'
+
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/auth/refresh')) {
+        return jsonResponse(200, demoCustomerSession)
+      }
+      if (url.includes(`/products/${productId}`) && !url.includes('/cart')) {
+        return jsonResponse(200, {
+          id: productId,
+          sku: 'DEMO-ELEC-PHONE',
+          name: 'Demo Smartphone X',
+          description: 'Flagship demo phone',
+          unitPrice: 12990000,
+          currency: 'VND',
+          categoryId: '11111111-1111-1111-1111-111111111111',
+          categoryName: 'Electronics',
+          active: true,
+          imageUrl: null,
+          inStock: true,
+        })
+      }
+      if (url.includes('/cart/items') && init?.method === 'POST') {
+        cartPosts.push(JSON.parse(String(init.body)))
+        return jsonResponse(200, {
+          id: 'cart-1',
+          items: [],
+          subtotal: 0,
+          currency: 'VND',
+          hasUnavailableItems: false,
+        })
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: `/products/${productId}`,
+      session: demoCustomerSession,
+    })
+
+    expect(await screen.findByRole('heading', { name: /demo smartphone x/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /increase quantity/i }))
+    await user.click(screen.getByRole('button', { name: /^add to cart$/i }))
+
+    await waitFor(() => {
+      expect(cartPosts).toEqual([{ productId, quantity: 2 }])
+    })
+    expect(await screen.findByText(/added to cart/i)).toBeInTheDocument()
   })
 })

@@ -92,7 +92,7 @@ describe('Order pages', () => {
         return jsonResponse(200, {
           items: [orderDetail],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 1,
           totalPages: 1,
           first: true,
@@ -106,7 +106,7 @@ describe('Order pages', () => {
 
     expect(await screen.findByRole('heading', { name: /^orders$/i })).toBeInTheDocument()
     expect(await screen.findByRole('link', { name: new RegExp(orderId, 'i') })).toBeInTheDocument()
-    expect(screen.getByText(/1 total/i)).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
   })
 
   it('renders empty order history', async () => {
@@ -114,7 +114,7 @@ describe('Order pages', () => {
       jsonResponse(200, {
         items: [],
         page: 0,
-        size: 20,
+        size: 10,
         totalElements: 0,
         totalPages: 0,
         first: true,
@@ -217,7 +217,7 @@ describe('Order pages', () => {
         return jsonResponse(200, {
           items: [orderDetail],
           page: 0,
-          size: 20,
+          size: 10,
           totalElements: 1,
           totalPages: 1,
           first: true,

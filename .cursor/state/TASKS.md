@@ -1023,6 +1023,33 @@ Counts are maintained in `PROGRESS.md` (recalculate from this file).
 - **Verify:** `FoodMartProductImagesTest` + seed/reset ITs; FE product image Vitest; `npm run build`; `make seed-demo` ×2; public catalog + image HTTP; `make smoke-promotions`
 - **Evidence:** 2026-11-01 — BE tests **7/7** (`FoodMartProductImagesTest` 2, `FoodMartCatalogTest` 1, `DemoSeedIntegrationTest` 1, `DemoResetIntegrationTest` 3); FE **34/34**; build OK; seed×2 → 48/48 non-null unique URLs, sample HTTP 200; smoke-promotions OK
 
+### UX — Shared Admin/Customer list pagination (ad-hoc)
+- **Phase:** post-P24
+- **Status:** DONE
+- **Deps:** existing list pages + `PageResponse`
+- **Files:** `components/pagination/*`, `CatalogPagination.tsx`, Admin/Customer list pages, `PRODUCT_DEFAULT_PAGE_SIZE` / `ORDER_DEFAULT_PAGE_SIZE`
+- **AC:** Shared First/Prev/numbers/ellipsis/Next/Last; default size 10; hide when ≤10 records; server vs client strategy per page; filter/sort reset + clamp; no double-pagination
+- **Verify:** pagination unit tests + modified list page Vitest + full FE suite + `npm run build`
+- **Evidence:** 2026-11-01 — focused **67/67**; full FE **233/233** (48 files); production build OK
+
+### UX — Product card Add to Cart with auth guard (ad-hoc)
+- **Phase:** post-P24
+- **Status:** DONE
+- **Deps:** cart API + Product Detail ATC + `safeInternalPath`
+- **Files:** `ProductCard.tsx`, `clamp-quantity.ts`, Product Detail shared clamp, ProductCard/Detail/List Vitest
+- **AC:** Card qty + ATC for customers; guest ATC → login with safe `next`; no detail navigation; OOS disables; reuse cart mutation; detail ATC unchanged
+- **Verify:** focused card/catalog/cart/auth Vitest + full FE suite + `npm run build`
+- **Evidence:** 2026-11-01 — focused **34/34**; full FE **242/242** (49 files); production build OK
+
+### UX — Aptech Assistant launcher vs pagination overlap (ad-hoc)
+- **Phase:** post-P24
+- **Status:** DONE
+- **Deps:** ChatPanel + shared Pagination
+- **Files:** `ChatPanel.tsx`, `ChatPanelFallback.tsx`, `chat-launcher.ts`, `useChatLauncherClearance.ts`, `Pagination.tsx`, `index.css`
+- **AC:** Compact/minimizable FAB; pagination safe-area via CSS vars; reopen from minimized; no pagination logic changes
+- **Verify:** focused chat + pagination Vitest + full FE suite + `npm run build`
+- **Evidence:** 2026-11-01 — focused chat+pagination **46/46**; full FE **247/247** (50 files); production build OK
+
 ---
 
 ## P17 — Final acceptance

@@ -148,9 +148,7 @@ describe('Admin promotion pages', () => {
     expect(await screen.findByRole('heading', { name: /promotion strategies/i })).toBeInTheDocument()
     expect(await screen.findByText('Banner Strat')).toBeInTheDocument()
     expect(screen.getByText('BANNER_ONLY')).toBeInTheDocument()
-    expect(screen.getByText(/showing page 1 of 1 \(1 total\)/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^previous$/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /^next$/i })).toBeDisabled()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
   })
 
   it('paginates strategy list client-side and clamps invalid page', async () => {
@@ -178,24 +176,27 @@ describe('Admin promotion pages', () => {
     expect(await screen.findByText('Strategy 1')).toBeInTheDocument()
     expect(screen.getByText('Strategy 10')).toBeInTheDocument()
     expect(screen.queryByText('Strategy 11')).not.toBeInTheDocument()
-    expect(screen.getByText(/showing page 1 of 2 \(12 total\)/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^previous$/i })).toBeDisabled()
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toBeInTheDocument()
+    expect(screen.getByText(/page 1 of 2 · 12 strategies/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'First page' })).toBeDisabled()
 
-    await user.click(screen.getByRole('button', { name: /^next$/i }))
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
     expect(await screen.findByText('Strategy 11')).toBeInTheDocument()
     expect(screen.getByText('Strategy 12')).toBeInTheDocument()
     expect(screen.queryByText('Strategy 1')).not.toBeInTheDocument()
-    expect(screen.getByText(/showing page 2 of 2 \(12 total\)/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^next$/i })).toBeDisabled()
+    expect(screen.getByText(/page 2 of 2 · 12 strategies/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Last page' })).toBeDisabled()
 
-    await user.click(screen.getByRole('button', { name: /^previous$/i }))
+    await user.click(screen.getByRole('button', { name: 'Previous page' }))
     expect(await screen.findByText('Strategy 1')).toBeInTheDocument()
 
     renderWithProviders(<AppRouter />, {
       route: '/admin/promotions/strategies?page=99',
       session: demoAdminSession,
     })
-    expect(await screen.findByText(/showing page 2 of 2 \(12 total\)/i)).toBeInTheDocument()
+    expect(await screen.findByText(/page 2 of 2 · 12 strategies/i)).toBeInTheDocument()
     expect(screen.getByText('Strategy 11')).toBeInTheDocument()
   })
 
@@ -213,8 +214,7 @@ describe('Admin promotion pages', () => {
     })
 
     expect(await screen.findByText(/no strategies yet/i)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^previous$/i })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^next$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
   })
 
   it('creates a BANNER_ONLY strategy successfully', async () => {
@@ -241,6 +241,37 @@ describe('Admin promotion pages', () => {
     await user.click(screen.getByRole('button', { name: /save strategy/i }))
 
     expect(await screen.findByRole('heading', { name: /edit strategy/i })).toBeInTheDocument()
+  })
+
+  it('paginates campaign list client-side when more than 10 exist', async () => {
+    const user = userEvent.setup()
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      ...campaign,
+      id: `bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb${i.toString(16).padStart(2, '0')}`,
+      name: `Campaign ${i + 1}`,
+      slug: `campaign-${i + 1}`,
+    }))
+
+    mockAdminFetch((url) => {
+      if (url.includes('/admin/promotions/campaigns')) {
+        return jsonResponse(200, many)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: '/admin/promotions/campaigns',
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByText('Campaign 1')).toBeInTheDocument()
+    expect(screen.getByText('Campaign 10')).toBeInTheDocument()
+    expect(screen.queryByText('Campaign 11')).not.toBeInTheDocument()
+    expect(screen.getByText(/page 1 of 2 · 12 campaigns/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Last page' }))
+    expect(await screen.findByText('Campaign 11')).toBeInTheDocument()
+    expect(screen.getByText('Campaign 12')).toBeInTheDocument()
   })
 
   it('lists campaigns with UTC windows and manages activate/pause/preview', async () => {
@@ -295,6 +326,7 @@ describe('Admin promotion pages', () => {
 
     expect(await screen.findByText('Weekend Banner')).toBeInTheDocument()
     expect(screen.getByText('2026-11-01T00:00:00.000Z')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
 
     renderWithProviders(<AppRouter />, {
       route: `/admin/promotions/campaigns/${campaign.id}?tab=details`,

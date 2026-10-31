@@ -1,10 +1,17 @@
+import { MessageCircleIcon, MinusIcon } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 
 import { ApiClientError } from '@/lib/api/api-error'
 
 import { getChatHealth, streamChatMessage } from '../api/chat-api'
 import { useChatLanguage } from '../hooks/useChatLanguage'
+import { useChatLauncherClearance } from '../hooks/useChatLauncherClearance'
 import { chatCopy, defaultSuggestedPrompts } from '../lib/chat-i18n'
+import {
+  readLauncherMinimized,
+  writeLauncherMinimized,
+  type ChatLauncherFootprint,
+} from '../lib/chat-launcher'
 import type { ChatHealth, ChatMessage } from '../types'
 
 type ChatPanelProps = {
@@ -17,6 +24,7 @@ export function ChatPanel({ variant }: ChatPanelProps) {
   const admin = variant === 'admin'
   const titleId = useId()
   const [open, setOpen] = useState(false)
+  const [launcherMinimized, setLauncherMinimized] = useState(readLauncherMinimized)
   const [health, setHealth] = useState<ChatHealth | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [draft, setDraft] = useState('')
@@ -58,6 +66,18 @@ export function ChatPanel({ variant }: ChatPanelProps) {
       abortRef.current?.abort()
     }
   }, [])
+
+  const footprint: ChatLauncherFootprint = launcherMinimized
+    ? 'minimized'
+    : open
+      ? 'panel'
+      : 'compact'
+  useChatLauncherClearance(footprint)
+
+  const setMinimized = (next: boolean) => {
+    setLauncherMinimized(next)
+    writeLauncherMinimized(next)
+  }
 
   const clearChat = () => {
     abortRef.current?.abort()
@@ -172,11 +192,14 @@ export function ChatPanel({ variant }: ChatPanelProps) {
   }
 
   return (
-    <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-2">
+    <div
+      data-testid="chat-launcher-root"
+      className="pointer-events-none fixed right-3 bottom-3 z-50 flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2 sm:right-4 sm:bottom-4"
+    >
       {open ? (
         <section
           aria-labelledby={titleId}
-          className="flex max-h-[calc(100dvh-5.5rem)] h-[min(32rem,calc(100dvh-5.5rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
+          className="pointer-events-auto flex max-h-[calc(100dvh-5.5rem)] h-[min(32rem,calc(100dvh-5.5rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
         >
           <header className="flex shrink-0 items-start justify-between gap-2 border-b border-border px-4 py-3">
             <div className="min-w-0">
@@ -185,14 +208,27 @@ export function ChatPanel({ variant }: ChatPanelProps) {
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">{copy.subtitle}</p>
             </div>
-            <button
-              type="button"
-              className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
-              onClick={() => setOpen(false)}
-              aria-label="Close chat"
-            >
-              ✕
-            </button>
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
+                onClick={() => {
+                  setOpen(false)
+                  setMinimized(true)
+                }}
+                aria-label="Minimize assistant"
+              >
+                <MinusIcon className="size-4" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-muted"
+                onClick={() => setOpen(false)}
+                aria-label="Close chat"
+              >
+                ✕
+              </button>
+            </div>
           </header>
 
           <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2 text-xs">
@@ -319,14 +355,48 @@ export function ChatPanel({ variant }: ChatPanelProps) {
         </section>
       ) : null}
 
-      <button
-        type="button"
-        className="rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:opacity-95"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-      >
-        {open ? 'Close' : copy.title}
-      </button>
+      {launcherMinimized ? (
+        <button
+          type="button"
+          className="pointer-events-auto flex size-11 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:opacity-95 sm:size-12"
+          onClick={() => {
+            setMinimized(false)
+            setOpen(true)
+          }}
+          aria-label={`Show ${copy.title}`}
+          aria-expanded={false}
+        >
+          <MessageCircleIcon className="size-5" aria-hidden="true" />
+        </button>
+      ) : (
+        <div className="pointer-events-auto flex items-center gap-1.5">
+          {!open ? (
+            <button
+              type="button"
+              className="flex size-9 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:bg-muted"
+              onClick={() => setMinimized(true)}
+              aria-label="Minimize assistant"
+            >
+              <MinusIcon className="size-4" aria-hidden="true" />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:opacity-95"
+            onClick={() => setOpen((value) => !value)}
+            aria-label={open ? 'Close chat' : copy.title}
+            aria-expanded={open}
+          >
+            {open ? (
+              <span className="text-lg leading-none" aria-hidden="true">
+                ✕
+              </span>
+            ) : (
+              <MessageCircleIcon className="size-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

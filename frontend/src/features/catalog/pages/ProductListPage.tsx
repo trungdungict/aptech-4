@@ -152,6 +152,7 @@ export function ProductListPage() {
             page={productsQuery.data?.page ?? 0}
             totalPages={productsQuery.data?.totalPages ?? 0}
             totalElements={productsQuery.data?.totalElements ?? 0}
+            pageSize={productsQuery.data?.size ?? filterState.size}
             disabled={productsQuery.isFetching}
             onPageChange={(page) => writeState({ ...filterState, q: debouncedQ, page })}
           />

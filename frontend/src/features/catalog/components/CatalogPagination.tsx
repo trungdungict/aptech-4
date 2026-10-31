@@ -1,49 +1,32 @@
-import { Button } from '@/components/ui/button'
+import { DEFAULT_LIST_PAGE_SIZE, Pagination } from '@/components/pagination'
 
 type CatalogPaginationProps = {
   page: number
   totalPages: number
   totalElements: number
+  pageSize?: number
   disabled?: boolean
   onPageChange: (page: number) => void
 }
 
+/** Catalog list pagination — shared First/Previous/numbers/Next/Last controls. */
 export function CatalogPagination({
   page,
   totalPages,
   totalElements,
+  pageSize = DEFAULT_LIST_PAGE_SIZE,
   disabled,
   onPageChange,
 }: CatalogPaginationProps) {
-  if (totalPages <= 0) {
-    return null
-  }
-
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-      <p className="text-sm text-muted-foreground">
-        Page {page + 1} of {totalPages} · {totalElements} products
-      </p>
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled || page <= 0}
-          onClick={() => onPageChange(page - 1)}
-        >
-          Previous
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled || page >= totalPages - 1}
-          onClick={() => onPageChange(page + 1)}
-        >
-          Next
-        </Button>
-      </div>
-    </div>
+    <Pagination
+      page={page}
+      totalPages={totalPages}
+      totalElements={totalElements}
+      pageSize={pageSize}
+      itemLabel="products"
+      disabled={disabled}
+      onPageChange={onPageChange}
+    />
   )
 }

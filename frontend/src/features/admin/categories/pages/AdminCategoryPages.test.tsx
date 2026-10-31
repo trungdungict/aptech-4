@@ -80,6 +80,38 @@ describe('Admin category pages', () => {
     expect(await screen.findByRole('heading', { name: /^categories$/i })).toBeInTheDocument()
     expect(await screen.findByText('Electronics')).toBeInTheDocument()
     expect(screen.getByText('electronics')).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument()
+  })
+
+  it('paginates categories client-side when more than 10 exist', async () => {
+    const user = userEvent.setup()
+    const many = Array.from({ length: 11 }, (_, i) => ({
+      ...category,
+      id: `cccccccc-cccc-4ccc-8ccc-cccccccccc${i.toString(16).padStart(2, '0')}`,
+      name: `Category ${i + 1}`,
+      slug: `category-${i + 1}`,
+    }))
+
+    mockAdminFetch((url) => {
+      if (url.includes('/admin/categories')) {
+        return jsonResponse(200, many)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: '/admin/categories',
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByText('Category 1')).toBeInTheDocument()
+    expect(screen.getByText('Category 10')).toBeInTheDocument()
+    expect(screen.queryByText('Category 11')).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Next page' }))
+    expect(await screen.findByText('Category 11')).toBeInTheDocument()
+    expect(screen.queryByText('Category 1')).not.toBeInTheDocument()
   })
 
   it('shows empty category state', async () => {

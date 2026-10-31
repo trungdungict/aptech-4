@@ -63,7 +63,7 @@ function mockCatalogApis(options?: { empty?: boolean; failList?: boolean }) {
       return jsonResponse(200, {
         items: options?.empty ? [] : [product],
         page: 0,
-        size: 20,
+        size: 10,
         totalElements: options?.empty ? 0 : 1,
         totalPages: options?.empty ? 0 : 1,
         first: true,
@@ -86,12 +86,15 @@ describe('ProductListPage', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders products from the API', async () => {
+  it('renders products from the API with card add-to-cart controls', async () => {
     mockCatalogApis()
     renderWithProviders(<AppRouter />, { route: '/products' })
 
     expect(await screen.findByRole('heading', { name: /demo smartphone x/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /view demo smartphone x/i })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /add demo smartphone x to cart/i }),
+    ).toBeInTheDocument()
   })
 
 
