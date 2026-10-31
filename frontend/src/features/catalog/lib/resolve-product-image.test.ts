@@ -12,6 +12,17 @@ describe('resolveProductImage', () => {
     ).toBe('https://cdn.example/x.png')
   })
 
+  it('prefers uploaded relative path over FoodMart SKU fallback', () => {
+    const uploaded = '/uploads/products/9d1f7e4b-1111-4111-8111-111111111111.webp'
+    expect(
+      resolveProductImage({
+        sku: 'FOOD-FRUIT-BANANA-001',
+        name: 'Crisp Bananas',
+        imageUrl: uploaded,
+      }),
+    ).toBe(uploaded)
+  })
+
   it('resolves known FoodMart SKUs from the local map', () => {
     expect(resolveProductImage({ sku: 'FOOD-FRUIT-BANANA-001' })).toBe(
       '/assets/foodmart/images/products/thumb-bananas.png',
@@ -27,6 +38,15 @@ describe('resolveProductImage', () => {
 
   it('returns null when nothing matches (neutral placeholder)', () => {
     expect(resolveProductImage({ sku: 'UNKNOWN-SKU', name: 'Mystery Widget' })).toBeNull()
+  })
+
+  it('ignores blank API imageUrl and keeps FoodMart fallback', () => {
+    expect(
+      resolveProductImage({
+        sku: 'FOOD-FRUIT-BANANA-001',
+        imageUrl: '   ',
+      }),
+    ).toBe('/assets/foodmart/images/products/thumb-bananas.png')
   })
 })
 

@@ -88,6 +88,30 @@ describe('CartPage', () => {
     expect(screen.getByRole('link', { name: /checkout/i })).toBeInTheDocument()
   })
 
+  it('prefers uploaded product imageUrl over FoodMart name fallback', async () => {
+    const uploaded = '/uploads/products/9d1f7e4b-1111-4111-8111-111111111111.png'
+    mockFetchRouter((url) => {
+      if (url.endsWith('/cart') || url.includes('/api/v1/cart')) {
+        return jsonResponse(200, {
+          ...cartFixture,
+          items: [
+            {
+              ...cartFixture.items[0],
+              productName: 'Fresh Banana Bundle',
+              imageUrl: uploaded,
+            },
+          ],
+        })
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, { route: '/cart', session: demoCustomerSession })
+    await screen.findByText(/fresh banana bundle/i)
+    const img = document.querySelector(`img[src="${uploaded}"]`)
+    expect(img).not.toBeNull()
+  })
+
   it('renders empty cart state', async () => {
     mockFetchRouter(() => jsonResponse(200, emptyCart))
 

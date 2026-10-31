@@ -6,4 +6,5 @@ export const adminProductQueryKeys = {
   list: (params: AdminProductListParams) => [...adminProductQueryKeys.lists(), params] as const,
   details: () => [...adminProductQueryKeys.all, 'detail'] as const,
   detail: (id: string) => [...adminProductQueryKeys.details(), id] as const,
+  inventory: (id: string) => [...adminProductQueryKeys.all, 'inventory', id] as const,
 }

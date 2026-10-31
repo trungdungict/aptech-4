@@ -18,7 +18,7 @@ export type AdminProductListParams = {
   sort?: string
 }
 
-/** Matches backend ProductCreateRequest / ProductUpdateRequest — no inventory or imageUrl. */
+/** Matches backend ProductCreateRequest / ProductUpdateRequest — no inventory. */
 export type AdminProductWritePayload = {
   sku: string
   name: string
@@ -26,6 +26,14 @@ export type AdminProductWritePayload = {
   unitPrice: number
   currency?: string
   categoryId: string
+  /** Public relative path from upload API, or null to clear. */
+  imageUrl?: string | null
+}
+
+export type AdminProductImageUploadResult = {
+  imageUrl: string
+  contentType: string
+  sizeBytes: number
 }
 
 export type AdminProductStatusPayload = {
@@ -93,6 +101,7 @@ export function createAdminProduct(
       unitPrice: payload.unitPrice,
       currency: payload.currency || 'VND',
       categoryId: payload.categoryId,
+      imageUrl: payload.imageUrl ?? null,
     },
     signal,
   })
@@ -114,7 +123,24 @@ export function updateAdminProduct(
       unitPrice: payload.unitPrice,
       currency: payload.currency || 'VND',
       categoryId: payload.categoryId,
+      imageUrl: payload.imageUrl ?? null,
     },
+    signal,
+  })
+}
+
+/** POST /api/v1/admin/uploads/images — multipart field `file` */
+export function uploadAdminProductImage(
+  file: File,
+  signal?: AbortSignal,
+): Promise<AdminProductImageUploadResult> {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<AdminProductImageUploadResult>('/admin/uploads/images', {
+    method: 'POST',
+    auth: true,
+    multipart: true,
+    body,
     signal,
   })
 }
@@ -131,4 +157,49 @@ export function updateAdminProductStatus(
     body: { active: payload.active },
     signal,
   })
+}
+
+/** Matches AdminProductInventoryResponse — per-product inventory row (ADR-006). */
+export type AdminProductInventory = {
+  productId: string
+  quantityOnHand: number
+  quantityReserved: number
+  available: number
+  updatedAt: string | null
+}
+
+export type AdminProductInventoryUpdatePayload = {
+  quantityOnHand: number
+}
+
+/** GET /api/v1/admin/products/{id}/inventory */
+export function getAdminProductInventory(
+  id: string,
+  signal?: AbortSignal,
+): Promise<AdminProductInventory> {
+  return apiRequest<AdminProductInventory>(
+    `/admin/products/${encodeURIComponent(id)}/inventory`,
+    {
+      method: 'GET',
+      auth: true,
+      signal,
+    },
+  )
+}
+
+/** PUT /api/v1/admin/products/{id}/inventory — absolute quantity_on_hand */
+export function updateAdminProductInventory(
+  id: string,
+  payload: AdminProductInventoryUpdatePayload,
+  signal?: AbortSignal,
+): Promise<AdminProductInventory> {
+  return apiRequest<AdminProductInventory>(
+    `/admin/products/${encodeURIComponent(id)}/inventory`,
+    {
+      method: 'PUT',
+      auth: true,
+      body: { quantityOnHand: payload.quantityOnHand },
+      signal,
+    },
+  )
 }

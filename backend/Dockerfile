@@ -16,7 +16,9 @@ FROM eclipse-temurin:21-jre-alpine AS runtime
 WORKDIR /app
 
 RUN apk add --no-cache curl \
-	&& addgroup -S aptech && adduser -S aptech -G aptech
+	&& addgroup -S aptech && adduser -S aptech -G aptech \
+	&& mkdir -p /app/uploads/products \
+	&& chown -R aptech:aptech /app/uploads
 
 COPY --from=build /workspace/app.jar /app/app.jar
 USER aptech

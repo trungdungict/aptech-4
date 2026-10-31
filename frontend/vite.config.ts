@@ -26,6 +26,11 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
       },
+      // Product image uploads served by Spring at /uploads/products/**
+      '/uploads': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
   test: {

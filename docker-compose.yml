@@ -86,12 +86,24 @@ services:
       APTECH_AI_TIMEOUT_SECONDS: ${APTECH_AI_TIMEOUT_SECONDS:-90}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       SPRING_AI_MODEL_CHAT: ${SPRING_AI_MODEL_CHAT:-none}
+      # Product image uploads (PostgreSQL stores public path only; bytes on volume).
+      PRODUCT_IMAGE_UPLOAD_ENABLED: ${PRODUCT_IMAGE_UPLOAD_ENABLED:-true}
+      PRODUCT_IMAGE_UPLOAD_DIR: ${PRODUCT_IMAGE_UPLOAD_DIR:-/app/uploads/products}
+      PRODUCT_IMAGE_PUBLIC_PATH: ${PRODUCT_IMAGE_PUBLIC_PATH:-/uploads/products}
+      PRODUCT_IMAGE_MAX_SIZE_BYTES: ${PRODUCT_IMAGE_MAX_SIZE_BYTES:-2097152}
+      PRODUCT_IMAGE_ALLOWED_TYPES: ${PRODUCT_IMAGE_ALLOWED_TYPES:-image/jpeg,image/png,image/webp}
+      PRODUCT_IMAGE_MAX_WIDTH: ${PRODUCT_IMAGE_MAX_WIDTH:-6000}
+      PRODUCT_IMAGE_MAX_HEIGHT: ${PRODUCT_IMAGE_MAX_HEIGHT:-6000}
+      PRODUCT_IMAGE_MAX_PIXELS: ${PRODUCT_IMAGE_MAX_PIXELS:-25000000}
+      PRODUCT_IMAGE_NORMALIZE_ENABLED: ${PRODUCT_IMAGE_NORMALIZE_ENABLED:-false}
     # Optional loopback publish for direct API debug (default off → empty).
     # Set API_PUBLISH=127.0.0.1:8080 to bind host loopback only.
     ports:
       - "${API_PUBLISH:-127.0.0.1:8080}:8080"
     expose:
       - "8080"
+    volumes:
+      - aptech4_uploads:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,6 +147,9 @@ services:
       args:
         # Baked at image build time. Path-absolute = same-origin (no localhost in prod bundle).
         VITE_API_BASE_URL: ${VITE_STACK_API_BASE_URL:-/api/v1}
+        # UX mirrors only — keep aligned with PRODUCT_IMAGE_* on api (backend authoritative).
+        VITE_PRODUCT_IMAGE_MAX_SIZE_BYTES: ${VITE_PRODUCT_IMAGE_MAX_SIZE_BYTES:-2097152}
+        VITE_PRODUCT_IMAGE_ALLOWED_TYPES: ${VITE_PRODUCT_IMAGE_ALLOWED_TYPES:-image/jpeg,image/png,image/webp}
     image: aptech4-web:local
     container_name: aptech4-web
     restart: unless-stopped
@@ -269,6 +284,8 @@ volumes:
     name: aptech4_pgdata
   aptech4_redisdata:
     name: aptech4_redisdata
+  aptech4_uploads:
+    name: aptech4_uploads
   aptech4_ollama:
     name: aptech4_ollama
   aptech4_prometheus:

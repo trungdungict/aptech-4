@@ -29,7 +29,7 @@ const NAME_KEYWORDS: Array<{ pattern: RegExp; path: string }> = [
 
 /**
  * Resolves a display image for a catalog product.
- * Prefers API `imageUrl` when the backend eventually stores media; otherwise uses
+ * Prefers API `imageUrl` (uploaded `/uploads/products/...` or absolute URL) over
  * the local FoodMart SKU map / name heuristics. Never invents remote CDN URLs.
  */
 export function resolveProductImage(input: {

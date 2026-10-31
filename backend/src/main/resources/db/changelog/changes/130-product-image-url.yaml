@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 130-product-image-url
+      author: aptech4
+      comment: Store public relative image path only (never image bytes)
+      changes:
+        - addColumn:
+            tableName: products
+            columns:
+              - column:
+                  name: image_url
+                  type: VARCHAR(512)
+                  constraints:
+                    nullable: true
+        - sql:
+            sql: >
+              ALTER TABLE products
+              ADD CONSTRAINT chk_products_image_url_relative
+              CHECK (
+                image_url IS NULL
+                OR (
+                  image_url LIKE '/uploads/products/%'
+                  AND image_url NOT LIKE '%..%'
+                )
+              );

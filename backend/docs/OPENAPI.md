@@ -68,15 +68,24 @@ Admin operations live under `/api/v1/admin/**` and require an access token with 
 | POST | `/api/v1/admin/products` | ADMIN |
 | PUT | `/api/v1/admin/products/{id}` | ADMIN |
 | PATCH | `/api/v1/admin/products/{id}/status` | ADMIN (soft activate/deactivate) |
+| GET | `/api/v1/admin/products/{id}/inventory` | ADMIN |
+| PUT | `/api/v1/admin/products/{id}/inventory` | ADMIN (set absolute `quantityOnHand`) |
 
 **Admin rules:**
 
 - Create/update require an **active** category (`400` if missing/inactive).
 - SKU unique (case-insensitive app check; DB unique on `sku`) → `409` on conflict.
-- Request bodies ignore unknown fields (e.g. `quantityOnHand` / `inventory`) — **no inventory write** here (P06).
+- Request bodies ignore unknown fields (e.g. `quantityOnHand` / `inventory`) — **no inventory write** on product create/update (use inventory endpoints).
 - New products start `active=true`; deactivate hides them from public product APIs.
 - **No DELETE** endpoint (soft-disable only) → `405` if attempted.
 - Admin list query: `q`, `categoryId` (any existing category), `active`, same page/size/sort as public.
+
+**Admin inventory (ADR-006):**
+
+- One `inventory` row per product (`product_id` PK). `available = quantity_on_hand − quantity_reserved`.
+- `GET …/inventory` returns `{ productId, quantityOnHand, quantityReserved, available, updatedAt }` (zeros if row missing).
+- `PUT …/inventory` body `{ "quantityOnHand": <int >= 0 }` sets absolute on-hand; creates the row when missing; rejects when `quantityOnHand < quantityReserved` (`400`); uses a pessimistic lock; does **not** change reservation/confirm paths.
+- CUSTOMER / anonymous → `401`/`403`. Checkout still reserves via `/api/v1/inventory/reservations`.
 
 ### Cart (P06-T01) — customer
 

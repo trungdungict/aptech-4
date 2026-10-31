@@ -12,6 +12,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -44,6 +46,23 @@ public class GlobalExceptionHandler {
 	ResponseEntity<ApiError> handleBadCredentials(AuthenticationException ex, HttpServletRequest request) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 			.body(ApiError.of(401, "Unauthorized", "Invalid email or password", request.getRequestURI()));
+	}
+
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	ResponseEntity<ApiError> handleMaxUpload(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+		return ResponseEntity.badRequest()
+			.body(ApiError.of(
+					400,
+					"Bad Request",
+					"Image must be smaller than the configured upload size limit",
+					request.getRequestURI()
+			));
+	}
+
+	@ExceptionHandler(MultipartException.class)
+	ResponseEntity<ApiError> handleMultipart(MultipartException ex, HttpServletRequest request) {
+		return ResponseEntity.badRequest()
+			.body(ApiError.of(400, "Bad Request", "Invalid multipart upload", request.getRequestURI()));
 	}
 
 	private static String formatFieldError(FieldError error) {

@@ -33,6 +33,9 @@ public record ProductUpdateRequest(
 		String currency,
 
 		@NotNull
-		UUID categoryId
+		UUID categoryId,
+
+		@Size(max = 512)
+		String imageUrl
 ) {
 }

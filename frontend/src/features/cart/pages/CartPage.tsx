@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { formatProductPrice } from '@/features/catalog/lib/format-price'
+import { resolveProductImage } from '@/features/catalog/lib/resolve-product-image'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import * as cartApi from '../api/cart-api'
@@ -221,18 +222,24 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
             className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`View ${item.productName}`}
           >
-            {item.imageUrl ? (
-              <img
-                src={item.imageUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="flex flex-col items-center gap-1 text-muted-foreground" aria-hidden="true">
-                <ImageIcon className="size-5 opacity-60" />
-                <span className="text-[10px] font-medium">No image</span>
-              </span>
-            )}
+            {(() => {
+              const src = resolveProductImage({
+                name: item.productName,
+                imageUrl: item.imageUrl,
+              })
+              return src ? (
+                <img
+                  src={src}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="flex flex-col items-center gap-1 text-muted-foreground" aria-hidden="true">
+                  <ImageIcon className="size-5 opacity-60" />
+                  <span className="text-[10px] font-medium">No image</span>
+                </span>
+              )
+            })()}
           </Link>
 
           <div className="min-w-0 flex-1 space-y-2">

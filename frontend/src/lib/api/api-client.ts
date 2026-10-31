@@ -13,6 +13,11 @@ export type ApiRequestOptions = {
   skipAuthRefresh?: boolean
   signal?: AbortSignal
   headers?: Record<string, string>
+  /**
+   * When true, `body` is sent as FormData/Blob without forcing JSON Content-Type
+   * (browser sets multipart boundary).
+   */
+  multipart?: boolean
 }
 
 type TokenAccessor = {
@@ -76,8 +81,13 @@ async function executeFetch(
 
   let body: BodyInit | undefined
   if (options.body !== undefined) {
-    headers['Content-Type'] = 'application/json'
-    body = JSON.stringify(options.body)
+    if (options.multipart) {
+      body = options.body as BodyInit
+      delete headers['Content-Type']
+    } else {
+      headers['Content-Type'] = 'application/json'
+      body = JSON.stringify(options.body)
+    }
   }
 
   if (options.auth && accessToken) {

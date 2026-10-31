@@ -47,4 +47,7 @@ databaseChangeLog:
   - include:
       file: changes/120-notifications.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/130-product-image-url.yaml
+      relativeToChangelogFile: true
 

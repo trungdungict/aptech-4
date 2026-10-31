@@ -34,7 +34,8 @@ SEED_SERVER_PORT ?= 18081
 
 .PHONY: help env-check up-deps down-deps down down-all up-all clean ps logs-deps health-deps reset-deps-volumes \
 	build-stack deploy-local deploy-demo-stack deploy-local-ai down-local health-local health-demo-stack \
-	logs-local smoke-local smoke-demo smoke-chat \
+	logs-local smoke-local smoke-demo smoke-chat smoke-product-image-upload \
+	test-product-image-upload test-nginx-assets-no-spa-fallback \
 	up-ai ollama-pull ollama-ensure-model ollama-health down-ai \
 	monitoring-up monitoring-down monitoring-status monitoring-validate monitoring-validate-demo \
 	invalidate-catalog-cache \
@@ -308,10 +309,13 @@ print("targets", [(t["labels"].get("job"), t["health"]) for t in d.get("data",{}
 monitoring-validate-demo: ## Require Prometheus/Grafana ready and critical scrape targets up (incl. aptech4-api)
 	@bash ./scripts/monitoring-validate-demo.sh
 
+test-nginx-assets-no-spa-fallback: ## Offline: nginx /assets must 404 (never SPA HTML fallback)
+	@bash ./scripts/test-nginx-assets-no-spa-fallback.sh
+
 smoke-local: ## HTTP smoke: web UI + public API via same-origin nginx proxy
 	@base="http://127.0.0.1:$(WEB_PORT)"; \
 	echo "GET $$base/"; \
-	code=$$(curl -sS -o /tmp/aptech4-web-smoke.html -w '%{http_code}' "$$base/"); \
+	code=$$(curl -sS -D /tmp/aptech4-web-smoke.hdr -o /tmp/aptech4-web-smoke.html -w '%{http_code}' "$$base/"); \
 	test "$$code" = "200" || { echo "ERROR: web HTTP $$code"; exit 1; }; \
 	echo "OK: web $$code"; \
 	echo "GET $$base/api/v1/health"; \
@@ -320,7 +324,13 @@ smoke-local: ## HTTP smoke: web UI + public API via same-origin nginx proxy
 	echo ""; echo "GET $$base/api/v1/categories"; \
 	code=$$(curl -sS -o /tmp/aptech4-cat-smoke.json -w '%{http_code}' "$$base/api/v1/categories"); \
 	test "$$code" = "200" || { echo "ERROR: categories HTTP $$code"; exit 1; }; \
-	echo "OK: categories $$code (same-origin /api routing)"
+	echo "OK: categories $$code (same-origin /api routing)"; \
+	echo "GET $$base/assets/missing-chunk-regression-$$RANDOM.js (expect 404, not HTML)"; \
+	code=$$(curl -sS -D /tmp/aptech4-missing-asset.hdr -o /tmp/aptech4-missing-asset.body -w '%{http_code}' \
+		"$$base/assets/ChatPanel-stale-hash-does-not-exist.js"); \
+	test "$$code" = "404" || { echo "ERROR: missing asset expected 404, got $$code (SPA fallback serving HTML as JS?)"; exit 1; }; \
+	! grep -qi '<!doctype html' /tmp/aptech4-missing-asset.body || { echo "ERROR: missing asset body looks like HTML"; exit 1; }; \
+	echo "OK: missing /assets/* returns 404 (not index.html)"
 
 reset-deps-volumes: ## DESTRUCTIVE: stop deps and delete Postgres/Redis volumes
 	@echo "WARNING: This deletes aptech4_pgdata and aptech4_redisdata."
@@ -483,6 +493,19 @@ smoke-demo: ## After seed: login + public catalog via stack nginx (WEB_PORT)
 
 smoke-chat: ## Require AI chat READY + one authenticated completion (fail if AI omitted)
 	@WEB_PORT="$(WEB_PORT)" bash ./scripts/smoke-chat.sh
+
+smoke-product-image-upload: ## Opt-in: Admin image upload via nginx (needs stack + DEMO_ADMIN_*)
+	@bash ./scripts/smoke-product-image-upload.sh
+
+test-product-image-upload: ## Host unit/IT + frontend suites for product image upload
+	@echo "== backend ProductImage* + AdminProductImageUpload =="
+	@cd backend && ./mvnw -Dtest=ProductImageUploadServiceTest,ProductImagePathRulesTest,AdminProductImageUploadIntegrationTest test
+	@echo "== frontend admin products + resolve-product-image + cart =="
+	@cd frontend && npm test -- --run \
+		src/features/admin/products \
+		src/features/catalog/lib/resolve-product-image.test.ts \
+		src/features/cart/pages/CartPage.test.tsx
+	@echo "OK: test-product-image-upload (automated). Optional live stack: make smoke-product-image-upload"
 
 check-up-all-makefile: ## Static check that up-all wires core+AI+monitoring (no Docker)
 	@bash ./scripts/check-up-all-makefile.sh

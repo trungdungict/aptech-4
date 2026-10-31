@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.aptech.aptech4.catalog.application.AdminInventoryService;
 import com.aptech.aptech4.catalog.application.ProductService;
 import com.aptech.aptech4.common.api.ApiError;
 import com.aptech.aptech4.common.api.PageResponse;
@@ -33,9 +34,11 @@ import jakarta.validation.Valid;
 public class AdminProductController {
 
 	private final ProductService productService;
+	private final AdminInventoryService adminInventoryService;
 
-	public AdminProductController(ProductService productService) {
+	public AdminProductController(ProductService productService, AdminInventoryService adminInventoryService) {
 		this.productService = productService;
+		this.adminInventoryService = adminInventoryService;
 	}
 
 	@GetMapping
@@ -118,5 +121,39 @@ public class AdminProductController {
 			@Valid @RequestBody ProductStatusRequest request
 	) {
 		return ResponseEntity.ok(productService.updateStatus(id, request));
+	}
+
+	@GetMapping("/{id}/inventory")
+	@Operation(summary = "Get product inventory (ADMIN)",
+			description = "Returns on-hand, reserved, and available (= onHand − reserved). "
+					+ "If no inventory row exists yet, quantities are reported as 0.")
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "Inventory state",
+					content = @Content(schema = @Schema(implementation = AdminProductInventoryResponse.class))),
+			@ApiResponse(responseCode = "401", description = "Unauthorized"),
+			@ApiResponse(responseCode = "403", description = "Forbidden"),
+			@ApiResponse(responseCode = "404", description = "Product not found")
+	})
+	public ResponseEntity<AdminProductInventoryResponse> getInventory(@PathVariable UUID id) {
+		return ResponseEntity.ok(adminInventoryService.get(id));
+	}
+
+	@PutMapping("/{id}/inventory")
+	@Operation(summary = "Set product quantity on hand (ADMIN)",
+			description = "Sets absolute quantity_on_hand. Must be >= quantity_reserved. "
+					+ "Creates the inventory row when missing. Does not change reservation/checkout rules.")
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "Updated inventory",
+					content = @Content(schema = @Schema(implementation = AdminProductInventoryResponse.class))),
+			@ApiResponse(responseCode = "400", description = "Invalid quantity / below reserved"),
+			@ApiResponse(responseCode = "401", description = "Unauthorized"),
+			@ApiResponse(responseCode = "403", description = "Forbidden"),
+			@ApiResponse(responseCode = "404", description = "Product not found")
+	})
+	public ResponseEntity<AdminProductInventoryResponse> updateInventory(
+			@PathVariable UUID id,
+			@Valid @RequestBody AdminProductInventoryUpdateRequest request
+	) {
+		return ResponseEntity.ok(adminInventoryService.setOnHand(id, request));
 	}
 }

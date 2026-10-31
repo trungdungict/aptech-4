@@ -101,7 +101,42 @@ Frontend presentation only:
 - `frontend/src/features/catalog/data/foodmart-image-map.json` — SKU → `/assets/foodmart/...`
 - `frontend/src/features/catalog/data/foodmart-demo-data.json` — mirror for UI tooling / import dry-run (not the DB source of truth)
 
-Images are **not** stored in the database (`imageUrl` remains null).
+Seeded FoodMart products keep `imageUrl` null; the storefront falls back to
+`foodmart-image-map.json`. Admin uploads (below) may set `imageUrl` to a public
+relative path — PostgreSQL never stores image bytes.
+
+## Product image upload (Admin)
+
+| Concern | Behavior |
+|---------|----------|
+| Endpoint | `POST /api/v1/admin/uploads/images` (`multipart/form-data`, field `file`) |
+| Auth | JWT + `ADMIN` only |
+| Response | `{ imageUrl, contentType, sizeBytes }` — `imageUrl` like `/uploads/products/{uuid}.png` |
+| DB | `products.image_url` stores **only** that relative path |
+| Files | Named volume `aptech4_uploads` → `/app/uploads` in the API container |
+| Size | Strict **&lt;** `PRODUCT_IMAGE_MAX_SIZE_BYTES` (default 2097152); exactly 2 MiB rejected |
+| Formats | JPEG / PNG / WebP (content inspected; spoofed MIME rejected) |
+| Serve | `GET /uploads/products/**` (API + nginx `/uploads/` proxy); Vite proxies `/uploads` in dev |
+
+Configure via repo-root `.env` (see `.env.example`). Compose maps `PRODUCT_IMAGE_*` into the `api` service. Frontend `VITE_PRODUCT_IMAGE_*` mirrors size/types for UX only — never backend filesystem paths or secrets.
+
+**Change limits:** edit `PRODUCT_IMAGE_MAX_SIZE_BYTES`, `PRODUCT_IMAGE_ALLOWED_TYPES`, `PRODUCT_IMAGE_MAX_WIDTH` / `_HEIGHT` / `_PIXELS`, and `PRODUCT_IMAGE_UPLOAD_DIR` / `PRODUCT_IMAGE_PUBLIC_PATH`, then recreate the API container (volume keeps existing files). Align `VITE_PRODUCT_IMAGE_*` when rebuilding the web image.
+
+**Orphan cleanup:** replacing/clearing a product `imageUrl` does not delete the previous file (shared-path safe). No automatic filesystem GC in this demo.
+
+**Production follow-ups:** shared/object storage for multi-replica; backups of the upload volume; upload rate limiting; optional CDN via `PRODUCT_IMAGE_PUBLIC_BASE_URL` without changing DB path semantics.
+
+**Tests:**
+
+```bash
+# Automated unit + Compose IT + frontend (needs IT DB aptech4_catalog_it + host JDK 21 / npm)
+make test-product-image-upload
+
+# Opt-in live smoke against running stack nginx (DEMO_ADMIN_* from .env; no volume wipe)
+make smoke-product-image-upload
+```
+
+`smoke-product-image-upload` uploads one PNG, fetches it via `/uploads/...`, rejects anonymous + exact-limit payloads, then deletes only that unreferenced file from the API container when safe. Requires a stack API image that includes the upload controller (rebuild after pulling this feature).
 
 ## Environment variables
 
@@ -143,7 +178,9 @@ Explicit shell exports override `.env` files. Never commit secrets. Seed refuses
 
 ## Inventory
 
-`onHand` from fixtures → `inventory.quantity_on_hand`; reserved left at 0 unless already higher. Available stock = on_hand − reserved. Frontend `inStock` reflects that after seed (unlike Admin API create without inventory).
+`onHand` from fixtures → `inventory.quantity_on_hand`; reserved left at 0 unless already higher. Available stock = on_hand − reserved. Frontend `inStock` reflects that after seed (unlike Admin product create, which still does not write inventory).
+
+**Admin workflow:** open **Admin → Products → Edit**, use the **Inventory** card. `GET/PUT /api/v1/admin/products/{id}/inventory` with `{ "quantityOnHand": N }` (ADMIN only). On-hand must be ≥ reserved; checkout continues to use reservation/confirm APIs unchanged.
 
 ## Adding mock data
 

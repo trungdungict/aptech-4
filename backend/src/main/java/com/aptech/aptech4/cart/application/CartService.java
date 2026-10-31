@@ -190,7 +190,7 @@ public class CartService {
 				item.getId(),
 				product.getId(),
 				product.getName(),
-				null,
+				product.getImageUrl(),
 				item.getQuantity(),
 				unitPrice,
 				lineSubtotal,

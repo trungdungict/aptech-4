@@ -75,6 +75,9 @@ postman/*.local.json
 postman/runtime/
 postman/newman-report*
 
+# --- Local product image uploads (host-side / non-Compose) ---
+.data/
+
 # --- Logs / temp ---
 *.log
 tmp/

@@ -1,6 +1,11 @@
 spring:
   application:
     name: aptech4-api
+  servlet:
+    multipart:
+      # Keep aligned with PRODUCT_IMAGE_MAX_SIZE_BYTES (app still rejects size >= max).
+      max-file-size: ${PRODUCT_IMAGE_MULTIPART_MAX:2MB}
+      max-request-size: ${PRODUCT_IMAGE_MULTIPART_REQUEST_MAX:2MB}
   cache:
     type: redis
   datasource:
@@ -81,6 +86,18 @@ aptech:
     max-message-chars: ${APTECH_AI_MAX_MESSAGE_CHARS:2000}
     low-stock-threshold: ${APTECH_AI_LOW_STOCK_THRESHOLD:5}
     max-tool-results: ${APTECH_AI_MAX_TOOL_RESULTS:20}
+  product-image:
+    # Local filesystem storage for Admin uploads. PostgreSQL stores public path only.
+    enabled: ${PRODUCT_IMAGE_UPLOAD_ENABLED:true}
+    upload-dir: ${PRODUCT_IMAGE_UPLOAD_DIR:./.data/uploads/products}
+    public-path: ${PRODUCT_IMAGE_PUBLIC_PATH:/uploads/products}
+    # Strict: files with size >= max-size-bytes are rejected (exactly 2 MiB rejected by default).
+    max-size-bytes: ${PRODUCT_IMAGE_MAX_SIZE_BYTES:2097152}
+    allowed-types: ${PRODUCT_IMAGE_ALLOWED_TYPES:image/jpeg,image/png,image/webp}
+    max-width: ${PRODUCT_IMAGE_MAX_WIDTH:6000}
+    max-height: ${PRODUCT_IMAGE_MAX_HEIGHT:6000}
+    max-pixels: ${PRODUCT_IMAGE_MAX_PIXELS:25000000}
+    normalize-enabled: ${PRODUCT_IMAGE_NORMALIZE_ENABLED:false}
   seed:
     # Explicit one-shot only (make seed-demo / reset-demo). Never auto-run on normal API startup.
     enabled: ${APTECH_SEED_ENABLED:false}

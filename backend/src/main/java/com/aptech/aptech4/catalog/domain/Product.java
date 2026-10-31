@@ -51,6 +51,10 @@ public class Product extends AbstractUuidEntity {
 	@Column(name = "active", nullable = false)
 	private boolean active = true;
 
+	/** Public relative path only, e.g. /uploads/products/{uuid}.webp — never bytes or host paths. */
+	@Column(name = "image_url", length = 512)
+	private String imageUrl;
+
 	@Column(name = "created_at", nullable = false)
 	private Instant createdAt = Instant.now();
 
@@ -153,6 +157,14 @@ public class Product extends AbstractUuidEntity {
 
 	public void setActive(boolean active) {
 		this.active = active;
+	}
+
+	public String getImageUrl() {
+		return imageUrl;
+	}
+
+	public void setImageUrl(String imageUrl) {
+		this.imageUrl = imageUrl;
 	}
 
 	public Instant getCreatedAt() {

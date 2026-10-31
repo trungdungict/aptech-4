@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { Controller, useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { listAdminCategories } from '@/features/admin/categories/api/admin-categories-api'
@@ -26,8 +26,14 @@ import {
 } from '../../lib/admin-ui'
 
 import * as productsApi from '../api/admin-products-api'
+import { ProductImageUploadField } from '../components/ProductImageUploadField'
+import { ProductInventoryForm } from '../components/ProductInventoryForm'
 import { adminProductQueryKeys } from '../hooks/admin-product-query-keys'
-import { adminProductFormSchema, type AdminProductFormValues } from '../schemas'
+import {
+  adminProductFormSchema,
+  type AdminProductFormInput,
+  type AdminProductFormValues,
+} from '../schemas'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -56,7 +62,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
     retry: false,
   })
 
-  const form = useForm<AdminProductFormValues>({
+  const form = useForm<AdminProductFormInput, unknown, AdminProductFormValues>({
     resolver: zodResolver(adminProductFormSchema),
     defaultValues: {
       sku: '',
@@ -65,6 +71,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
       unitPrice: '',
       currency: 'VND',
       categoryId: '',
+      imageUrl: null,
     },
   })
 
@@ -78,6 +85,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
         unitPrice: String(p.unitPrice),
         currency: p.currency || 'VND',
         categoryId: p.categoryId,
+        imageUrl: p.imageUrl ?? null,
       })
     }
   }, [productQuery.data, form])
@@ -91,6 +99,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
         unitPrice: Number(values.unitPrice),
         currency: values.currency?.trim() || 'VND',
         categoryId: values.categoryId,
+        imageUrl: values.imageUrl ?? null,
       }
       if (isEdit) {
         return productsApi.updateAdminProduct(productId, payload)
@@ -166,7 +175,9 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
           {isEdit ? 'Edit product' : 'Create product'}
         </h1>
         <p className={adminPageLeadClass}>
-          Fields match the admin product API. Inventory quantities are not editable here.
+          {isEdit
+            ? 'Update catalog fields below. Stock is managed in the Inventory section.'
+            : 'Create the product first, then set stock quantity on the edit page.'}
         </p>
       </div>
 
@@ -280,6 +291,18 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
               </select>
             </Field>
 
+            <Controller
+              control={form.control}
+              name="imageUrl"
+              render={({ field }) => (
+                <ProductImageUploadField
+                  imageUrl={field.value ?? null}
+                  onImageUrlChange={field.onChange}
+                  disabled={saveMutation.isPending}
+                />
+              )}
+            />
+
             {categoriesQuery.isError ? (
               <p className="text-sm text-destructive" role="alert">
                 Unable to load categories for the form.
@@ -304,7 +327,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
             ) : null}
 
             <div className="flex flex-wrap gap-2 pt-2">
-              <Button type="submit" disabled={saveMutation.isPending}>
+              <Button type="submit" disabled={saveMutation.isPending || form.formState.isSubmitting}>
                 {saveMutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
               </Button>
               <Button asChild variant="outline">
@@ -314,6 +337,8 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
           </form>
         </CardContent>
       </Card>
+
+      {isEdit && idValid ? <ProductInventoryForm productId={productId} /> : null}
     </section>
   )
 }

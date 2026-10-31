@@ -11,7 +11,7 @@ Modular monolith packages under `com.aptech.aptech4`:
 | `api` | Cross-cutting HTTP adapters (e.g. health); feature APIs live in module `*.api` packages |
 | `config` | Cross-cutting Spring configuration |
 
-Category soft-disable uses `categories.active` (Liquibase `080`). Product soft-disable uses `products.active`. Public APIs never expose inactive rows; admin uses status PATCH instead of hard delete. Product admin CRUD does **not** create inventory rows. Stock holds use `quantity_reserved` + `stock_reservations` (Liquibase `100`, ADR-006); cart never reserves; checkout confirms via service in P06-T03.
+Category soft-disable uses `categories.active` (Liquibase `080`). Product soft-disable uses `products.active`. Public APIs never expose inactive rows; admin uses status PATCH instead of hard delete. Product admin CRUD does **not** create inventory rows — ADMIN sets stock via `GET/PUT /api/v1/admin/products/{id}/inventory` (`AdminInventoryService`). Stock holds use `quantity_reserved` + `stock_reservations` (Liquibase `100`, ADR-006); cart never reserves; checkout confirms via service in P06-T03.
 
 ## Rules
 

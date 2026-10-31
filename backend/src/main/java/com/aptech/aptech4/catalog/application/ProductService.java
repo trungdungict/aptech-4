@@ -118,6 +118,7 @@ public class ProductService {
 				currency,
 				true
 		);
+		product.setImageUrl(com.aptech.aptech4.catalog.upload.ProductImagePathRules.normalizeOrNull(request.imageUrl()));
 		try {
 			Product saved = productRepository.saveAndFlush(product);
 			ProductResponse response = toResponse(productRepository.findAdminById(saved.getId()).orElse(saved));
@@ -141,6 +142,7 @@ public class ProductService {
 		product.setUnitPrice(request.unitPrice());
 		product.setCurrency(normalizeCurrency(request.currency()));
 		product.setCategory(category);
+		product.setImageUrl(com.aptech.aptech4.catalog.upload.ProductImagePathRules.normalizeOrNull(request.imageUrl()));
 		product.touch();
 		try {
 			productRepository.saveAndFlush(product);
@@ -302,7 +304,7 @@ public class ProductService {
 				product.getCategory().getId(),
 				product.getCategory().getName(),
 				product.isActive(),
-				null,
+				product.getImageUrl(),
 				inStock
 		);
 	}
