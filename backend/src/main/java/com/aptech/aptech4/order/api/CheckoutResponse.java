@@ -13,10 +13,12 @@ public record CheckoutResponse(
 		String orderStatus,
 		BigDecimal subtotalAmount,
 		BigDecimal shippingAmount,
+		BigDecimal discountAmount,
 		BigDecimal totalAmount,
 		String currency,
 		Instant placedAt,
 		List<CheckoutOrderItemResponse> items,
+		List<AppliedPromotionResponse> appliedPromotions,
 		CheckoutPaymentResponse payment,
 		boolean cartCleared
 ) {
@@ -27,6 +29,15 @@ public record CheckoutResponse(
 			BigDecimal unitPrice,
 			int quantity,
 			BigDecimal lineTotal
+	) {
+	}
+
+	@Schema(description = "Applied promotion at checkout (ADR-020 D7).")
+	public record AppliedPromotionResponse(
+			UUID campaignId,
+			String campaignName,
+			String strategyType,
+			BigDecimal discountAmount
 	) {
 	}
 

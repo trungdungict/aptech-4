@@ -3,9 +3,9 @@
     "title": "FoodMart grocery catalog — backend seed source of truth",
     "currency": "VND",
     "notes": [
-      "Persisted by DemoSeedService. Frontend foodmart-image-map.json maps SKU → local image only.",
-      "Demo prices only — not market prices.",
-      "No brand/rating/imageUrl fields (unsupported by schema)."
+      "Persisted by DemoSeedService. Seed images: foodmart-product-images.json → /uploads/products/{uuid}.ext.",
+      "Frontend foodmart-image-map.json remains a legacy catalog fallback for null imageUrl rows.",
+      "Demo prices only — not market prices."
     ]
   },
   "categories": [

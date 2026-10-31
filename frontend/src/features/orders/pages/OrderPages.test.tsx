@@ -20,6 +20,7 @@ const orderDetail = {
   status: 'PAID',
   subtotalAmount: 12990000,
   shippingAmount: 0,
+  discountAmount: 0,
   totalAmount: 12990000,
   currency: 'VND',
   placedAt: '2026-01-01T12:00:00Z',
@@ -44,6 +45,12 @@ const orderDetail = {
       lineTotal: 12990000,
     },
   ],
+  appliedPromotions: [] as Array<{
+    campaignId: string | null
+    campaignName: string
+    strategyType: string
+    discountAmount: number
+  }>,
   payment: {
     paymentId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
     provider: 'MOCK',
@@ -136,6 +143,53 @@ describe('Order pages', () => {
     expect(screen.getByText(/price snapshots/i)).toBeInTheDocument()
     expect(screen.getByText(/demo smartphone x/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /payment \(mock\)/i })).toBeInTheDocument()
+    expect(screen.getByText(/^subtotal$/i)).toBeInTheDocument()
+    expect(screen.queryByText(/^discount$/i)).not.toBeInTheDocument()
+  })
+
+  it('shows applied promotion discount breakdown from API without recomputing', async () => {
+    const promoOrder = {
+      ...orderDetail,
+      subtotalAmount: 100000,
+      shippingAmount: 0,
+      discountAmount: 25000,
+      totalAmount: 75000,
+      appliedPromotions: [
+        {
+          campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          campaignName: 'Spring Sale',
+          strategyType: 'PERCENTAGE_DISCOUNT',
+          discountAmount: 10000,
+        },
+        {
+          campaignId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          campaignName: 'Fixed Off',
+          strategyType: 'FIXED_AMOUNT_DISCOUNT',
+          discountAmount: 15000,
+        },
+      ],
+      payment: {
+        ...orderDetail.payment,
+        amount: 75000,
+      },
+    }
+
+    mockFetchRouter((url) => {
+      if (url.includes(`/orders/${orderId}`)) {
+        return jsonResponse(200, promoOrder)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'Order not found' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: `/orders/${orderId}`,
+      session: demoCustomerSession,
+    })
+
+    expect(await screen.findByText(/^discount$/i)).toBeInTheDocument()
+    expect(screen.getByText(/spring sale/i)).toBeInTheDocument()
+    expect(screen.getByText(/fixed off/i)).toBeInTheDocument()
+    expect(screen.getByText(/percentage_discount/i)).toBeInTheDocument()
   })
 
   it('handles inaccessible order without leaking details', async () => {

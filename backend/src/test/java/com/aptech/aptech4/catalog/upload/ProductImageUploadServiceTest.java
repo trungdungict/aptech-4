@@ -46,6 +46,8 @@ class ProductImageUploadServiceTest {
 		properties = new ProductImageProperties();
 		properties.setUploadDir(tempDir.resolve("products").toString());
 		properties.setPublicPath("/uploads/products");
+		properties.setPromotionUploadDir(tempDir.resolve("promotions").toString());
+		properties.setPromotionPublicPath("/uploads/promotions");
 		properties.setMaxSizeBytes(MAX_BYTES);
 		properties.setMaxWidth(6000);
 		properties.setMaxHeight(6000);
@@ -177,7 +179,11 @@ class ProductImageUploadServiceTest {
 		assertThat(name).matches("[0-9a-fA-F-]{36}\\.png");
 		assertStoredUnderUploadDir(response.imageUrl());
 		try (Stream<Path> stream = Files.list(tempDir)) {
-			assertThat(stream.count()).isEqualTo(1); // only products/
+			assertThat(stream.map(p -> p.getFileName().toString()).toList())
+					.containsExactlyInAnyOrder("products", "promotions");
+		}
+		try (Stream<Path> stream = Files.list(properties.uploadDirectory())) {
+			assertThat(stream.filter(Files::isRegularFile).count()).isEqualTo(1);
 		}
 	}
 
@@ -275,6 +281,19 @@ class ProductImageUploadServiceTest {
 
 	private static MockMultipartFile multipart(String filename, String contentType, byte[] bytes) {
 		return new MockMultipartFile("file", filename, contentType, bytes);
+	}
+
+	@Test
+	void storesPromotionUploadsUnderIsolatedPrefix() throws Exception {
+		ProductImageUploadResponse response = service.upload(
+				multipart("promo.png", "image/png", tinyPng(8, 8)),
+				UploadPurpose.PROMOTION
+		);
+		assertThat(response.imageUrl()).startsWith("/uploads/promotions/");
+		assertThat(response.imageUrl()).doesNotContain("/uploads/products/");
+		Path stored = properties.promotionUploadDirectory().resolve(Path.of(response.imageUrl()).getFileName().toString());
+		assertThat(stored).exists();
+		assertThat(Files.size(stored)).isEqualTo(response.sizeBytes());
 	}
 
 	private static byte[] padToSize(byte[] prefix, int size) {

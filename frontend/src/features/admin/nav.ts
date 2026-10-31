@@ -32,4 +32,10 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     to: '/admin/orders',
     description: 'List orders and update fulfillment status',
   },
+  {
+    id: 'promotions',
+    label: 'Promotions',
+    to: '/admin/promotions',
+    description: 'Strategies, campaigns, eligibility, and homepage placements',
+  },
 ]

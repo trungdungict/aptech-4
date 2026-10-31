@@ -5,6 +5,7 @@ import {
   applySession,
   clearSession,
   refreshAccessTokenSingleFlight,
+  subscribeSessionCleared,
 } from './session-coordinator'
 import { refreshTokenStore } from './token-store'
 
@@ -31,6 +32,23 @@ describe('session coordinator', () => {
 
     await expect(refreshAccessTokenSingleFlight()).resolves.toBeNull()
     expect(refreshTokenStore.get()).toBeNull()
+  })
+
+  it('notifies listeners when the session is cleared', () => {
+    const listener = vi.fn()
+    const unsubscribe = subscribeSessionCleared(listener)
+    applySession({
+      accessToken: 'a1',
+      refreshToken: 'r1',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      user: { id: 'u1', email: 'a@b.co', fullName: 'A', roles: ['CUSTOMER'] },
+    })
+    clearSession()
+    expect(listener).toHaveBeenCalledTimes(1)
+    unsubscribe()
+    clearSession()
+    expect(listener).toHaveBeenCalledTimes(1)
   })
 
   it('dedupes concurrent refresh calls', async () => {

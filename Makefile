@@ -34,8 +34,8 @@ SEED_SERVER_PORT ?= 18081
 
 .PHONY: help env-check up-deps down-deps down down-all up-all clean ps logs-deps health-deps reset-deps-volumes \
 	build-stack deploy-local deploy-demo-stack deploy-local-ai down-local health-local health-demo-stack \
-	logs-local smoke-local smoke-demo smoke-chat smoke-product-image-upload \
-	test-product-image-upload test-nginx-assets-no-spa-fallback \
+	logs-local smoke-local smoke-demo smoke-chat smoke-product-image-upload smoke-promotions \
+	test-product-image-upload test-promotions test-nginx-assets-no-spa-fallback \
 	up-ai ollama-pull ollama-ensure-model ollama-health down-ai \
 	monitoring-up monitoring-down monitoring-status monitoring-validate monitoring-validate-demo \
 	invalidate-catalog-cache \
@@ -405,6 +405,23 @@ seed-demo: seed-check up-deps ## Idempotent demo seed into Compose Postgres (doe
 	SPRING_PROFILES_ACTIVE="$${SPRING_PROFILES_ACTIVE:-local}" \
 	./mvnw -q spring-boot:run
 	@$(MAKE) --no-print-directory invalidate-catalog-cache
+	@# Host seed writes under backend/.data; sync seed images into stack uploads volume when api is up.
+	@if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'aptech4-api'; then \
+		hero_src="backend/.data/uploads/promotions/bbbbbbbb-cccc-4ddd-8eee-ffffffffffff.jpg"; \
+		if [[ -f "$$hero_src" ]]; then \
+			docker exec aptech4-api mkdir -p /app/uploads/promotions >/dev/null 2>&1 || true; \
+			docker cp "$$hero_src" aptech4-api:/app/uploads/promotions/bbbbbbbb-cccc-4ddd-8eee-ffffffffffff.jpg >/dev/null 2>&1 \
+				&& echo "Synced promo hero JPG into aptech4-api uploads volume" \
+				|| echo "WARN: could not sync promo hero JPG into api container (title still seeded)"; \
+		fi; \
+		prod_src="backend/.data/uploads/products"; \
+		if [[ -d "$$prod_src" ]] && compgen -G "$$prod_src/*" >/dev/null; then \
+			docker exec aptech4-api mkdir -p /app/uploads/products >/dev/null 2>&1 || true; \
+			docker cp "$$prod_src/." aptech4-api:/app/uploads/products/ >/dev/null 2>&1 \
+				&& echo "Synced FoodMart product images into aptech4-api uploads volume" \
+				|| echo "WARN: could not sync product images into api container"; \
+		fi; \
+	fi
 	@echo "Demo seed finished. Long-running api keeps APTECH_SEED_ENABLED=false."
 
 reset-demo-dry: seed-check up-deps ## Dry-run: print demo reset scope; no deletes
@@ -497,6 +514,9 @@ smoke-chat: ## Require AI chat READY + one authenticated completion (fail if AI 
 smoke-product-image-upload: ## Opt-in: Admin image upload via nginx (needs stack + DEMO_ADMIN_*)
 	@bash ./scripts/smoke-product-image-upload.sh
 
+smoke-promotions: ## Opt-in: promotion journey via nginx (admin → public → checkout → order)
+	@bash ./scripts/smoke-promotions.sh
+
 test-product-image-upload: ## Host unit/IT + frontend suites for product image upload
 	@echo "== backend ProductImage* + AdminProductImageUpload =="
 	@cd backend && ./mvnw -Dtest=ProductImageUploadServiceTest,ProductImagePathRulesTest,AdminProductImageUploadIntegrationTest test
@@ -506,6 +526,23 @@ test-product-image-upload: ## Host unit/IT + frontend suites for product image u
 		src/features/catalog/lib/resolve-product-image.test.ts \
 		src/features/cart/pages/CartPage.test.tsx
 	@echo "OK: test-product-image-upload (automated). Optional live stack: make smoke-product-image-upload"
+
+test-promotions: ## Host: promotion domain/API/pricing/checkout/order/expiry matrix (P22)
+	@echo "== backend promotion + checkout/order promotion suites =="
+	@cd backend && ./mvnw -Dtest=\
+PromotionStrategyRulesTest,\
+PromotionCampaignEffectivenessTest,\
+PromotionPricingServiceTest,\
+PromotionCacheKeysTest,\
+PromotionDomainIntegrationTest,\
+PromotionApiIntegrationTest,\
+CampaignExpiryIntegrationTest,\
+CheckoutPromotionIntegrationTest,\
+OrderPromotionGetIntegrationTest,\
+CheckoutIntegrationTest,\
+OrderLifecycleIntegrationTest\
+ test
+	@echo "OK: test-promotions (excludes Testcontainers-only PromotionCacheIntegrationTest — run separately with Docker)"
 
 check-up-all-makefile: ## Static check that up-all wires core+AI+monitoring (no Docker)
 	@bash ./scripts/check-up-all-makefile.sh

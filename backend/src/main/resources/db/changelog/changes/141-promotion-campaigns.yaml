@@ -1,0 +1,100 @@
+databaseChangeLog:
+  - changeSet:
+      id: 141-promotion-campaigns
+      author: aptech4
+      comment: Scheduled promotion campaigns (ADR-020)
+      changes:
+        - createTable:
+            tableName: promotion_campaigns
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: strategy_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: slug
+                  type: VARCHAR(160)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: starts_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: ends_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: priority
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: stackable
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: notes
+                  type: TEXT
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: promotion_campaigns
+            baseColumnNames: strategy_id
+            referencedTableName: promotion_strategies
+            referencedColumnNames: id
+            constraintName: fk_promotion_campaigns_strategy
+            onDelete: RESTRICT
+        - sql:
+            sql: >
+              ALTER TABLE promotion_campaigns
+              ADD CONSTRAINT chk_promotion_campaigns_status
+              CHECK (status IN ('DRAFT', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'EXPIRED'));
+        - sql:
+            sql: >
+              ALTER TABLE promotion_campaigns
+              ADD CONSTRAINT chk_promotion_campaigns_window
+              CHECK (ends_at > starts_at);
+        - createIndex:
+            indexName: idx_promotion_campaigns_status_window
+            tableName: promotion_campaigns
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: starts_at
+              - column:
+                  name: ends_at

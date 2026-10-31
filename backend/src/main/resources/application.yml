@@ -65,12 +65,19 @@ aptech:
     # Soft-hold TTL for ACTIVE reservations (ADR-006). Checkout (P06-T03) should confirm before expiry.
     reservation-ttl-seconds: ${INVENTORY_RESERVATION_TTL_SECONDS:900}
     expiry-poll-ms: ${INVENTORY_EXPIRY_POLL_MS:60000}
+  promotions:
+    # Lifecycle hygiene poll for ACTIVE→EXPIRED when now > ends_at (ADR-020 R9). Not required for checkout correctness.
+    expiry-poll-ms: ${PROMOTIONS_EXPIRY_POLL_MS:60000}
   cache:
     catalog:
       # Public category list/detail TTL (ADR-015).
       categories-ttl-seconds: ${CATALOG_CACHE_CATEGORIES_TTL_SECONDS:120}
       # Public product list/detail TTL (shorter: inStock changes via reservations).
       products-ttl-seconds: ${CATALOG_CACHE_PRODUCTS_TTL_SECONDS:60}
+    promotions:
+      # Public homepage/placements TTL (ADR-020 R7). Mutations must invalidate; TTL is fallback only.
+      homepage-ttl-seconds: ${PROMOTIONS_CACHE_HOMEPAGE_TTL_SECONDS:30}
+      placements-ttl-seconds: ${PROMOTIONS_CACHE_PLACEMENTS_TTL_SECONDS:30}
   payment:
     mock:
       # Deterministic mock outcome (SUCCEEDED|FAILED). Not a real payment gateway.
@@ -91,6 +98,8 @@ aptech:
     enabled: ${PRODUCT_IMAGE_UPLOAD_ENABLED:true}
     upload-dir: ${PRODUCT_IMAGE_UPLOAD_DIR:./.data/uploads/products}
     public-path: ${PRODUCT_IMAGE_PUBLIC_PATH:/uploads/products}
+    promotion-upload-dir: ${PROMOTION_IMAGE_UPLOAD_DIR:./.data/uploads/promotions}
+    promotion-public-path: ${PROMOTION_IMAGE_PUBLIC_PATH:/uploads/promotions}
     # Strict: files with size >= max-size-bytes are rejected (exactly 2 MiB rejected by default).
     max-size-bytes: ${PRODUCT_IMAGE_MAX_SIZE_BYTES:2097152}
     allowed-types: ${PRODUCT_IMAGE_ALLOWED_TYPES:image/jpeg,image/png,image/webp}

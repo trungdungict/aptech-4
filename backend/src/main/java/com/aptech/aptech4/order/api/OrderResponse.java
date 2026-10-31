@@ -14,12 +14,14 @@ public record OrderResponse(
 		String status,
 		BigDecimal subtotalAmount,
 		BigDecimal shippingAmount,
+		BigDecimal discountAmount,
 		BigDecimal totalAmount,
 		String currency,
 		Instant placedAt,
 		Instant updatedAt,
 		OrderShippingResponse shipping,
 		List<OrderItemResponse> items,
+		List<AppliedPromotionResponse> appliedPromotions,
 		OrderPaymentSummaryResponse payment
 ) {
 	public record OrderShippingResponse(
@@ -41,6 +43,15 @@ public record OrderResponse(
 			BigDecimal unitPrice,
 			int quantity,
 			BigDecimal lineTotal
+	) {
+	}
+
+	@Schema(description = "Applied promotion from order snapshot (ADR-020 D7). Never recomputed from live campaigns.")
+	public record AppliedPromotionResponse(
+			UUID campaignId,
+			String campaignName,
+			String strategyType,
+			BigDecimal discountAmount
 	) {
 	}
 

@@ -5,7 +5,6 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
@@ -14,8 +13,10 @@ import type { CheckoutResult } from '@/features/checkout/types'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import * as ordersApi from '../api/orders-api'
+import { OrderPriceSummary } from '../components/OrderPriceSummary'
 import { OrderStatusBadge } from '../components/OrderStatusBadge'
 import { orderQueryKeys } from '../hooks/order-query-keys'
+import { hasOrderDiscount } from '../lib/order-money'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -101,6 +102,9 @@ export function OrderDetailPage() {
           </p>
           <p className="mt-1 text-xs opacity-90">
             Payment is demo/mock only. Cart cleared: {checkoutFlash.cartCleared ? 'yes' : 'no'}.
+            {hasOrderDiscount(checkoutFlash.discountAmount)
+              ? ` Discount applied: ${formatProductPrice(checkoutFlash.discountAmount, checkoutFlash.currency)}.`
+              : ''}
           </p>
           <p className="mt-1 text-xs opacity-90">
             Live status below is loaded from the orders API and remains accurate after refresh.
@@ -256,32 +260,15 @@ export function OrderDetailPage() {
                     <h2 className="text-base font-semibold">Order summary</h2>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">Subtotal</span>
-                    <ProductPrice
-                      unitPrice={order.subtotalAmount}
-                      currency={order.currency}
-                      className="text-sm font-medium text-foreground"
-                    />
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">Shipping</span>
-                    <ProductPrice
-                      unitPrice={order.shippingAmount}
-                      currency={order.currency}
-                      className="text-sm font-medium text-foreground"
-                    />
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between gap-3 font-semibold">
-                    <span>Total</span>
-                    <ProductPrice
-                      unitPrice={order.totalAmount}
-                      currency={order.currency}
-                      className="text-base font-semibold text-foreground"
-                    />
-                  </div>
+                <CardContent>
+                  <OrderPriceSummary
+                    currency={order.currency}
+                    subtotalAmount={order.subtotalAmount}
+                    shippingAmount={order.shippingAmount}
+                    discountAmount={order.discountAmount}
+                    totalAmount={order.totalAmount}
+                    appliedPromotions={order.appliedPromotions}
+                  />
                 </CardContent>
               </Card>
 

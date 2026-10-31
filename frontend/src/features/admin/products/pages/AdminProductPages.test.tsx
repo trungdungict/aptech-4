@@ -417,6 +417,123 @@ describe('Admin product pages', () => {
     expect(screen.getByLabelText(/^sku$/i)).toHaveValue('DEMO-PHONE')
   })
 
+  it('shows the current product image on edit when imageUrl is set', async () => {
+    const path = '/uploads/products/9d1f7e4b-1111-4111-8111-111111111111.png'
+    const withImage = { ...product, imageUrl: path }
+
+    mockAdminFetch((url) => {
+      if (url.includes('/admin/categories')) {
+        return jsonResponse(200, [category])
+      }
+      if (url.includes(`/admin/products/${product.id}/inventory`)) {
+        return jsonResponse(200, {
+          productId: product.id,
+          quantityOnHand: 5,
+          quantityReserved: 0,
+          available: 5,
+          updatedAt: '2026-10-30T00:00:00Z',
+        })
+      }
+      if (url.includes(`/admin/products/${product.id}`)) {
+        return jsonResponse(200, withImage)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: `/admin/products/${product.id}/edit`,
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByRole('heading', { name: /edit product/i })).toBeInTheDocument()
+    expect(screen.getByText(/current product image/i)).toBeInTheDocument()
+    expect(document.querySelector('img')).toHaveAttribute('src', path)
+  })
+
+  it('shows a catalog fallback image on edit when imageUrl is null but SKU maps', async () => {
+    const juice = {
+      ...product,
+      sku: 'FOOD-BEV-APPLE-JUICE-001',
+      name: 'Apple Juice (1 L)',
+      imageUrl: null,
+    }
+
+    mockAdminFetch((url) => {
+      if (url.includes('/admin/categories')) {
+        return jsonResponse(200, [category])
+      }
+      if (url.includes(`/admin/products/${product.id}/inventory`)) {
+        return jsonResponse(200, {
+          productId: product.id,
+          quantityOnHand: 5,
+          quantityReserved: 0,
+          available: 5,
+          updatedAt: '2026-10-30T00:00:00Z',
+        })
+      }
+      if (url.includes(`/admin/products/${product.id}`)) {
+        return jsonResponse(200, juice)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: `/admin/products/${product.id}/edit`,
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByDisplayValue(/apple juice \(1 l\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/current product image/i)).toBeInTheDocument()
+    expect(document.querySelector('img')?.getAttribute('src')).toMatch(/thumb-orange-juice\.png$/)
+  })
+
+  it('preserves existing imageUrl on save when no new file is selected', async () => {
+    const user = userEvent.setup()
+    const path = '/uploads/products/9d1f7e4b-1111-4111-8111-111111111111.png'
+    const withImage = { ...product, imageUrl: path }
+    const updates: unknown[] = []
+
+    mockAdminFetch((url, init) => {
+      if (url.includes('/admin/categories')) {
+        return jsonResponse(200, [category])
+      }
+      if (url.includes(`/admin/products/${product.id}/inventory`)) {
+        return jsonResponse(200, {
+          productId: product.id,
+          quantityOnHand: 5,
+          quantityReserved: 0,
+          available: 5,
+          updatedAt: '2026-10-30T00:00:00Z',
+        })
+      }
+      if (url.includes(`/admin/products/${product.id}`) && init?.method === 'PUT') {
+        updates.push(JSON.parse(String(init.body)))
+        return jsonResponse(200, withImage)
+      }
+      if (url.includes(`/admin/products/${product.id}`)) {
+        return jsonResponse(200, withImage)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: `/admin/products/${product.id}/edit`,
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByDisplayValue(/demo phone/i)).toBeInTheDocument()
+    await user.clear(screen.getByLabelText(/^name$/i))
+    await user.type(screen.getByLabelText(/^name$/i), 'Demo Phone Updated')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    await waitFor(() => expect(updates).toHaveLength(1))
+    expect(updates[0]).toMatchObject({
+      name: 'Demo Phone Updated',
+      imageUrl: path,
+    })
+    expect(JSON.stringify(updates[0])).not.toMatch(/base64|data:image/i)
+  })
+
   it('loads inventory on edit and updates stock via admin inventory API', async () => {
     const user = userEvent.setup()
     let inventory = {

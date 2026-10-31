@@ -79,6 +79,34 @@ public final class DemoSeedMarkers {
 		return List.of(SECONDARY_CUSTOMER_EMAIL);
 	}
 
+	/** Active demo promotion strategy codes (current catalog). */
+	public static List<String> promotionStrategyCodes() {
+		return DemoPromotionCatalog.strategyCodes();
+	}
+
+	/** Active demo promotion campaign slugs (current catalog). */
+	public static List<String> promotionCampaignSlugs() {
+		return DemoPromotionCatalog.campaignSlugs();
+	}
+
+	/** Active + retired strategy codes (reset / purge scope). */
+	public static List<String> resetPromotionStrategyCodes() {
+		return DemoPromotionCatalog.resetStrategyCodes();
+	}
+
+	/** Active + retired campaign slugs (reset / purge scope). */
+	public static List<String> resetPromotionCampaignSlugs() {
+		return DemoPromotionCatalog.resetCampaignSlugs();
+	}
+
+	public static List<String> retiredPromotionStrategyCodes() {
+		return DemoPromotionCatalog.retiredStrategyCodes();
+	}
+
+	public static List<String> retiredPromotionCampaignSlugs() {
+		return DemoPromotionCatalog.retiredCampaignSlugs();
+	}
+
 	private static List<String> mergeUnique(List<String> primary, List<String> secondary) {
 		Set<String> merged = new LinkedHashSet<>(primary);
 		merged.addAll(secondary);

@@ -22,6 +22,7 @@ const orderDetail = {
   status: 'PAID',
   subtotalAmount: 12990000,
   shippingAmount: 0,
+  discountAmount: 0,
   totalAmount: 12990000,
   currency: 'VND',
   placedAt: '2026-01-01T12:00:00Z',
@@ -46,6 +47,12 @@ const orderDetail = {
       lineTotal: 12990000,
     },
   ],
+  appliedPromotions: [] as Array<{
+    campaignId: string | null
+    campaignName: string
+    strategyType: string
+    discountAmount: number
+  }>,
   payment: {
     paymentId: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
     provider: 'MOCK',

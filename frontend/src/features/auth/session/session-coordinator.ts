@@ -7,12 +7,15 @@ type MemorySession = {
   user: AuthSession['user'] | null
 }
 
+type SessionClearedListener = () => void
+
 const memory: MemorySession = {
   accessToken: null,
   user: null,
 }
 
 let refreshInFlight: Promise<string | null> | null = null
+const sessionClearedListeners = new Set<SessionClearedListener>()
 
 export function getAccessToken(): string | null {
   return memory.accessToken
@@ -29,10 +32,28 @@ export function applySession(session: AuthSession): void {
   userSnapshotStore.set(session.user)
 }
 
+/**
+ * Subscribe to session wipes (logout, failed refresh, forced invalidate).
+ * Used so AuthProvider React state cannot stay "authenticated" after tokens are gone.
+ */
+export function subscribeSessionCleared(listener: SessionClearedListener): () => void {
+  sessionClearedListeners.add(listener)
+  return () => {
+    sessionClearedListeners.delete(listener)
+  }
+}
+
+function notifySessionCleared(): void {
+  for (const listener of sessionClearedListeners) {
+    listener()
+  }
+}
+
 export function clearSession(): void {
   memory.accessToken = null
   memory.user = null
   clearPersistedAuth()
+  notifySessionCleared()
 }
 
 /**

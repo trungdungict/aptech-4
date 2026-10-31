@@ -20,15 +20,16 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import com.aptech.aptech4.catalog.cache.CatalogCacheNames;
 import com.aptech.aptech4.catalog.cache.CatalogCacheProperties;
+import com.aptech.aptech4.promotion.cache.PromotionCacheNames;
+import com.aptech.aptech4.promotion.cache.PromotionCacheProperties;
 
 /**
- * Redis-backed Spring Cache for public catalog (ADR-015).
+ * Redis-backed Spring Cache for public catalog (ADR-015) and promotions (ADR-020 R7).
  * Cache errors are logged and swallowed so PostgreSQL remains the source of truth.
- * Values use JDK serialization (DTOs are {@code Serializable} records).
  */
 @Configuration
 @EnableCaching
-@EnableConfigurationProperties(CatalogCacheProperties.class)
+@EnableConfigurationProperties({ CatalogCacheProperties.class, PromotionCacheProperties.class })
 public class CacheConfig implements CachingConfigurer {
 
 	private static final Logger log = LoggerFactory.getLogger(CacheConfig.class);
@@ -36,7 +37,8 @@ public class CacheConfig implements CachingConfigurer {
 	@Bean
 	RedisCacheManager cacheManager(
 			RedisConnectionFactory connectionFactory,
-			CatalogCacheProperties catalogCacheProperties
+			CatalogCacheProperties catalogCacheProperties,
+			PromotionCacheProperties promotionCacheProperties
 	) {
 		JdkSerializationRedisSerializer valueSerializer = new JdkSerializationRedisSerializer();
 
@@ -49,6 +51,8 @@ public class CacheConfig implements CachingConfigurer {
 
 		Duration categoriesTtl = Duration.ofSeconds(Math.max(1, catalogCacheProperties.getCategoriesTtlSeconds()));
 		Duration productsTtl = Duration.ofSeconds(Math.max(1, catalogCacheProperties.getProductsTtlSeconds()));
+		Duration homepageTtl = Duration.ofSeconds(Math.max(1, promotionCacheProperties.getHomepageTtlSeconds()));
+		Duration placementsTtl = Duration.ofSeconds(Math.max(1, promotionCacheProperties.getPlacementsTtlSeconds()));
 
 		return RedisCacheManager.builder(connectionFactory)
 				.cacheDefaults(base.entryTtl(productsTtl))
@@ -56,6 +60,8 @@ public class CacheConfig implements CachingConfigurer {
 				.withCacheConfiguration(CatalogCacheNames.CATEGORIES_DETAIL, base.entryTtl(categoriesTtl))
 				.withCacheConfiguration(CatalogCacheNames.PRODUCTS_LIST, base.entryTtl(productsTtl))
 				.withCacheConfiguration(CatalogCacheNames.PRODUCTS_DETAIL, base.entryTtl(productsTtl))
+				.withCacheConfiguration(PromotionCacheNames.HOMEPAGE, base.entryTtl(homepageTtl))
+				.withCacheConfiguration(PromotionCacheNames.PLACEMENTS, base.entryTtl(placementsTtl))
 				.build();
 	}
 
@@ -64,7 +70,7 @@ public class CacheConfig implements CachingConfigurer {
 		return new SimpleCacheErrorHandler() {
 			@Override
 			public void handleCacheGetError(RuntimeException exception, org.springframework.cache.Cache cache, Object key) {
-				log.warn("Catalog cache GET failed cache={} — falling back to database", cache.getName());
+				log.warn("Cache GET failed cache={} — falling back to database", cache.getName());
 			}
 
 			@Override
@@ -74,7 +80,7 @@ public class CacheConfig implements CachingConfigurer {
 					Object key,
 					Object value
 			) {
-				log.warn("Catalog cache PUT failed cache={} — response still served from database", cache.getName());
+				log.warn("Cache PUT failed cache={} — response still served from database", cache.getName());
 			}
 
 			@Override
@@ -83,12 +89,12 @@ public class CacheConfig implements CachingConfigurer {
 					org.springframework.cache.Cache cache,
 					Object key
 			) {
-				log.warn("Catalog cache EVICT failed cache={} — TTL remains the safety net", cache.getName());
+				log.warn("Cache EVICT failed cache={} — TTL remains the safety net", cache.getName());
 			}
 
 			@Override
 			public void handleCacheClearError(RuntimeException exception, org.springframework.cache.Cache cache) {
-				log.warn("Catalog cache CLEAR failed cache={} — TTL remains the safety net", cache.getName());
+				log.warn("Cache CLEAR failed cache={} — TTL remains the safety net", cache.getName());
 			}
 		};
 	}

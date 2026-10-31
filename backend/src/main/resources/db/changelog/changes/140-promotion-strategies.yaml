@@ -1,0 +1,121 @@
+databaseChangeLog:
+  - changeSet:
+      id: 140-promotion-strategies
+      author: aptech4
+      comment: Reusable promotion strategy templates (ADR-020)
+      changes:
+        - createTable:
+            tableName: promotion_strategies
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(64)
+              - column:
+                  name: type
+                  type: VARCHAR(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: discount_percent
+                  type: NUMERIC(5,2)
+              - column:
+                  name: discount_amount
+                  type: NUMERIC(12,2)
+              - column:
+                  name: max_discount_amount
+                  type: NUMERIC(12,2)
+              - column:
+                  name: min_order_amount
+                  type: NUMERIC(12,2)
+              - column:
+                  name: min_quantity
+                  type: INT
+              - column:
+                  name: stackable
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: priority
+                  type: INT
+                  defaultValueNumeric: 100
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: >
+              CREATE UNIQUE INDEX uq_promotion_strategies_name_ci
+              ON promotion_strategies (LOWER(name));
+        - sql:
+            sql: >
+              CREATE UNIQUE INDEX uq_promotion_strategies_code_ci
+              ON promotion_strategies (LOWER(code))
+              WHERE code IS NOT NULL;
+        - sql:
+            sql: >
+              ALTER TABLE promotion_strategies
+              ADD CONSTRAINT chk_promotion_strategies_type
+              CHECK (type IN (
+                'PERCENTAGE_DISCOUNT',
+                'FIXED_AMOUNT_DISCOUNT',
+                'PRODUCT_DISCOUNT',
+                'CATEGORY_DISCOUNT',
+                'BANNER_ONLY'
+              ));
+        - sql:
+            sql: >
+              ALTER TABLE promotion_strategies
+              ADD CONSTRAINT chk_promotion_strategies_percent
+              CHECK (discount_percent IS NULL OR (discount_percent >= 0 AND discount_percent <= 100));
+        - sql:
+            sql: >
+              ALTER TABLE promotion_strategies
+              ADD CONSTRAINT chk_promotion_strategies_amounts_nonneg
+              CHECK (
+                (discount_amount IS NULL OR discount_amount >= 0)
+                AND (max_discount_amount IS NULL OR max_discount_amount >= 0)
+                AND (min_order_amount IS NULL OR min_order_amount >= 0)
+                AND (min_quantity IS NULL OR min_quantity >= 0)
+              );
+        - sql:
+            sql: >
+              ALTER TABLE promotion_strategies
+              ADD CONSTRAINT chk_promotion_strategies_banner_only
+              CHECK (
+                type <> 'BANNER_ONLY'
+                OR (
+                  discount_percent IS NULL
+                  AND discount_amount IS NULL
+                  AND max_discount_amount IS NULL
+                )
+              );

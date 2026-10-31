@@ -24,11 +24,17 @@ type TokenAccessor = {
   getAccessToken: () => string | null
   /** Called once on 401 for authenticated requests; must return a new access token or null. */
   refreshAccessToken: () => Promise<string | null>
+  /**
+   * Wipe the client session after an authenticated request remains unauthorized.
+   * Refresh failure already clears; this covers refresh-ok + still-401 and miswired refresh.
+   */
+  invalidateSession: () => void
 }
 
 let tokenAccessor: TokenAccessor = {
   getAccessToken: () => null,
   refreshAccessToken: async () => null,
+  invalidateSession: () => undefined,
 }
 
 /** Wire session tokens into the shared client (called from AuthProvider). */
@@ -113,16 +119,16 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   let response = await executeFetch(path, options, accessToken)
   let parsed = await parseBody(response)
 
-  if (
-    response.status === 401 &&
-    wantsAuth &&
-    !options.skipAuthRefresh
-  ) {
+  if (response.status === 401 && wantsAuth && !options.skipAuthRefresh) {
     const refreshed = await tokenAccessor.refreshAccessToken()
     if (refreshed) {
       accessToken = refreshed
       response = await executeFetch(path, options, accessToken)
       parsed = await parseBody(response)
+    }
+    // Still unauthorized after refresh attempt → session is not usable for protected APIs.
+    if (response.status === 401) {
+      tokenAccessor.invalidateSession()
     }
   }
 

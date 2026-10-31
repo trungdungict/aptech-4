@@ -340,11 +340,13 @@ class CustomerDeterministicAssistantServiceTest {
 				status,
 				new BigDecimal(total),
 				BigDecimal.ZERO,
+				BigDecimal.ZERO.setScale(2),
 				new BigDecimal(total),
 				"VND",
 				Instant.parse("2026-01-01T00:00:00Z"),
 				Instant.parse("2026-01-01T00:00:00Z"),
 				null,
+				List.of(),
 				List.of(),
 				null
 		);

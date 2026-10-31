@@ -4,11 +4,13 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.aptech.aptech4.catalog.upload.ProductImageUploadService;
+import com.aptech.aptech4.catalog.upload.UploadPurpose;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -16,7 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/api/v1/admin/uploads")
-@Tag(name = "Admin product uploads")
+@Tag(name = "Admin image uploads")
 @SecurityRequirement(name = "bearer-jwt")
 public class AdminProductImageUploadController {
 
@@ -27,8 +29,11 @@ public class AdminProductImageUploadController {
 	}
 
 	@PostMapping(path = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-	@Operation(summary = "Upload a product image (ADMIN). Returns a public relative path for product imageUrl.")
-	public ResponseEntity<ProductImageUploadResponse> upload(@RequestPart("file") MultipartFile file) {
-		return ResponseEntity.ok(uploadService.upload(file));
+	@Operation(summary = "Upload an image (ADMIN). purpose=PRODUCT (default) or PROMOTION; returns a public relative path.")
+	public ResponseEntity<ProductImageUploadResponse> upload(
+			@RequestPart("file") MultipartFile file,
+			@RequestParam(name = "purpose", defaultValue = "PRODUCT") UploadPurpose purpose
+	) {
+		return ResponseEntity.ok(uploadService.upload(file, purpose));
 	}
 }

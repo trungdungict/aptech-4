@@ -67,6 +67,17 @@ describe('Admin lazy routes', () => {
     expect(screen.getByRole('navigation', { name: /^admin$/i })).toBeInTheDocument()
   })
 
+  it('supports deep links into admin promotions hub', async () => {
+    mockAdminFetch()
+    renderWithProviders(<AppRouter />, {
+      route: '/admin/promotions',
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByRole('heading', { name: /^promotions$/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /open campaigns/i })).toBeInTheDocument()
+  })
+
   it('supports deep links into admin order detail', async () => {
     const orderId = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
     mockAdminFetch((url) => {
@@ -77,6 +88,7 @@ describe('Admin lazy routes', () => {
           status: 'PAID',
           subtotalAmount: 1000,
           shippingAmount: 0,
+          discountAmount: 0,
           totalAmount: 1000,
           currency: 'VND',
           placedAt: '2026-01-01T00:00:00Z',
@@ -92,6 +104,7 @@ describe('Admin lazy routes', () => {
             phone: null,
           },
           items: [],
+          appliedPromotions: [],
           payment: null,
         })
       }

@@ -103,6 +103,8 @@ class DemoSeedIntegrationTest {
 		assertThat(first.addressesUpserted()).isGreaterThanOrEqualTo(2);
 		assertThat(first.retiredProductsRemoved()).isGreaterThanOrEqualTo(1);
 		assertThat(first.retiredCategoriesRemoved()).isGreaterThanOrEqualTo(1);
+		assertThat(first.promotionStrategiesCreated()).isEqualTo(DemoPromotionCatalog.strategyCodes().size());
+		assertThat(first.promotionCampaignsCreated()).isEqualTo(DemoPromotionCatalog.campaignSlugs().size());
 
 		UUID adminId = userAccountRepository.findByEmailWithRoles("admin@aptech4.local").orElseThrow().getId();
 		UUID customerId = userAccountRepository.findByEmailWithRoles("customer@aptech4.local").orElseThrow().getId();
@@ -135,6 +137,21 @@ class DemoSeedIntegrationTest {
 		assertThat(jdbcTemplate.queryForObject(
 				"select count(*) from products where name like 'Demo %'",
 				Integer.class)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where sku like 'FOOD-%' and (image_url is null or btrim(image_url) = '')",
+				Integer.class)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where sku like 'FOOD-%' and image_url like '/uploads/products/%'",
+				Integer.class)).isEqualTo(expectedProducts);
+		String bananaImage = jdbcTemplate.queryForObject(
+				"select image_url from products where sku = 'FOOD-FRUIT-BANANA-001'",
+				String.class);
+		assertThat(bananaImage).isEqualTo(
+				com.aptech.aptech4.catalog.upload.ProductImagePathRules.normalizeOrNull(
+						"/uploads/products/"
+								+ FoodMartProductImages.deterministicId("FOOD-FRUIT-BANANA-001")
+								+ ".png"
+				));
 
 		assertThat(productRepository.findBySkuIgnoreCase("FOOD-FRUIT-APPLE-001")).isPresent();
 		assertThat(categoryRepository.findBySlug("food-dairy-eggs")).isPresent();
@@ -170,6 +187,38 @@ class DemoSeedIntegrationTest {
 		assertThat(second.productsCreated()).isZero();
 		assertThat(second.retiredProductsRemoved()).isZero();
 		assertThat(second.retiredCategoriesRemoved()).isZero();
+		assertThat(second.promotionStrategiesCreated()).isZero();
+		assertThat(second.promotionCampaignsCreated()).isZero();
+		assertThat(second.promotionStrategiesUpdated()).isEqualTo(DemoPromotionCatalog.strategyCodes().size());
+		assertThat(second.promotionCampaignsUpdated()).isEqualTo(DemoPromotionCatalog.campaignSlugs().size());
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from promotion_strategies where lower(code) like 'demo-promo-%'",
+				Integer.class)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from promotion_strategies where lower(code) like 'promo-%'",
+				Integer.class)).isEqualTo(DemoPromotionCatalog.strategyCodes().size());
+		assertThat(jdbcTemplate.queryForObject(
+				"select status from promotion_campaigns where slug = 'banner-trang-chu'",
+				String.class)).isEqualTo("ACTIVE");
+		assertThat(jdbcTemplate.queryForObject(
+				"select status from promotion_campaigns where slug = 'uu-dai-thanh-vien-10'",
+				String.class)).isEqualTo("PAUSED");
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from promotion_placements p join promotion_campaigns c on c.id = p.campaign_id where c.slug = 'banner-trang-chu'",
+				Integer.class)).isEqualTo(1);
+		assertThat(jdbcTemplate.queryForObject(
+				"select desktop_image_url from promotion_placements p join promotion_campaigns c on c.id = p.campaign_id where c.slug = 'banner-trang-chu'",
+				String.class)).isEqualTo(DemoPromotionCatalog.HERO_IMAGE_PUBLIC_PATH);
+		assertThat(jdbcTemplate.queryForObject(
+				"select title from promotion_placements p join promotion_campaigns c on c.id = p.campaign_id where c.slug = 'banner-trang-chu'",
+				String.class)).isEqualTo(DemoPromotionCatalog.HERO_TITLE);
+
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where sku like 'FOOD-%' and (image_url is null or btrim(image_url) = '')",
+				Integer.class)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"select image_url from products where sku = 'FOOD-FRUIT-BANANA-001'",
+				String.class)).isEqualTo(bananaImage);
 
 		assertThat(jdbcTemplate.queryForObject("select count(*) from users", Integer.class)).isEqualTo(userCount);
 		assertThat(jdbcTemplate.queryForObject(

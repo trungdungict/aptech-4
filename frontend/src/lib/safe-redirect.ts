@@ -1,6 +1,7 @@
 /**
  * Allow only same-origin relative paths (open-redirect safe).
- * Rejects protocol-relative URLs, absolute URLs, and empty values.
+ * Rejects protocol-relative URLs, absolute URLs, empty values, and auth routes
+ * (avoids login ↔ login loops via `?next=`).
  */
 export function safeInternalPath(
   raw: string | null | undefined,
@@ -10,6 +11,10 @@ export function safeInternalPath(
     return fallback
   }
   if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('://')) {
+    return fallback
+  }
+  const pathOnly = raw.split(/[?#]/, 1)[0] ?? raw
+  if (pathOnly === '/login' || pathOnly === '/register') {
     return fallback
   }
   return raw

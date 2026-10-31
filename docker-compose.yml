@@ -96,6 +96,8 @@ services:
       PRODUCT_IMAGE_MAX_HEIGHT: ${PRODUCT_IMAGE_MAX_HEIGHT:-6000}
       PRODUCT_IMAGE_MAX_PIXELS: ${PRODUCT_IMAGE_MAX_PIXELS:-25000000}
       PRODUCT_IMAGE_NORMALIZE_ENABLED: ${PRODUCT_IMAGE_NORMALIZE_ENABLED:-false}
+      PROMOTION_IMAGE_UPLOAD_DIR: ${PROMOTION_IMAGE_UPLOAD_DIR:-/app/uploads/promotions}
+      PROMOTION_IMAGE_PUBLIC_PATH: ${PROMOTION_IMAGE_PUBLIC_PATH:-/uploads/promotions}
     # Optional loopback publish for direct API debug (default off → empty).
     # Set API_PUBLISH=127.0.0.1:8080 to bind host loopback only.
     ports:

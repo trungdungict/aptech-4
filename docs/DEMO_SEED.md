@@ -26,11 +26,35 @@ See ADR-010 (seed) and ADR-011 (reset).
 | Admin user | `DEMO_ADMIN_EMAIL` (default `admin@aptech4.local`) | Role `ADMIN`; password hashed with BCrypt |
 | Customer user | `DEMO_CUSTOMER_EMAIL` (default `customer@aptech4.local`) | Role `CUSTOMER` |
 | Categories | FoodMart slugs from `db/demo/foodmart-catalog.json` (`food-*`) | 8 grocery categories |
-| Products | FoodMart SKUs (`FOOD-*`) | 48 products; includes zero-stock SKUs |
+| Products | FoodMart SKUs (`FOOD-*`) | 48 products; includes zero-stock SKUs; each gets persisted `/uploads/products/{uuid}.ext` from `foodmart-product-images.json` |
 | Inventory | per seeded product | `on_hand ≥ reserved`; never negative |
 | Journeys | addresses, cart, sample orders, notifications | FoodMart products only |
+| Promotion strategies | codes `PROMO-*` | See table below — upsert by code |
+| Promotion campaigns | grocery slugs (e.g. `banner-trang-chu`) | Upsert by slug; **no seeded checkout orders** with snapshots |
 
-Seed also **purges retired** legacy `DEMO-*` / `demo-*` natural keys listed in `DemoSeedMarkers` (local-demo guard). It does **not** delete unrelated non-demo rows.
+Seed also **purges retired** legacy `DEMO-*` / `demo-*` / former `DEMO-PROMO-*` / `demo-promo-*` natural keys listed in `DemoSeedMarkers` / `DemoPromotionCatalog` (local-demo guard). It does **not** delete unrelated non-demo rows.
+
+### Promotion fixtures (Phase 8)
+
+Owned by `DemoPromotionCatalog` / `DemoPromotionSeedService`. Re-seed is idempotent and restores the baseline statuses below (so a local “activate for demo” change is reset on the next `make seed-demo`). Visible names are production-like Vietnamese grocery copy (no `Demo`/`Smoke` labels).
+
+| Slug | Default status | Purpose |
+|------|----------------|---------|
+| `banner-trang-chu` | **ACTIVE** | `HOME_HERO` (`Ưu đãi mua sắm tiết kiệm`) + FoodMart JPG under `/uploads/promotions/bbbbbbbb-cccc-4ddd-8eee-ffffffffffff.jpg` |
+| `uu-dai-thanh-vien-10` | PAUSED | 10% order-level (empty eligibility) — activate for cart-wide % |
+| `uu-dai-don-hang-15k` | PAUSED | Fixed 15.000₫ (min order 50k) |
+| `uu-dai-tao-tuoi-15` | PAUSED | 15% `PRODUCT_DISCOUNT` on `FOOD-FRUIT-APPLE-001` |
+| `giam-8-do-uong` | PAUSED | 8% `CATEGORY_DISCOUNT` on `food-beverages` |
+| `uu-dai-mix-or-5` | PAUSED | 5% order-level with product **OR** category sets |
+| `uu-dai-stack-pct-5` / `uu-dai-stack-fixed-5k` | PAUSED | Stackable pair (5% + 5.000₫, non-compounding) |
+| `uu-dai-sap-dien-ra` | SCHEDULED | Future window |
+| `uu-dai-tam-dung` | PAUSED | Lifecycle sample |
+| `uu-dai-nhap` | DRAFT | Not public |
+| `uu-dai-het-han` | EXPIRED | Past window |
+
+Pricing campaigns stay **PAUSED** by default so baseline checkout totals stay predictable; activate in Admin for demos. Hero stays ACTIVE for storefront placement demos. Historical discount snapshots are **not** seeded — use live mock checkout after activating a campaign (or `make smoke-promotions`).
+
+`make seed-demo` copies classpath `db/demo/promo-hero.jpg` and FoodMart product assets (`db/demo/product-images/`) into `backend/.data/uploads/…` and, when container `aptech4-api` is running, syncs those files into the Compose uploads volume so nginx can serve `/uploads/promotions/…` and `/uploads/products/…`. Re-run `make seed-demo` after pulling if seed artwork is missing from the volume.
 
 ## Reset scope
 
@@ -39,9 +63,10 @@ Deletes only rows matching:
 1. Configured demo emails (`DEMO_ADMIN_EMAIL` / `DEMO_CUSTOMER_EMAIL`) + journey extras
 2. Category slugs from `DemoSeedMarkers.resetCategorySlugs()` (FoodMart + retired)
 3. Product SKUs from `DemoSeedMarkers.resetProductSkus()` (FoodMart + retired)
-4. Dependents of those rows (carts, reservations, orders/payments/checkout for those users/products, inventory, `user_roles`, addresses, refresh tokens)
+4. Promotion strategy codes / campaign slugs from `DemoSeedMarkers.promotionStrategyCodes()` / `promotionCampaignSlugs()`
+5. Dependents of those rows (carts, reservations, orders/payments/checkout for those users/products, inventory, `user_roles`, addresses, refresh tokens)
 
-Non-demo users/products/categories and role reference data are kept. FK constraints stay enabled (no `TRUNCATE` of business tables).
+Non-demo users/products/categories/promotions and role reference data are kept. FK constraints stay enabled (no `TRUNCATE` of business tables). Order promotion snapshot amounts remain when campaigns are deleted (`ON DELETE SET NULL`).
 
 ### Preflight / refusal
 
@@ -107,6 +132,7 @@ make reset-demo CONFIRM=yes
 
 ```bash
 make smoke-demo           # login + FOOD-* products via http://localhost:8088
+make smoke-promotions     # promotion journey (creates ephemeral TMP-* rows; checks grocery promo seed)
 # or:
 curl -sS -X POST http://localhost:8088/api/v1/auth/login \
   -H 'Content-Type: application/json' \
@@ -115,7 +141,7 @@ curl -sS -X POST http://localhost:8088/api/v1/auth/login \
 
 ### Re-run
 
-- `make seed-demo` repeatedly: upsert-only, stable IDs.
+- `make seed-demo` repeatedly: upsert-only, stable IDs (including `PROMO-*` codes / grocery campaign slugs); purges retired `DEMO-PROMO-*` / `demo-promo-*`.
 - `make reset-demo CONFIRM=yes` repeatedly: idempotent deletes + same logical dataset after reseed.
 
 ## What seed/reset will not do

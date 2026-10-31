@@ -2,6 +2,7 @@ import {
   ArrowRightIcon,
   FolderTreeIcon,
   LayoutDashboardIcon,
+  MegaphoneIcon,
   PackageIcon,
   ShoppingBagIcon,
   type LucideIcon,
@@ -25,6 +26,7 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
   products: PackageIcon,
   categories: FolderTreeIcon,
   orders: ShoppingBagIcon,
+  promotions: MegaphoneIcon,
 }
 
 /**
@@ -40,8 +42,9 @@ export function AdminOverviewPage() {
         </div>
         <h1 className={adminPageTitleClass}>Admin overview</h1>
         <p className={`max-w-2xl ${adminPageLeadClass}`}>
-          Manage catalog and fulfillment modules available in this workspace. Product, category,
-          and order administration are live; this page does not show fabricated metrics.
+          Manage catalog, fulfillment, and promotion modules available in this workspace. Product,
+          category, order, and promotion administration are live; this page does not show fabricated
+          metrics.
         </p>
       </div>
 

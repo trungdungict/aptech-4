@@ -18,10 +18,8 @@ import { ProductGrid } from '@/features/catalog/components/ProductGrid'
 import { catalogQueryKeys } from '@/features/catalog/hooks/catalog-query-keys'
 import { resolveCategoryIcon } from '@/features/catalog/lib/resolve-product-image'
 import type { Product } from '@/features/catalog/types'
+import { HomePromotionShowcase } from '@/features/promotions/components/HomePromotionShowcase'
 
-const HERO_IMG = '/assets/foodmart/images/banners/banner-image-1.jpg'
-const AD_1 = '/assets/foodmart/images/banners/ad-image-1.png'
-const AD_2 = '/assets/foodmart/images/banners/ad-image-2.png'
 const AD_3 = '/assets/foodmart/images/banners/ad-image-3.png'
 const AD_4 = '/assets/foodmart/images/banners/ad-image-4.png'
 const SLIDE_1 = '/assets/foodmart/images/banners/slide-1.jpg'
@@ -78,72 +76,61 @@ export function HomePage() {
           }}
           aria-hidden="true"
         />
-        <div className="relative grid items-center gap-6 p-6 sm:p-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10 lg:p-10">
-          <div className="space-y-5">
-            <p className="text-sm font-semibold tracking-wide text-primary uppercase">
-              Fresh grocery shopping
-            </p>
-            <h1 className="max-w-xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
-              Stock your kitchen from the live Aptech-4 catalog
-            </h1>
-            <p className="max-w-prose text-base text-muted-foreground md:text-lg">
-              Browse categories, check real prices and stock, then sign in to cart and complete the
-              demo checkout.
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link to="/products">
-                  Browse catalog
-                  <ArrowRightIcon className="size-4" />
-                </Link>
-              </Button>
-              {status === 'anonymous' ? (
-                <>
-                  <Button asChild variant="outline" size="lg">
-                    <Link to="/login">Sign in</Link>
-                  </Button>
-                  <Button asChild variant="secondary" size="lg">
-                    <Link to="/register">Register</Link>
-                  </Button>
-                </>
-              ) : null}
-              {status === 'authenticated' && user ? (
-                <p className="self-center text-sm text-muted-foreground">
-                  Signed in as{' '}
-                  <span className="font-medium text-foreground">{user.fullName}</span>
-                  {hasAdminRole(user.roles) ? (
-                    <>
-                      {' · '}
-                      <Link
-                        className="font-medium text-primary underline-offset-4 hover:underline"
-                        to="/admin"
-                      >
-                        Admin
-                      </Link>
-                    </>
-                  ) : null}
-                </p>
-              ) : null}
-              {status === 'booting' ? (
-                <p className="self-center text-sm text-muted-foreground" role="status">
-                  Restoring session…
-                </p>
-              ) : null}
-            </div>
-          </div>
-          <div className="relative min-h-[14rem] overflow-hidden rounded-xl sm:min-h-[18rem]">
-            <img
-              src={HERO_IMG}
-              alt="Fresh produce and grocery ingredients"
-              className="absolute inset-0 h-full w-full object-cover"
-              width={960}
-              height={720}
-              fetchPriority="high"
-              decoding="async"
-            />
+        <div className="relative space-y-5 p-6 sm:p-8 lg:max-w-3xl lg:p-10">
+          <p className="text-sm font-semibold tracking-wide text-primary uppercase">
+            Fresh grocery shopping
+          </p>
+          <h1 className="max-w-xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
+            Stock your kitchen from the live Aptech-4 catalog
+          </h1>
+          <p className="max-w-prose text-base text-muted-foreground md:text-lg">
+            Browse categories, check real prices and stock, then sign in to cart and complete the
+            demo checkout.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild size="lg">
+              <Link to="/products">
+                Browse catalog
+                <ArrowRightIcon className="size-4" />
+              </Link>
+            </Button>
+            {status === 'anonymous' ? (
+              <>
+                <Button asChild variant="outline" size="lg">
+                  <Link to="/login">Sign in</Link>
+                </Button>
+                <Button asChild variant="secondary" size="lg">
+                  <Link to="/register">Register</Link>
+                </Button>
+              </>
+            ) : null}
+            {status === 'authenticated' && user ? (
+              <p className="self-center text-sm text-muted-foreground">
+                Signed in as{' '}
+                <span className="font-medium text-foreground">{user.fullName}</span>
+                {hasAdminRole(user.roles) ? (
+                  <>
+                    {' · '}
+                    <Link
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                      to="/admin"
+                    >
+                      Admin
+                    </Link>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            {status === 'booting' ? (
+              <p className="self-center text-sm text-muted-foreground" role="status">
+                Restoring session…
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
+
+      <HomePromotionShowcase />
 
       <section className="space-y-4" aria-labelledby="home-categories-heading">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -216,24 +203,8 @@ export function HomePage() {
             Seasonal inspiration
           </h2>
           <p className="text-sm text-muted-foreground">
-            Decorative grocery artwork — not a priced promotion.
+            Decorative FoodMart gallery — separate from Admin homepage placements above.
           </p>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <PromoBanner
-            to="/products"
-            image={AD_1}
-            title="Fresh from the produce aisle"
-            caption="Explore fruits, vegetables, and pantry staples in the catalog."
-            tone="mint"
-          />
-          <PromoBanner
-            to="/products"
-            image={AD_2}
-            title="Stock up for the week"
-            caption="Browse active products with server-side prices and stock."
-            tone="cream"
-          />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -358,46 +329,6 @@ function ProductSection({
         <ProductGrid products={products} />
       )}
     </section>
-  )
-}
-
-function PromoBanner({
-  to,
-  image,
-  title,
-  caption,
-  tone,
-}: {
-  to: string
-  image: string
-  title: string
-  caption: string
-  tone: 'mint' | 'cream'
-}) {
-  return (
-    <Link
-      to={to}
-      className={`flex flex-col overflow-hidden rounded-xl border border-border/70 sm:flex-row ${
-        tone === 'mint' ? 'bg-[#e7f4ee]' : 'bg-[#f7f1e8]'
-      }`}
-    >
-      <div className="flex flex-1 flex-col justify-center gap-2 p-5 sm:p-6">
-        <p className="text-lg font-semibold text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground">{caption}</p>
-        <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">
-          Shop catalog
-          <ArrowRightIcon className="size-3.5" />
-        </span>
-      </div>
-      <div className="relative h-40 shrink-0 sm:h-auto sm:w-44 md:w-52">
-        <img
-          src={image}
-          alt=""
-          className="h-full w-full object-contain object-bottom p-2"
-          loading="lazy"
-        />
-      </div>
-    </Link>
   )
 }
 

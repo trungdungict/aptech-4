@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
@@ -32,19 +33,27 @@ import com.aptech.aptech4.identity.domain.UserAccount;
 import com.aptech.aptech4.identity.persistence.AddressRepository;
 import com.aptech.aptech4.identity.persistence.UserAccountRepository;
 import com.aptech.aptech4.identity.security.CurrentUser;
+import com.aptech.aptech4.notification.application.OrderNotificationService;
 import com.aptech.aptech4.order.api.CheckoutRequest;
 import com.aptech.aptech4.order.api.CheckoutResponse;
 import com.aptech.aptech4.order.domain.CheckoutIdempotency;
 import com.aptech.aptech4.order.domain.OrderItem;
+import com.aptech.aptech4.order.domain.OrderPromotionSnapshot;
 import com.aptech.aptech4.order.domain.OrderStatus;
 import com.aptech.aptech4.order.domain.Payment;
 import com.aptech.aptech4.order.domain.PaymentStatus;
 import com.aptech.aptech4.order.domain.ShopOrder;
-import com.aptech.aptech4.notification.application.OrderNotificationService;
 import com.aptech.aptech4.order.payment.MockPaymentProperties;
 import com.aptech.aptech4.order.payment.PaymentGateway;
 import com.aptech.aptech4.order.persistence.CheckoutIdempotencyRepository;
 import com.aptech.aptech4.order.persistence.ShopOrderRepository;
+import com.aptech.aptech4.promotion.application.AppliedPromotion;
+import com.aptech.aptech4.promotion.application.PricingCartLine;
+import com.aptech.aptech4.promotion.application.PromotionPricingResult;
+import com.aptech.aptech4.promotion.application.PromotionPricingService;
+import com.aptech.aptech4.promotion.domain.PromotionCampaign;
+import com.aptech.aptech4.promotion.domain.PromotionCampaignStatus;
+import com.aptech.aptech4.promotion.persistence.PromotionCampaignRepository;
 
 @Service
 public class CheckoutService {
@@ -61,6 +70,9 @@ public class CheckoutService {
 	private final MockPaymentProperties mockPaymentProperties;
 	private final EntityManager entityManager;
 	private final OrderNotificationService orderNotificationService;
+	private final PromotionPricingService promotionPricingService;
+	private final PromotionCampaignRepository promotionCampaignRepository;
+	private final Clock clock;
 
 	public CheckoutService(
 			CartRepository cartRepository,
@@ -72,7 +84,10 @@ public class CheckoutService {
 			PaymentGateway paymentGateway,
 			MockPaymentProperties mockPaymentProperties,
 			EntityManager entityManager,
-			OrderNotificationService orderNotificationService
+			OrderNotificationService orderNotificationService,
+			PromotionPricingService promotionPricingService,
+			PromotionCampaignRepository promotionCampaignRepository,
+			Clock clock
 	) {
 		this.cartRepository = cartRepository;
 		this.addressRepository = addressRepository;
@@ -84,6 +99,9 @@ public class CheckoutService {
 		this.mockPaymentProperties = mockPaymentProperties;
 		this.entityManager = entityManager;
 		this.orderNotificationService = orderNotificationService;
+		this.promotionPricingService = promotionPricingService;
+		this.promotionCampaignRepository = promotionCampaignRepository;
+		this.clock = clock;
 	}
 
 	@Transactional
@@ -163,6 +181,7 @@ public class CheckoutService {
 		BigDecimal subtotal = ZERO;
 		String currency = "VND";
 		ShopOrder order = ShopOrder.createPending(user, address);
+		List<PricingCartLine> pricingLines = new ArrayList<>();
 
 		for (CartItem line : lines) {
 			Product product = line.getProduct();
@@ -171,10 +190,32 @@ public class CheckoutService {
 			order.addItem(item);
 			subtotal = subtotal.add(item.getLineTotal());
 			currency = product.getCurrency();
+			UUID categoryId = product.getCategory() == null ? null : product.getCategory().getId();
+			pricingLines.add(new PricingCartLine(
+					product.getId(),
+					categoryId,
+					line.getQuantity(),
+					item.getLineTotal()
+			));
 		}
 		order.setCurrency(currency);
 		order.setSubtotalAmount(subtotal);
-		order.setTotalAmount(subtotal.add(order.getShippingAmount()).setScale(2, RoundingMode.HALF_UP));
+
+		List<PromotionCampaign> candidates = promotionCampaignRepository.findPricingWindowCandidates(
+				PromotionCampaignStatus.ACTIVE,
+				clock.instant()
+		);
+		PromotionPricingResult pricing = promotionPricingService.price(pricingLines, candidates);
+		applyPromotionPricing(order, pricing, currency);
+
+		BigDecimal total = subtotal
+				.add(order.getShippingAmount())
+				.subtract(order.getDiscountAmount())
+				.setScale(2, RoundingMode.HALF_UP);
+		if (total.signum() < 0) {
+			total = ZERO;
+		}
+		order.setTotalAmount(total);
 
 		Payment payment = Payment.mockPending(order, order.getTotalAmount(), currency);
 		order.addPayment(payment);
@@ -242,7 +283,32 @@ public class CheckoutService {
 		ShopOrder order = shopOrderRepository.findByIdWithItems(orderId)
 			.orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Error", "Order missing"));
 		order.getPayments().size();
+		order.getPromotionSnapshots().size();
 		return order;
+	}
+
+	private static void applyPromotionPricing(ShopOrder order, PromotionPricingResult pricing, String currency) {
+		order.setDiscountAmount(pricing.discountAmount());
+		order.setPromotionSummary(pricing.promotionSummary());
+		for (AppliedPromotion applied : pricing.appliedPromotions()) {
+			order.addPromotionSnapshot(OrderPromotionSnapshot.capture(
+					applied.campaignId(),
+					applied.strategyId(),
+					applied.campaignName(),
+					applied.campaignSlug(),
+					applied.strategyName(),
+					applied.strategyType(),
+					applied.strategyCode(),
+					applied.priority(),
+					applied.stackable(),
+					applied.discountPercent(),
+					applied.discountAmountRule(),
+					applied.maxDiscountAmount(),
+					applied.eligibleSubtotal(),
+					applied.discountAmount(),
+					currency
+			));
+		}
 	}
 
 	private void clearCart(UUID userId) {
@@ -290,19 +356,35 @@ public class CheckoutService {
 			))
 			.toList();
 
+		List<CheckoutResponse.AppliedPromotionResponse> appliedPromotions = order.getPromotionSnapshots().stream()
+			.sorted(Comparator
+					.comparing(OrderPromotionSnapshot::getAppliedAt)
+					.thenComparing(s -> s.getId() == null ? UUID.fromString("00000000-0000-0000-0000-000000000000") : s.getId()))
+			.map(s -> new CheckoutResponse.AppliedPromotionResponse(
+					s.getCampaignId(),
+					s.getCampaignName(),
+					s.getStrategyType(),
+					s.getDiscountAmount()
+			))
+			.toList();
+
 		Payment payment = order.getPayments().stream()
 			.findFirst()
 			.orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Error", "Payment missing"));
+
+		BigDecimal discount = order.getDiscountAmount() == null ? ZERO : order.getDiscountAmount();
 
 		return new CheckoutResponse(
 				order.getId(),
 				order.getStatus().name(),
 				order.getSubtotalAmount(),
 				order.getShippingAmount(),
+				discount,
 				order.getTotalAmount(),
 				order.getCurrency(),
 				order.getPlacedAt(),
 				items,
+				appliedPromotions,
 				new CheckoutResponse.CheckoutPaymentResponse(
 						payment.getId(),
 						payment.getProvider(),

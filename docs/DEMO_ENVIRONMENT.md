@@ -109,9 +109,9 @@ relative path — PostgreSQL never stores image bytes.
 
 | Concern | Behavior |
 |---------|----------|
-| Endpoint | `POST /api/v1/admin/uploads/images` (`multipart/form-data`, field `file`) |
+| Endpoint | `POST /api/v1/admin/uploads/images` (`multipart/form-data`, field `file`; `purpose=PRODUCT` default or `PROMOTION`) |
 | Auth | JWT + `ADMIN` only |
-| Response | `{ imageUrl, contentType, sizeBytes }` — `imageUrl` like `/uploads/products/{uuid}.png` |
+| Response | `{ imageUrl, contentType, sizeBytes }` — `/uploads/products/…` or `/uploads/promotions/…` by purpose |
 | DB | `products.image_url` stores **only** that relative path |
 | Files | Named volume `aptech4_uploads` → `/app/uploads` in the API container |
 | Size | Strict **&lt;** `PRODUCT_IMAGE_MAX_SIZE_BYTES` (default 2097152); exactly 2 MiB rejected |

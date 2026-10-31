@@ -108,6 +108,8 @@ class DemoResetIntegrationTest {
 		assertThat(plan.demoUsers()).isEqualTo(3);
 		assertThat(plan.demoCategories()).isEqualTo(expectedCategories);
 		assertThat(plan.demoProducts()).isEqualTo(expectedProducts);
+		assertThat(plan.demoPromotionStrategies()).isEqualTo(DemoPromotionCatalog.strategyCodes().size());
+		assertThat(plan.demoPromotionCampaigns()).isEqualTo(DemoPromotionCatalog.campaignSlugs().size());
 		assertThat(plan.demoEmails()).containsExactlyInAnyOrder(
 				"admin@aptech4.local",
 				"customer@aptech4.local",
@@ -141,6 +143,8 @@ class DemoResetIntegrationTest {
 		assertThat(first.usersDeleted()).isEqualTo(3);
 		assertThat(first.categoriesDeleted()).isEqualTo(expectedCategories);
 		assertThat(first.productsDeleted()).isEqualTo(expectedProducts);
+		assertThat(first.promotionCampaignsDeleted()).isEqualTo(DemoPromotionCatalog.campaignSlugs().size());
+		assertThat(first.promotionStrategiesDeleted()).isEqualTo(DemoPromotionCatalog.strategyCodes().size());
 
 		assertThat(userAccountRepository.findByEmailWithRoles("admin@aptech4.local")).isEmpty();
 		assertThat(userAccountRepository.findByEmailWithRoles("customer@aptech4.local")).isEmpty();
@@ -148,6 +152,10 @@ class DemoResetIntegrationTest {
 		assertThat(categoryRepository.findBySlug("food-fruits-vegetables")).isEmpty();
 		assertThat(productRepository.findBySkuIgnoreCase("FOOD-FRUIT-BANANA-001")).isEmpty();
 		assertThat(productRepository.findBySkuIgnoreCase("DEMO-ELEC-PHONE")).isEmpty();
+		assertThat(count("select count(*) from promotion_campaigns where slug like 'demo-promo-%'")).isZero();
+		assertThat(count("select count(*) from promotion_strategies where lower(code) like 'demo-promo-%'")).isZero();
+		assertThat(count("select count(*) from promotion_campaigns where slug = 'banner-trang-chu'")).isZero();
+		assertThat(count("select count(*) from promotion_strategies where lower(code) = 'promo-home-banner'")).isZero();
 
 		assertThat(userAccountRepository.findByEmailWithRoles(nonDemo.email())).isPresent();
 		assertThat(categoryRepository.findBySlug(nonDemo.categorySlug())).isPresent();

@@ -297,6 +297,8 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
               render={({ field }) => (
                 <ProductImageUploadField
                   imageUrl={field.value ?? null}
+                  productSku={form.watch('sku')}
+                  productName={form.watch('name')}
                   onImageUrlChange={field.onChange}
                   disabled={saveMutation.isPending}
                 />

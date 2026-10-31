@@ -17,6 +17,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -40,6 +41,9 @@ import com.aptech.aptech4.identity.domain.UserAccount;
 import com.aptech.aptech4.identity.persistence.AddressRepository;
 import com.aptech.aptech4.identity.persistence.UserAccountRepository;
 import com.aptech.aptech4.identity.security.JwtService;
+import com.aptech.aptech4.promotion.domain.PromotionCampaign;
+import com.aptech.aptech4.promotion.domain.PromotionCampaignStatus;
+import com.aptech.aptech4.promotion.persistence.PromotionCampaignRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -99,7 +103,22 @@ class CheckoutIntegrationTest {
 	@Autowired
 	TransactionTemplate transactionTemplate;
 
+	@Autowired
+	PromotionCampaignRepository promotionCampaignRepository;
+
 	private final ObjectMapper objectMapper = new ObjectMapper();
+
+	@BeforeEach
+	void expireLeftoverActiveCampaigns() {
+		transactionTemplate.executeWithoutResult(status -> {
+			for (PromotionCampaign campaign : promotionCampaignRepository.findAll()) {
+				if (campaign.getStatus() == PromotionCampaignStatus.ACTIVE) {
+					campaign.setStatus(PromotionCampaignStatus.EXPIRED);
+					promotionCampaignRepository.save(campaign);
+				}
+			}
+		});
+	}
 
 	@Test
 	void checkoutSuccessFailureIdempotencyAndOwnership() throws Exception {

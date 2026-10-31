@@ -10,9 +10,13 @@ public record DemoResetPlan(
 		List<String> demoEmails,
 		List<String> demoCategorySlugs,
 		List<String> demoProductSkus,
+		List<String> demoPromotionStrategyCodes,
+		List<String> demoPromotionCampaignSlugs,
 		int demoUsers,
 		int demoCategories,
 		int demoProducts,
+		int demoPromotionStrategies,
+		int demoPromotionCampaigns,
 		int dependentOrders,
 		int dependentCarts,
 		int dependentReservations

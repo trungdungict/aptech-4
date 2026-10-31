@@ -8,6 +8,7 @@ describe('api client', () => {
     configureApiClientAuth({
       getAccessToken: () => null,
       refreshAccessToken: async () => null,
+      invalidateSession: () => undefined,
     })
     vi.stubGlobal('fetch', vi.fn())
   })
@@ -70,9 +71,11 @@ describe('api client', () => {
 
   it('coordinates a single refresh on 401 then retries', async () => {
     const refresh = vi.fn(async () => 'new-access')
+    const invalidate = vi.fn()
     configureApiClientAuth({
       getAccessToken: () => 'expired',
       refreshAccessToken: refresh,
+      invalidateSession: invalidate,
     })
 
     vi.mocked(fetch)
@@ -93,8 +96,89 @@ describe('api client', () => {
       items: [],
     })
     expect(refresh).toHaveBeenCalledTimes(1)
+    expect(invalidate).not.toHaveBeenCalled()
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
     const secondHeaders = vi.mocked(fetch).mock.calls[1]?.[1] as RequestInit
     expect(secondHeaders.headers).toMatchObject({ Authorization: 'Bearer new-access' })
   })
+
+  it('invalidates the session when refresh fails on an authenticated 401', async () => {
+    const invalidate = vi.fn()
+    configureApiClientAuth({
+      getAccessToken: () => 'expired',
+      refreshAccessToken: async () => null,
+      invalidateSession: invalidate,
+    })
+
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ status: 401, error: 'Unauthorized', message: 'expired' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await expect(apiRequest('/admin/orders', { auth: true })).rejects.toMatchObject({ status: 401 })
+    expect(invalidate).toHaveBeenCalledTimes(1)
+  })
+
+  it('invalidates the session when refresh succeeds but the retry is still 401', async () => {
+    const invalidate = vi.fn()
+    configureApiClientAuth({
+      getAccessToken: () => 'expired',
+      refreshAccessToken: async () => 'still-bad',
+      invalidateSession: invalidate,
+    })
+
+    vi.mocked(fetch).mockImplementation(async () =>
+      new Response(JSON.stringify({ status: 401, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await expect(apiRequest('/admin/orders', { auth: true })).rejects.toMatchObject({ status: 401 })
+    expect(invalidate).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not invalidate the session on 403', async () => {
+    const invalidate = vi.fn()
+    const refresh = vi.fn(async () => 'new-access')
+    configureApiClientAuth({
+      getAccessToken: () => 'access',
+      refreshAccessToken: refresh,
+      invalidateSession: invalidate,
+    })
+
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ status: 403, error: 'Forbidden', message: 'Forbidden' }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await expect(apiRequest('/admin/orders', { auth: true })).rejects.toMatchObject({ status: 403 })
+    expect(refresh).not.toHaveBeenCalled()
+    expect(invalidate).not.toHaveBeenCalled()
+  })
+
+  it('does not invalidate the session on 5xx / network-style failures', async () => {
+    const invalidate = vi.fn()
+    configureApiClientAuth({
+      getAccessToken: () => 'access',
+      refreshAccessToken: async () => 'new-access',
+      invalidateSession: invalidate,
+    })
+
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ status: 503, error: 'Unavailable', message: 'down' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await expect(apiRequest('/admin/orders', { auth: true })).rejects.toMatchObject({ status: 503 })
+    expect(invalidate).not.toHaveBeenCalled()
+  })
+
 })

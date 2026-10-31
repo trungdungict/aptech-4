@@ -1,24 +1,24 @@
 # PROGRESS
 
-Last updated: 2026-10-29 (Customer chat SSE spaces + deterministic intents — ad-hoc; roadmap still 54/64)
+Last updated: 2026-11-01 (FoodMart seed product images persisted DONE)
 
 ## Summary counts (from TASKS.md)
 
 | Status | Count |
 |--------|------:|
-| DONE | 54 |
+| DONE | 85 |
 | IN_PROGRESS | 0 |
 | IN_REVIEW | 0 |
 | BLOCKED | 0 |
 | TODO | 10 |
 | DEFERRED | 0 |
-| **Total** | **64** |
+| **Total** | **95** |
 
-Completion ratio (DONE/total): **54/64**
+Completion ratio (DONE/total): **85/95**
 
 ## Current phase
 
-**P14** local prod-like deployment **complete**. Next: **P15** EC2 (or P16 smoke pack).
+**P24** + **UX cleanup** complete. Promotion track P18–P24 finished for this scope.
 
 ## Verified completed (recent)
 
@@ -43,6 +43,30 @@ B-001/B-002/B-005 mitigated; B-003 EC2; B-004 `gh`; D-MOBILE-DEVICE deferred.
 ## Next recommended task
 
 **`P15-T01` — Nginx + remote compose overlays**, or **`P16-T02`** local smoke script if EC2 is gated.
+
+## Recent promotion UX (2026-10-31)
+
+- Root cause of blank Featured offers: seeded **1×1 PNG** under gradient looked like missing artwork → replaced with FoodMart `promo-hero.jpg` + volume sync
+- Admin strategy list: client pagination (10/page)
+- Seed renamed to Vietnamese grocery copy; retired Demo keys purged on `make seed-demo`
+
+## Auth session redirect (2026-10-31)
+
+- Root cause: refresh/clear wiped tokens but AuthProvider React status stayed `authenticated`, so `/admin/orders` showed raw 401 + Retry
+- Fix: `subscribeSessionCleared` + API `invalidateSession` after failed auth refresh; login `next=` still open-redirect safe
+- FE focused auth/admin tests **45/45**; production build OK
+
+## Admin product image on edit (2026-10-31)
+
+- Root cause: FoodMart products often have `imageUrl: null`; admin field ignored catalog SKU/name fallback used on the storefront
+- Fix: resolve current display via `resolveProductImage`; labeled current / new preview; save without new file keeps form `imageUrl`
+- FE product image/form tests **34/34**; production build OK
+
+## Persist FoodMart seed product images (2026-11-01)
+
+- Root cause: demo seed never wrote product image files or `imageUrl`; FE SKU/name fallback only
+- Fix: classpath assets + `foodmart-product-images.json` → deterministic `/uploads/products/{uuid}.ext` on seed; Makefile volume sync; baseline restore on re-seed for `FOOD-*`
+- BE seed image/IT **7/7**; FE **34/34**; build OK; seed×2 → **48/48** non-null unique URLs (HTTP 200); smoke-promotions OK
 
 ## Recent non-roadmap tooling / features
 

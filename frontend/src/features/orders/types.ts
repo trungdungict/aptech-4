@@ -1,5 +1,13 @@
 import type { PageResponse } from '@/features/catalog/types'
 
+/** Matches backend checkout/order `AppliedPromotionResponse` (ADR-020 D7). */
+export type AppliedPromotion = {
+  campaignId: string | null
+  campaignName: string
+  strategyType: string
+  discountAmount: string | number
+}
+
 /** Matches backend `OrderResponse`. */
 export type Order = {
   id: string
@@ -7,12 +15,15 @@ export type Order = {
   status: string
   subtotalAmount: string | number
   shippingAmount: string | number
+  /** Backend-persisted order-level discount; never recompute on the client. */
+  discountAmount: string | number
   totalAmount: string | number
   currency: string
   placedAt: string
   updatedAt: string
   shipping: OrderShipping
   items: OrderItem[]
+  appliedPromotions: AppliedPromotion[]
   payment: OrderPaymentSummary | null
 }
 

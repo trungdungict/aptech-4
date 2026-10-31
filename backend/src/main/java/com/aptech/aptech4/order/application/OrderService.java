@@ -1,5 +1,7 @@
 package com.aptech.aptech4.order.application;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +20,7 @@ import com.aptech.aptech4.notification.application.OrderNotificationService;
 import com.aptech.aptech4.order.api.OrderResponse;
 import com.aptech.aptech4.order.api.OrderStatusUpdateRequest;
 import com.aptech.aptech4.order.domain.OrderItem;
+import com.aptech.aptech4.order.domain.OrderPromotionSnapshot;
 import com.aptech.aptech4.order.domain.OrderStatus;
 import com.aptech.aptech4.order.domain.Payment;
 import com.aptech.aptech4.order.domain.ShopOrder;
@@ -28,6 +31,8 @@ public class OrderService {
 
 	public static final int DEFAULT_PAGE_SIZE = 20;
 	public static final int MAX_PAGE_SIZE = 100;
+
+	private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2, RoundingMode.UNNECESSARY);
 
 	private final ShopOrderRepository shopOrderRepository;
 	private final OrderNotificationService orderNotificationService;
@@ -55,7 +60,7 @@ public class OrderService {
 		UUID userId = CurrentUser.requireUserId();
 		ShopOrder order = shopOrderRepository.findByIdAndUserIdWithItems(orderId, userId)
 			.orElseThrow(this::notFound);
-		order.getPayments().size();
+		initializeOrderAssociations(order);
 		return toResponse(order);
 	}
 
@@ -84,7 +89,7 @@ public class OrderService {
 	@Transactional(readOnly = true)
 	public OrderResponse getAdmin(UUID orderId) {
 		ShopOrder order = shopOrderRepository.findByIdWithItems(orderId).orElseThrow(this::notFound);
-		order.getPayments().size();
+		initializeOrderAssociations(order);
 		order.getUser().getId();
 		return toResponse(order);
 	}
@@ -105,7 +110,7 @@ public class OrderService {
 
 	private OrderResponse loadDetail(UUID orderId) {
 		ShopOrder order = shopOrderRepository.findByIdWithItems(orderId).orElseThrow(this::notFound);
-		order.getPayments().size();
+		initializeOrderAssociations(order);
 		order.getUser().getId();
 		return toResponse(order);
 	}
@@ -113,13 +118,19 @@ public class OrderService {
 	private PageResponse<OrderResponse> mapPage(Page<ShopOrder> page) {
 		List<OrderResponse> items = page.getContent().stream()
 			.map(order -> {
-				order.getPayments().size();
+				initializeOrderAssociations(order);
 				order.getItems().size();
 				order.getUser().getId();
 				return toResponse(order);
 			})
 			.toList();
 		return PageResponse.of(items, page.getNumber(), page.getSize(), page.getTotalElements());
+	}
+
+	/** Payments + promotion snapshots are separate collections (avoid MultipleBagFetch). */
+	private static void initializeOrderAssociations(ShopOrder order) {
+		order.getPayments().size();
+		order.getPromotionSnapshots().size();
 	}
 
 	private Pageable pageable(int page, int size, String sort) {
@@ -148,6 +159,22 @@ public class OrderService {
 			))
 			.toList();
 
+		// Historical pricing only — never reprice from live campaigns/strategies.
+		BigDecimal discountAmount = order.getDiscountAmount() == null ? ZERO : order.getDiscountAmount();
+		List<OrderResponse.AppliedPromotionResponse> appliedPromotions = order.getPromotionSnapshots().stream()
+			.sorted(Comparator
+					.comparing(OrderPromotionSnapshot::getAppliedAt)
+					.thenComparing(s -> s.getId() == null
+							? UUID.fromString("00000000-0000-0000-0000-000000000000")
+							: s.getId()))
+			.map(s -> new OrderResponse.AppliedPromotionResponse(
+					s.getCampaignId(),
+					s.getCampaignName(),
+					s.getStrategyType(),
+					s.getDiscountAmount()
+			))
+			.toList();
+
 		Payment payment = order.getPayments().stream()
 			.max(Comparator.comparing(Payment::getCreatedAt).thenComparing(Payment::getId))
 			.orElse(null);
@@ -171,6 +198,7 @@ public class OrderService {
 				order.getStatus().name(),
 				order.getSubtotalAmount(),
 				order.getShippingAmount(),
+				discountAmount,
 				order.getTotalAmount(),
 				order.getCurrency(),
 				order.getPlacedAt(),
@@ -186,6 +214,7 @@ public class OrderService {
 						order.getShippingPhone()
 				),
 				items,
+				appliedPromotions,
 				paymentSummary
 		);
 	}

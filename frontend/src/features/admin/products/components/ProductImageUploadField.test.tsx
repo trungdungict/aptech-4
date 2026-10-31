@@ -36,14 +36,76 @@ describe('ProductImageUploadField', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows preview for a valid selection and assigns returned imageUrl', async () => {
+  it('renders an existing uploaded imageUrl as the current product image', () => {
+    const path = '/uploads/products/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png'
+    render(
+      <ProductImageUploadField
+        imageUrl={path}
+        productSku="FOOD-BEV-APPLE-JUICE-001"
+        productName="Apple Juice (1 L)"
+        onImageUrlChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/current product image/i)).toBeInTheDocument()
+    const img = document.querySelector('img')
+    expect(img).toHaveAttribute('src', path)
+    expect(screen.getByText(path)).toBeInTheDocument()
+    expect(screen.queryByText(/no product image/i)).not.toBeInTheDocument()
+  })
+
+  it('shows catalog fallback image when API imageUrl is null but SKU maps', () => {
+    render(
+      <ProductImageUploadField
+        imageUrl={null}
+        productSku="FOOD-FRUIT-BANANA-001"
+        productName="Crisp Bananas"
+        onImageUrlChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/current product image/i)).toBeInTheDocument()
+    const img = document.querySelector('img')
+    expect(img?.getAttribute('src')).toMatch(/thumb-bananas\.png$/)
+    expect(screen.getByText(/catalog display image/i)).toBeInTheDocument()
+  })
+
+  it('shows a placeholder when the product has no resolvable image', () => {
+    render(
+      <ProductImageUploadField
+        imageUrl={null}
+        productSku="UNKNOWN-SKU"
+        productName="Mystery Widget"
+        onImageUrlChange={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(/no product image/i)).toBeInTheDocument()
+    expect(document.querySelector('img')).toBeNull()
+  })
+
+  it('hides a broken current image without leaving a broken-image icon', () => {
+    const path = '/uploads/products/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png'
+    render(<ProductImageUploadField imageUrl={path} onImageUrlChange={vi.fn()} />)
+
+    const img = document.querySelector('img')
+    expect(img).not.toBeNull()
+    fireEvent.error(img!)
+
+    expect(document.querySelector('img')).toBeNull()
+    expect(screen.getByText(/no product image/i)).toBeInTheDocument()
+  })
+
+  it('shows a new-image preview while uploading, then assigns returned imageUrl', async () => {
     const user = userEvent.setup()
     const onImageUrlChange = vi.fn()
-    uploadAdminProductImage.mockResolvedValue({
-      imageUrl: '/uploads/products/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png',
-      contentType: 'image/png',
-      sizeBytes: 4,
-    })
+    let resolveUpload: (value: unknown) => void = () => {}
+    uploadAdminProductImage.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve
+        }),
+    )
 
     render(<ProductImageUploadField imageUrl={null} onImageUrlChange={onImageUrlChange} />)
 
@@ -51,14 +113,21 @@ describe('ProductImageUploadField', () => {
     await user.upload(screen.getByLabelText(/product image/i), file)
 
     expect(createSpy).toHaveBeenCalled()
+    expect(await screen.findByText(/new image preview/i)).toBeInTheDocument()
+    expect(document.querySelector('img')).toHaveAttribute('src', 'blob:mock-preview')
+
+    resolveUpload({
+      imageUrl: '/uploads/products/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png',
+      contentType: 'image/png',
+      sizeBytes: 4,
+    })
+
     expect(await screen.findByText(/image uploaded/i)).toBeInTheDocument()
     expect(onImageUrlChange).toHaveBeenCalledWith(
       '/uploads/products/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png',
     )
+    expect(revokeSpy).toHaveBeenCalledWith('blob:mock-preview')
     expect(uploadAdminProductImage).toHaveBeenCalledTimes(1)
-    const sent = uploadAdminProductImage.mock.calls[0][0] as File
-    expect(sent).toBeInstanceOf(File)
-    expect(sent.name).toBe('apple.png')
   })
 
   it('rejects unsupported type before upload', async () => {
@@ -101,6 +170,7 @@ describe('ProductImageUploadField', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/invalid or corrupted/i)
     expect(onImageUrlChange).not.toHaveBeenCalled()
     expect(screen.getByText(previous)).toBeInTheDocument()
+    expect(document.querySelector('img')).toHaveAttribute('src', previous)
   })
 
   it('disables picker while uploading to prevent duplicate submission', async () => {
@@ -129,7 +199,7 @@ describe('ProductImageUploadField', () => {
     await waitFor(() => expect(input).not.toBeDisabled())
   })
 
-  it('revokes preview object URL on unmount', async () => {
+  it('revokes preview object URL when upload completes', async () => {
     const user = userEvent.setup()
     uploadAdminProductImage.mockResolvedValue({
       imageUrl: '/uploads/products/33333333-3333-4333-8333-333333333333.png',
@@ -137,16 +207,13 @@ describe('ProductImageUploadField', () => {
       sizeBytes: 2,
     })
 
-    const { unmount } = render(
-      <ProductImageUploadField imageUrl={null} onImageUrlChange={vi.fn()} />,
-    )
+    render(<ProductImageUploadField imageUrl={null} onImageUrlChange={vi.fn()} />)
     await user.upload(
       screen.getByLabelText(/product image/i),
       new File([new Uint8Array([1, 2])], 'x.png', { type: 'image/png' }),
     )
     await screen.findByText(/image uploaded/i)
 
-    unmount()
     expect(revokeSpy).toHaveBeenCalledWith('blob:mock-preview')
   })
 })

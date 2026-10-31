@@ -35,16 +35,23 @@ export type CheckoutPayload = {
   simulateFailure?: boolean
 }
 
+import type { AppliedPromotion } from '@/features/orders/types'
+
+export type { AppliedPromotion }
+
 /** Matches backend `CheckoutResponse`. */
 export type CheckoutResult = {
   orderId: string
   orderStatus: string
   subtotalAmount: string | number
   shippingAmount: string | number
+  /** Backend-calculated order-level discount; never recompute on the client. */
+  discountAmount: string | number
   totalAmount: string | number
   currency: string
   placedAt: string
   items: CheckoutOrderItem[]
+  appliedPromotions: AppliedPromotion[]
   payment: CheckoutPayment
   cartCleared: boolean
 }

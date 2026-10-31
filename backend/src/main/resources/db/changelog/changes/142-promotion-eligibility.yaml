@@ -1,0 +1,68 @@
+databaseChangeLog:
+  - changeSet:
+      id: 142-promotion-eligibility
+      author: aptech4
+      comment: Campaign product/category eligibility join tables (ADR-020)
+      changes:
+        - createTable:
+            tableName: promotion_campaign_products
+            columns:
+              - column:
+                  name: campaign_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: promotion_campaign_products
+            columnNames: campaign_id, product_id
+            constraintName: pk_promotion_campaign_products
+        - addForeignKeyConstraint:
+            baseTableName: promotion_campaign_products
+            baseColumnNames: campaign_id
+            referencedTableName: promotion_campaigns
+            referencedColumnNames: id
+            constraintName: fk_promo_camp_products_campaign
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: promotion_campaign_products
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_promo_camp_products_product
+            onDelete: CASCADE
+        - createTable:
+            tableName: promotion_campaign_categories
+            columns:
+              - column:
+                  name: campaign_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: category_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: promotion_campaign_categories
+            columnNames: campaign_id, category_id
+            constraintName: pk_promotion_campaign_categories
+        - addForeignKeyConstraint:
+            baseTableName: promotion_campaign_categories
+            baseColumnNames: campaign_id
+            referencedTableName: promotion_campaigns
+            referencedColumnNames: id
+            constraintName: fk_promo_camp_categories_campaign
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: promotion_campaign_categories
+            baseColumnNames: category_id
+            referencedTableName: categories
+            referencedColumnNames: id
+            constraintName: fk_promo_camp_categories_category
+            onDelete: CASCADE

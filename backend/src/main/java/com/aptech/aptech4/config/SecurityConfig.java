@@ -95,8 +95,10 @@ public class SecurityConfig {
 				).permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/v1/categories", "/api/v1/categories/*").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/v1/products", "/api/v1/products/*").permitAll()
-				// Uploaded product images (UUID filenames under configured public path).
+				.requestMatchers(HttpMethod.GET, "/api/v1/promotions/homepage", "/api/v1/promotions/placements").permitAll()
+				// Uploaded images (UUID filenames; product vs promotion paths isolated).
 				.requestMatchers(HttpMethod.GET, "/uploads/products/**").permitAll()
+				.requestMatchers(HttpMethod.GET, "/uploads/promotions/**").permitAll()
 				// Handshake is public; STOMP CONNECT carries the Bearer JWT (ADR-018).
 				.requestMatchers("/ws", "/ws/**").permitAll()
 				.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

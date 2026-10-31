@@ -20,13 +20,16 @@ public class ProductImageWebConfig implements WebMvcConfigurer {
 
 	@Override
 	public void addResourceHandlers(ResourceHandlerRegistry registry) {
-		Path dir = properties.uploadDirectory();
+		register(registry, properties.getPublicPath(), properties.uploadDirectory());
+		register(registry, properties.getPromotionPublicPath(), properties.promotionUploadDirectory());
+	}
+
+	private static void register(ResourceHandlerRegistry registry, String publicPath, Path dir) {
 		String location = dir.toUri().toString();
 		if (!location.endsWith("/")) {
 			location = location + "/";
 		}
-		String pattern = properties.getPublicPath() + "/**";
-		registry.addResourceHandler(pattern)
+		registry.addResourceHandler(publicPath + "/**")
 				.addResourceLocations(location)
 				.setCacheControl(CacheControl.maxAge(java.time.Duration.ofDays(30)).cachePublic())
 				.resourceChain(true);

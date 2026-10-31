@@ -49,6 +49,8 @@ public class DemoResetService {
 		List<String> emails = demoEmails();
 		List<String> slugs = DemoSeedMarkers.resetCategorySlugs();
 		List<String> skus = DemoSeedMarkers.resetProductSkus();
+		List<String> promoCodes = DemoSeedMarkers.resetPromotionStrategyCodes();
+		List<String> promoSlugs = DemoSeedMarkers.resetPromotionCampaignSlugs();
 
 		List<UUID> userIds = queryUuids(
 				"select id from users where email in (" + placeholders(emails.size()) + ")",
@@ -61,6 +63,16 @@ public class DemoResetService {
 		List<UUID> categoryIds = queryUuids(
 				"select id from categories where slug in (" + placeholders(slugs.size()) + ")",
 				slugs.toArray()
+		);
+		int promoStrategies = count(
+				"select count(*) from promotion_strategies where lower(code) in ("
+						+ lowerPlaceholders(promoCodes.size()) + ")",
+				lowerArgs(promoCodes)
+		);
+		int promoCampaigns = count(
+				"select count(*) from promotion_campaigns where lower(slug) in ("
+						+ lowerPlaceholders(promoSlugs.size()) + ")",
+				lowerArgs(promoSlugs)
 		);
 
 		int orders = countDependentOrders(userIds, productIds);
@@ -75,9 +87,13 @@ public class DemoResetService {
 				List.copyOf(emails),
 				List.copyOf(slugs),
 				List.copyOf(skus),
+				List.copyOf(promoCodes),
+				List.copyOf(promoSlugs),
 				userIds.size(),
 				categoryIds.size(),
 				productIds.size(),
+				promoStrategies,
+				promoCampaigns,
 				orders,
 				carts,
 				reservations
@@ -116,6 +132,11 @@ public class DemoResetService {
 
 		List<UUID> orderIds = findOrderIds(userIds, productIds);
 		List<UUID> reservationIds = findReservationIds(userIds, productIds);
+
+		// Delete demo promotions before catalog rows (eligibility FKs CASCADE from products/categories).
+		int[] promoDeleted = deleteDemoPromotions();
+		int promotionCampaignsDeleted = promoDeleted[0];
+		int promotionStrategiesDeleted = promoDeleted[1];
 
 		int reservationsDeleted = 0;
 		if (!reservationIds.isEmpty()) {
@@ -236,10 +257,93 @@ public class DemoResetService {
 				ordersDeleted,
 				cartsDeleted,
 				reservationsDeleted,
+				promotionCampaignsDeleted,
+				promotionStrategiesDeleted,
 				false
 		);
 		log.info("Demo reset executed: {}", result);
 		return result;
+	}
+
+	/**
+	 * Deletes only demo-owned promotion campaigns/strategies by exact slug/code lists.
+	 * Order snapshots keep amounts ({@code ON DELETE SET NULL} on campaign/strategy FKs).
+	 *
+	 * @return {@code [campaignsDeleted, strategiesDeleted]}
+	 */
+	private int[] deleteDemoPromotions() {
+		List<String> promoSlugs = DemoSeedMarkers.resetPromotionCampaignSlugs();
+		List<String> promoCodes = DemoSeedMarkers.resetPromotionStrategyCodes();
+		int campaignsDeleted = 0;
+		if (!promoSlugs.isEmpty()) {
+			// placements + eligibility cascade from campaigns
+			campaignsDeleted = jdbcTemplate.update(
+					"delete from promotion_campaigns where lower(slug) in ("
+							+ lowerPlaceholders(promoSlugs.size()) + ")",
+					lowerArgs(promoSlugs)
+			);
+		}
+		int strategiesDeleted = 0;
+		if (!promoCodes.isEmpty()) {
+			strategiesDeleted = jdbcTemplate.update(
+					"delete from promotion_strategies where lower(code) in ("
+							+ lowerPlaceholders(promoCodes.size()) + ")",
+					lowerArgs(promoCodes)
+			);
+		}
+		return new int[] { campaignsDeleted, strategiesDeleted };
+	}
+
+	/**
+	 * Local-demo only: remove retired Phase-8 {@code DEMO-PROMO-*} / {@code demo-promo-*} keys.
+	 * Does not touch active catalog keys or user-created promotions.
+	 */
+	@Transactional
+	public RetiredPromotionPurgeResult purgeRetiredPromotions() {
+		DemoSeedGuard.assertAllowed(environment, properties.isAllowOnProd());
+		requireJdbcUrl();
+
+		List<String> slugs = DemoSeedMarkers.retiredPromotionCampaignSlugs();
+		List<String> codes = DemoSeedMarkers.retiredPromotionStrategyCodes();
+		if (slugs.isEmpty() && codes.isEmpty()) {
+			return new RetiredPromotionPurgeResult(0, 0);
+		}
+
+		int campaignsDeleted = 0;
+		if (!slugs.isEmpty()) {
+			campaignsDeleted = jdbcTemplate.update(
+					"delete from promotion_campaigns where lower(slug) in ("
+							+ lowerPlaceholders(slugs.size()) + ")",
+					lowerArgs(slugs)
+			);
+		}
+		int strategiesDeleted = 0;
+		if (!codes.isEmpty()) {
+			strategiesDeleted = jdbcTemplate.update(
+					"delete from promotion_strategies where lower(code) in ("
+							+ lowerPlaceholders(codes.size()) + ")",
+					lowerArgs(codes)
+			);
+		}
+		if (campaignsDeleted > 0 || strategiesDeleted > 0) {
+			log.info(
+					"Retired demo promotions purged: campaigns {} strategies {}",
+					campaignsDeleted,
+					strategiesDeleted
+			);
+		}
+		return new RetiredPromotionPurgeResult(campaignsDeleted, strategiesDeleted);
+	}
+
+	public record RetiredPromotionPurgeResult(int campaignsRemoved, int strategiesRemoved) {
+	}
+
+	private static String lowerPlaceholders(int count) {
+		return String.join(",", java.util.Collections.nCopies(count, "lower(?)"));
+	}
+
+	private static Object[] lowerArgs(List<String> values) {
+		return values.toArray();
 	}
 
 	/**

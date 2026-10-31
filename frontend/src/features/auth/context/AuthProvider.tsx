@@ -10,6 +10,7 @@ import {
   getMemoryUser,
   refreshAccessTokenSingleFlight,
   restoreSessionFromStorage,
+  subscribeSessionCleared,
 } from '../session/session-coordinator'
 import { refreshTokenStore } from '../session/token-store'
 import type { AuthStatus, AuthUser, LoginPayload, RegisterPayload } from '../types'
@@ -23,8 +24,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     configureApiClientAuth({
       getAccessToken,
       refreshAccessToken: refreshAccessTokenSingleFlight,
+      invalidateSession: clearSession,
     })
 
+    return subscribeSessionCleared(() => {
+      setUser(null)
+      setStatus('anonymous')
+    })
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
     void (async () => {
       try {

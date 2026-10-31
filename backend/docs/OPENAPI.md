@@ -174,6 +174,31 @@ Status PATCH does **not** change payment, totals, items, or owner. Cancel after 
 
 Failed checkout (`FAILED`), rejected transitions, idempotent replays, and unchanged status do **not** create new rows (unique `(recipient_user_id, dedupe_key)`).
 
+### Promotions (P19 / ADR-020) — admin + public
+
+Admin mutations: `/api/v1/admin/promotions/**` require `ROLE_ADMIN`.  
+Public reads: anonymous `GET` allowed. Checkout discount application is **P22** (not in these endpoints). Empty public homepage/placements → `[]` / null slots; storefront FoodMart fallback is P20.
+
+| Method | Path | Auth |
+|--------|------|------|
+| GET/POST | `/api/v1/admin/promotions/strategies` | ADMIN |
+| GET/PUT | `/api/v1/admin/promotions/strategies/{id}` | ADMIN |
+| PATCH | `/api/v1/admin/promotions/strategies/{id}/status` | ADMIN |
+| GET/POST | `/api/v1/admin/promotions/campaigns` | ADMIN |
+| GET/PUT/DELETE | `/api/v1/admin/promotions/campaigns/{id}` | ADMIN |
+| PUT | `/api/v1/admin/promotions/campaigns/{id}/eligibility` | ADMIN |
+| POST | `/api/v1/admin/promotions/campaigns/{id}/activate\|pause\|schedule\|preview` | ADMIN |
+| GET/POST | `/api/v1/admin/promotions/campaigns/{id}/placements` | ADMIN |
+| GET/PUT/DELETE | `/api/v1/admin/promotions/placements/{id}` | ADMIN |
+| GET | `/api/v1/promotions/homepage` | Public |
+| GET | `/api/v1/promotions/placements?keys=` | Public |
+
+**Campaign response fields:** `status`, `effectiveStatus`, `pricingEffective`, `placementEffective` (UTC inclusive window; manual activation only).  
+**Public homepage shape:** `{ hero: PublicPlacement[], promoTop, promoBottom }` — promo slots are single objects or `null`.  
+**Cache (R7):** Redis short TTL (`aptech.cache.promotions.*`, default 30s) + invalidate on strategy/campaign/placement create/update/activate/pause/schedule/delete.
+
+Promotion image upload: `POST /api/v1/admin/uploads/images?purpose=PROMOTION` → `/uploads/promotions/{uuid}.ext` (P18).
+
 ### Notifications — WebSocket push (ADR-018)
 
 | Item | Value |

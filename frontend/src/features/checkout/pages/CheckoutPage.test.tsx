@@ -53,6 +53,7 @@ const checkoutSuccess = {
   orderStatus: 'PAID',
   subtotalAmount: 12990000,
   shippingAmount: 0,
+  discountAmount: 0,
   totalAmount: 12990000,
   currency: 'VND',
   placedAt: '2026-01-01T00:00:00Z',
@@ -66,6 +67,12 @@ const checkoutSuccess = {
       lineTotal: 12990000,
     },
   ],
+  appliedPromotions: [] as Array<{
+    campaignId: string | null
+    campaignName: string
+    strategyType: string
+    discountAmount: number
+  }>,
   payment: {
     paymentId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
     provider: 'MOCK',
@@ -84,6 +91,7 @@ const orderDetail = {
   status: 'PAID',
   subtotalAmount: 12990000,
   shippingAmount: 0,
+  discountAmount: 0,
   totalAmount: 12990000,
   currency: 'VND',
   placedAt: '2026-01-01T00:00:00Z',
@@ -99,6 +107,7 @@ const orderDetail = {
     phone: null,
   },
   items: checkoutSuccess.items,
+  appliedPromotions: [] as typeof checkoutSuccess.appliedPromotions,
   payment: checkoutSuccess.payment,
 }
 
@@ -166,6 +175,60 @@ describe('CheckoutPage', () => {
 
     expect(await screen.findByRole('heading', { name: /order detail/i })).toBeInTheDocument()
     expect(screen.getAllByText(checkoutSuccess.orderId).length).toBeGreaterThan(0)
+  })
+
+  it('surfaces backend checkout discount on order detail after success', async () => {
+    const user = userEvent.setup()
+    const promoCheckout = {
+      ...checkoutSuccess,
+      subtotalAmount: 100000,
+      discountAmount: 10000,
+      totalAmount: 90000,
+      appliedPromotions: [
+        {
+          campaignId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          campaignName: 'Ten Percent Off',
+          strategyType: 'PERCENTAGE_DISCOUNT',
+          discountAmount: 10000,
+        },
+      ],
+      payment: {
+        ...checkoutSuccess.payment,
+        amount: 90000,
+      },
+    }
+    const promoOrder = {
+      ...orderDetail,
+      subtotalAmount: 100000,
+      discountAmount: 10000,
+      totalAmount: 90000,
+      appliedPromotions: promoCheckout.appliedPromotions,
+      payment: promoCheckout.payment,
+    }
+
+    mockFetchRouter((url, init) => {
+      if (url.includes('/addresses') && (!init?.method || init.method === 'GET')) {
+        return jsonResponse(200, [addressFixture])
+      }
+      if (url.includes('/checkout') && init?.method === 'POST') {
+        return jsonResponse(201, promoCheckout)
+      }
+      if (url.includes(`/orders/${checkoutSuccess.orderId}`)) {
+        return jsonResponse(200, promoOrder)
+      }
+      if (url.includes('/cart')) {
+        return jsonResponse(200, cartFixture)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, { route: '/checkout', session: demoCustomerSession })
+    await user.click(await screen.findByRole('button', { name: /place order/i }))
+
+    expect(await screen.findByRole('heading', { name: /order detail/i })).toBeInTheDocument()
+    expect(screen.getByText(/discount applied/i)).toBeInTheDocument()
+    expect(screen.getByText(/^discount$/i)).toBeInTheDocument()
+    expect(screen.getByText(/ten percent off/i)).toBeInTheDocument()
   })
 
   it('handles insufficient stock conflict without marking success', async () => {

@@ -14,4 +14,11 @@ describe('safeInternalPath', () => {
     expect(safeInternalPath('javascript:alert(1)')).toBe('/')
     expect(safeInternalPath(null, '/products')).toBe('/products')
   })
+
+  it('rejects auth routes so login cannot redirect to itself', () => {
+    expect(safeInternalPath('/login')).toBe('/')
+    expect(safeInternalPath('/login?next=/admin')).toBe('/')
+    expect(safeInternalPath('/register')).toBe('/')
+    expect(safeInternalPath('/admin/orders?tab=open', '/admin')).toBe('/admin/orders?tab=open')
+  })
 })

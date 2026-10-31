@@ -50,4 +50,19 @@ databaseChangeLog:
   - include:
       file: changes/130-product-image-url.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/140-promotion-strategies.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/141-promotion-campaigns.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/142-promotion-eligibility.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/143-promotion-placements.yaml
+      relativeToChangelogFile: true
+  - include:
+      file: changes/144-order-promotion-discount.yaml
+      relativeToChangelogFile: true
 

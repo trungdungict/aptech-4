@@ -25,6 +25,9 @@ public class ProductImageProperties {
 	private boolean enabled = true;
 	private String uploadDir = "./.data/uploads/products";
 	private String publicPath = "/uploads/products";
+	/** Isolated promotion banner directory (ADR-020 R6). */
+	private String promotionUploadDir = "./.data/uploads/promotions";
+	private String promotionPublicPath = "/uploads/promotions";
 	private long maxSizeBytes = DEFAULT_MAX_SIZE_BYTES;
 	private String allowedTypes = "image/jpeg,image/png,image/webp";
 	private int maxWidth = 6000;
@@ -42,6 +45,14 @@ public class ProductImageProperties {
 					"PRODUCT_IMAGE_PUBLIC_PATH must be a path starting with / and must not contain '..'"
 			);
 		}
+		if (!StringUtils.hasText(promotionUploadDir)) {
+			throw new IllegalStateException("PROMOTION_IMAGE_UPLOAD_DIR / aptech.product-image.promotion-upload-dir must be set");
+		}
+		if (!StringUtils.hasText(promotionPublicPath) || !promotionPublicPath.startsWith("/") || promotionPublicPath.contains("..")) {
+			throw new IllegalStateException(
+					"PROMOTION_IMAGE_PUBLIC_PATH must be a path starting with / and must not contain '..'"
+			);
+		}
 		if (maxSizeBytes < 1) {
 			throw new IllegalStateException("PRODUCT_IMAGE_MAX_SIZE_BYTES must be >= 1");
 		}
@@ -54,18 +65,37 @@ public class ProductImageProperties {
 		if (allowedContentTypes().isEmpty()) {
 			throw new IllegalStateException("PRODUCT_IMAGE_ALLOWED_TYPES must list at least one MIME type");
 		}
-		Path dir = Path.of(uploadDir).toAbsolutePath().normalize();
+		this.uploadDir = ensureWritableDirectory(uploadDir, "product");
+		this.promotionUploadDir = ensureWritableDirectory(promotionUploadDir, "promotion");
+		this.publicPath = publicPath.endsWith("/") ? publicPath.substring(0, publicPath.length() - 1) : publicPath;
+		this.promotionPublicPath = promotionPublicPath.endsWith("/")
+				? promotionPublicPath.substring(0, promotionPublicPath.length() - 1)
+				: promotionPublicPath;
+		if (this.publicPath.equals(this.promotionPublicPath)) {
+			throw new IllegalStateException("Product and promotion public image paths must be distinct");
+		}
+	}
+
+	private static String ensureWritableDirectory(String configured, String label) {
+		Path dir = Path.of(configured).toAbsolutePath().normalize();
 		try {
 			Files.createDirectories(dir);
 		}
 		catch (Exception ex) {
-			throw new IllegalStateException("Cannot create product image upload directory: " + dir, ex);
+			throw new IllegalStateException("Cannot create " + label + " image upload directory: " + dir, ex);
 		}
 		if (!Files.isDirectory(dir) || !Files.isWritable(dir)) {
-			throw new IllegalStateException("Product image upload directory is not a writable directory: " + dir);
+			throw new IllegalStateException(label + " image upload directory is not a writable directory: " + dir);
 		}
-		this.uploadDir = dir.toString();
-		this.publicPath = publicPath.endsWith("/") ? publicPath.substring(0, publicPath.length() - 1) : publicPath;
+		return dir.toString();
+	}
+
+	public Path uploadDirectory(UploadPurpose purpose) {
+		return purpose == UploadPurpose.PROMOTION ? promotionUploadDirectory() : uploadDirectory();
+	}
+
+	public String publicPath(UploadPurpose purpose) {
+		return purpose == UploadPurpose.PROMOTION ? getPromotionPublicPath() : getPublicPath();
 	}
 
 	public Set<String> allowedContentTypes() {
@@ -102,6 +132,26 @@ public class ProductImageProperties {
 
 	public void setPublicPath(String publicPath) {
 		this.publicPath = publicPath;
+	}
+
+	public Path promotionUploadDirectory() {
+		return Path.of(promotionUploadDir).toAbsolutePath().normalize();
+	}
+
+	public String getPromotionUploadDir() {
+		return promotionUploadDir;
+	}
+
+	public void setPromotionUploadDir(String promotionUploadDir) {
+		this.promotionUploadDir = promotionUploadDir;
+	}
+
+	public String getPromotionPublicPath() {
+		return promotionPublicPath;
+	}
+
+	public void setPromotionPublicPath(String promotionPublicPath) {
+		this.promotionPublicPath = promotionPublicPath;
 	}
 
 	public long getMaxSizeBytes() {

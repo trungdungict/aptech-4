@@ -7,11 +7,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
+import { formatProductPrice } from '@/features/catalog/lib/format-price'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import * as ordersApi from '../api/orders-api'
 import { OrderStatusBadge } from '../components/OrderStatusBadge'
 import { orderQueryKeys } from '../hooks/order-query-keys'
+import { hasOrderDiscount } from '../lib/order-money'
 import { ORDER_DEFAULT_PAGE_SIZE, ORDER_DEFAULT_SORT } from '../types'
 
 function formatPlacedAt(iso: string): string {
@@ -105,11 +107,19 @@ export function OrderHistoryPage() {
                       </p>
                       <OrderStatusBadge status={order.status} />
                     </div>
-                    <ProductPrice
-                      unitPrice={order.totalAmount}
-                      currency={order.currency}
-                      className="text-base font-semibold text-foreground"
-                    />
+                    <div className="space-y-1 text-right">
+                      <ProductPrice
+                        unitPrice={order.totalAmount}
+                        currency={order.currency}
+                        className="text-base font-semibold text-foreground"
+                      />
+                      {hasOrderDiscount(order.discountAmount) ? (
+                        <p className="text-xs text-emerald-700">
+                          Includes −{formatProductPrice(order.discountAmount, order.currency)}{' '}
+                          discount
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 </Link>
               </li>

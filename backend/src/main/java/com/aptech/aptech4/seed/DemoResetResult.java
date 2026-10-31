@@ -7,6 +7,8 @@ public record DemoResetResult(
 		int ordersDeleted,
 		int cartsDeleted,
 		int reservationsDeleted,
+		int promotionCampaignsDeleted,
+		int promotionStrategiesDeleted,
 		boolean reseeding
 ) {
 }

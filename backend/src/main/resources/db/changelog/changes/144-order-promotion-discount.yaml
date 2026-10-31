@@ -1,0 +1,147 @@
+databaseChangeLog:
+  - changeSet:
+      id: 144-order-discount-amount
+      author: aptech4
+      comment: Additive order discount columns (existing rows default to 0)
+      changes:
+        - addColumn:
+            tableName: orders
+            columns:
+              - column:
+                  name: discount_amount
+                  type: NUMERIC(12,2)
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: promotion_summary
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: true
+        - sql:
+            sql: >
+              ALTER TABLE orders
+              ADD CONSTRAINT chk_orders_discount_nonneg
+              CHECK (discount_amount >= 0);
+
+  - changeSet:
+      id: 144-order-promotion-snapshots
+      author: aptech4
+      comment: Denormalized order promotion snapshots (ADR-020)
+      changes:
+        - createTable:
+            tableName: order_promotion_snapshots
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: order_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: campaign_id
+                  type: UUID
+              - column:
+                  name: strategy_id
+                  type: UUID
+              - column:
+                  name: campaign_name
+                  type: VARCHAR(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: campaign_slug
+                  type: VARCHAR(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: strategy_name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: strategy_type
+                  type: VARCHAR(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: strategy_code
+                  type: VARCHAR(64)
+              - column:
+                  name: priority
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: stackable
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: discount_percent
+                  type: NUMERIC(5,2)
+              - column:
+                  name: discount_amount_rule
+                  type: NUMERIC(12,2)
+              - column:
+                  name: max_discount_amount
+                  type: NUMERIC(12,2)
+              - column:
+                  name: eligible_subtotal
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: discount_amount
+                  type: NUMERIC(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: currency
+                  type: CHAR(3)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: applied_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: order_promotion_snapshots
+            baseColumnNames: order_id
+            referencedTableName: orders
+            referencedColumnNames: id
+            constraintName: fk_order_promo_snapshots_order
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: order_promotion_snapshots
+            baseColumnNames: campaign_id
+            referencedTableName: promotion_campaigns
+            referencedColumnNames: id
+            constraintName: fk_order_promo_snapshots_campaign
+            onDelete: SET NULL
+        - addForeignKeyConstraint:
+            baseTableName: order_promotion_snapshots
+            baseColumnNames: strategy_id
+            referencedTableName: promotion_strategies
+            referencedColumnNames: id
+            constraintName: fk_order_promo_snapshots_strategy
+            onDelete: SET NULL
+        - createIndex:
+            indexName: idx_order_promo_snapshots_order
+            tableName: order_promotion_snapshots
+            columns:
+              - column:
+                  name: order_id
+        - sql:
+            sql: >
+              ALTER TABLE order_promotion_snapshots
+              ADD CONSTRAINT chk_order_promo_snapshots_discount_nonneg
+              CHECK (discount_amount >= 0 AND eligible_subtotal >= 0);

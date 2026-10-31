@@ -13,7 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Hardens uploaded image responses: nosniff + no directory listing semantics for the public path.
+ * Hardens uploaded image responses: nosniff for product and promotion public paths.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 20)
@@ -28,8 +28,12 @@ public class ProductImageSecurityHeadersFilter extends OncePerRequestFilter {
 	@Override
 	protected boolean shouldNotFilter(HttpServletRequest request) {
 		String path = request.getRequestURI();
-		String prefix = properties.getPublicPath();
-		return path == null || !path.startsWith(prefix + "/");
+		if (path == null) {
+			return true;
+		}
+		String productPrefix = properties.getPublicPath() + "/";
+		String promotionPrefix = properties.getPromotionPublicPath() + "/";
+		return !path.startsWith(productPrefix) && !path.startsWith(promotionPrefix);
 	}
 
 	@Override

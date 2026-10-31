@@ -1,0 +1,158 @@
+databaseChangeLog:
+  - changeSet:
+      id: 143-promotion-placements
+      author: aptech4
+      comment: Storefront promotion placements / banners (ADR-020)
+      changes:
+        - createTable:
+            tableName: promotion_placements
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: campaign_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: placement_key
+                  type: VARCHAR(40)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: title
+                  type: VARCHAR(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: subtitle
+                  type: VARCHAR(255)
+              - column:
+                  name: cta_label
+                  type: VARCHAR(80)
+              - column:
+                  name: cta_type
+                  type: VARCHAR(20)
+                  defaultValue: NONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: cta_product_id
+                  type: UUID
+              - column:
+                  name: cta_category_id
+                  type: UUID
+              - column:
+                  name: cta_collection_key
+                  type: VARCHAR(80)
+              - column:
+                  name: cta_url
+                  type: VARCHAR(512)
+              - column:
+                  name: desktop_image_url
+                  type: VARCHAR(512)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mobile_image_url
+                  type: VARCHAR(512)
+              - column:
+                  name: display_order
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: starts_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: ends_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: promotion_placements
+            baseColumnNames: campaign_id
+            referencedTableName: promotion_campaigns
+            referencedColumnNames: id
+            constraintName: fk_promotion_placements_campaign
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: promotion_placements
+            baseColumnNames: cta_product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_promotion_placements_cta_product
+            onDelete: SET NULL
+        - addForeignKeyConstraint:
+            baseTableName: promotion_placements
+            baseColumnNames: cta_category_id
+            referencedTableName: categories
+            referencedColumnNames: id
+            constraintName: fk_promotion_placements_cta_category
+            onDelete: SET NULL
+        - sql:
+            sql: >
+              ALTER TABLE promotion_placements
+              ADD CONSTRAINT chk_promotion_placements_key
+              CHECK (placement_key IN ('HOME_HERO', 'HOME_PROMO_TOP', 'HOME_PROMO_BOTTOM'));
+        - sql:
+            sql: >
+              ALTER TABLE promotion_placements
+              ADD CONSTRAINT chk_promotion_placements_cta_type
+              CHECK (cta_type IN ('PRODUCT', 'CATEGORY', 'COLLECTION', 'URL', 'NONE'));
+        - sql:
+            sql: >
+              ALTER TABLE promotion_placements
+              ADD CONSTRAINT chk_promotion_placements_desktop_image
+              CHECK (
+                desktop_image_url LIKE '/uploads/promotions/%'
+                AND desktop_image_url NOT LIKE '%..%'
+              );
+        - sql:
+            sql: >
+              ALTER TABLE promotion_placements
+              ADD CONSTRAINT chk_promotion_placements_mobile_image
+              CHECK (
+                mobile_image_url IS NULL
+                OR (
+                  mobile_image_url LIKE '/uploads/promotions/%'
+                  AND mobile_image_url NOT LIKE '%..%'
+                )
+              );
+        - sql:
+            sql: >
+              ALTER TABLE promotion_placements
+              ADD CONSTRAINT chk_promotion_placements_window
+              CHECK (starts_at IS NULL OR ends_at IS NULL OR ends_at > starts_at);
+        - createIndex:
+            indexName: idx_promotion_placements_key_order
+            tableName: promotion_placements
+            columns:
+              - column:
+                  name: placement_key
+              - column:
+                  name: enabled
+              - column:
+                  name: display_order

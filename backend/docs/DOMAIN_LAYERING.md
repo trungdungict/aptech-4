@@ -6,6 +6,7 @@ Modular monolith packages under `com.aptech.aptech4`:
 |---------|----------------|
 | `identity.domain` | Users, roles, addresses, refresh tokens |
 | `catalog.domain` / `catalog.api` / `catalog.application` / `catalog.persistence` | Categories, products, inventory + stock reservations (ADR-006) |
+| `promotion.domain` / `promotion.persistence` | Strategies, campaigns, placements, eligibility (ADR-020; Admin/public APIs in P19+) |
 | `cart.domain` / `cart.api` / `cart.application` / `cart.persistence` | Carts and cart lines (customer ownership; no stock reservation) |
 | `order.domain` / `order.api` / `order.application` / `order.payment` / `order.persistence` | Checkout, orders, lifecycle, mock payments (ADR-007, ADR-008) |
 | `api` | Cross-cutting HTTP adapters (e.g. health); feature APIs live in module `*.api` packages |

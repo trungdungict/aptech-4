@@ -5,10 +5,10 @@ import { Link, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatProductPrice } from '@/features/catalog/lib/format-price'
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
+import { formatProductPrice } from '@/features/catalog/lib/format-price'
+import { OrderPriceSummary } from '@/features/orders/components/OrderPriceSummary'
 import { OrderStatusBadge } from '@/features/orders/components/OrderStatusBadge'
 import { ApiClientError } from '@/lib/api/api-error'
 
@@ -262,32 +262,15 @@ export function AdminOrderDetailPage() {
                 <h2 className="text-base font-semibold">Order summary</h2>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Subtotal</span>
-                <ProductPrice
-                  unitPrice={order.subtotalAmount}
-                  currency={order.currency}
-                  className="text-sm font-medium text-foreground"
-                />
-              </div>
-              <div className="flex justify-between gap-3">
-                <span className="text-muted-foreground">Shipping</span>
-                <ProductPrice
-                  unitPrice={order.shippingAmount}
-                  currency={order.currency}
-                  className="text-sm font-medium text-foreground"
-                />
-              </div>
-              <Separator />
-              <div className="flex justify-between gap-3 font-semibold">
-                <span>Total</span>
-                <ProductPrice
-                  unitPrice={order.totalAmount}
-                  currency={order.currency}
-                  className="text-base font-semibold text-foreground"
-                />
-              </div>
+            <CardContent>
+              <OrderPriceSummary
+                currency={order.currency}
+                subtotalAmount={order.subtotalAmount}
+                shippingAmount={order.shippingAmount}
+                discountAmount={order.discountAmount}
+                totalAmount={order.totalAmount}
+                appliedPromotions={order.appliedPromotions}
+              />
             </CardContent>
           </Card>
 

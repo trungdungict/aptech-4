@@ -51,6 +51,8 @@ public class DemoSeedService {
 	private final ObjectProvider<CatalogCacheInvalidator> catalogCacheInvalidator;
 	private final DemoJourneySeedService journeySeedService;
 	private final DemoResetService demoResetService;
+	private final DemoPromotionSeedService promotionSeedService;
+	private final FoodMartProductImages foodMartProductImages;
 
 	public DemoSeedService(
 			DemoSeedProperties properties,
@@ -63,7 +65,9 @@ public class DemoSeedService {
 			PasswordEncoder passwordEncoder,
 			ObjectProvider<CatalogCacheInvalidator> catalogCacheInvalidator,
 			DemoJourneySeedService journeySeedService,
-			DemoResetService demoResetService
+			DemoResetService demoResetService,
+			DemoPromotionSeedService promotionSeedService,
+			FoodMartProductImages foodMartProductImages
 	) {
 		this.properties = properties;
 		this.environment = environment;
@@ -76,6 +80,8 @@ public class DemoSeedService {
 		this.catalogCacheInvalidator = catalogCacheInvalidator;
 		this.journeySeedService = journeySeedService;
 		this.demoResetService = demoResetService;
+		this.promotionSeedService = promotionSeedService;
+		this.foodMartProductImages = foodMartProductImages;
 	}
 
 	@Transactional
@@ -150,9 +156,12 @@ public class DemoSeedService {
 		}
 
 		DemoResetService.RetiredCatalogPurgeResult purged = demoResetService.purgeRetiredCatalog();
+		demoResetService.purgeRetiredPromotions();
 
 		DemoJourneySeedService.JourneyCounts journey = journeySeedService.seed(customerRole);
 		usersCreated += journey.usersCreated();
+
+		DemoPromotionSeedService.Counts promotions = promotionSeedService.seedAll();
 
 		CatalogCacheInvalidator invalidator = catalogCacheInvalidator.getIfAvailable();
 		if (invalidator != null) {
@@ -172,10 +181,14 @@ public class DemoSeedService {
 				journey.ordersSeeded(),
 				journey.notificationsSeeded(),
 				purged.productsRemoved(),
-				purged.categoriesRemoved()
+				purged.categoriesRemoved(),
+				promotions.strategiesCreated(),
+				promotions.strategiesUpdated(),
+				promotions.campaignsCreated(),
+				promotions.campaignsUpdated()
 		);
 		log.info(
-				"Demo seed complete: users +{}/~{} categories +{}/~{} products +{}/~{} inventory {} addresses {} orders {} notifications {} retired -{}/-{}",
+				"Demo seed complete: users +{}/~{} categories +{}/~{} products +{}/~{} inventory {} addresses {} orders {} notifications {} retired -{}/-{} promos strat +{}/~{} camp +{}/~{}",
 				result.usersCreated(),
 				result.usersUpdated(),
 				result.categoriesCreated(),
@@ -187,7 +200,11 @@ public class DemoSeedService {
 				result.ordersSeeded(),
 				result.notificationsSeeded(),
 				result.retiredProductsRemoved(),
-				result.retiredCategoriesRemoved()
+				result.retiredCategoriesRemoved(),
+				result.promotionStrategiesCreated(),
+				result.promotionStrategiesUpdated(),
+				result.promotionCampaignsCreated(),
+				result.promotionCampaignsUpdated()
 		);
 		return result;
 	}
@@ -252,6 +269,7 @@ public class DemoSeedService {
 	}
 
 	private boolean upsertProduct(DemoSeedCatalog.ProductFixture fixture, Category category) {
+		String imageUrl = foodMartProductImages.ensurePersistedImageUrl(fixture.sku());
 		var existing = productRepository.findBySkuIgnoreCase(fixture.sku());
 		if (existing.isPresent()) {
 			Product product = existing.get();
@@ -261,6 +279,8 @@ public class DemoSeedService {
 			product.setUnitPrice(fixture.unitPrice());
 			product.setCurrency("VND");
 			product.setActive(fixture.active());
+			// Restore seed baseline image (matches other FoodMart field restores on re-seed).
+			product.setImageUrl(imageUrl);
 			product.touch();
 			productRepository.save(product);
 			return false;
@@ -274,6 +294,7 @@ public class DemoSeedService {
 				"VND",
 				fixture.active()
 		);
+		created.setImageUrl(imageUrl);
 		productRepository.save(created);
 		return true;
 	}

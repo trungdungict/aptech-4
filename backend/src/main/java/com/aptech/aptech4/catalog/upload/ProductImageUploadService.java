@@ -32,9 +32,15 @@ public class ProductImageUploadService {
 		this.properties = properties;
 	}
 
+	/** Backward-compatible product upload (default purpose). */
 	public ProductImageUploadResponse upload(MultipartFile file) {
+		return upload(file, UploadPurpose.PRODUCT);
+	}
+
+	public ProductImageUploadResponse upload(MultipartFile file, UploadPurpose purpose) {
+		UploadPurpose resolved = purpose == null ? UploadPurpose.PRODUCT : purpose;
 		if (!properties.isEnabled()) {
-			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Unavailable", "Product image upload is disabled");
+			throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Unavailable", "Image upload is disabled");
 		}
 		if (file == null || file.isEmpty()) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "Bad Request", "Missing or empty file");
@@ -84,7 +90,7 @@ public class ProductImageUploadService {
 		}
 
 		String filename = UUID.randomUUID() + "." + storeFormat.extension();
-		Path uploadRoot = properties.uploadDirectory();
+		Path uploadRoot = properties.uploadDirectory(resolved);
 		Path target = uploadRoot.resolve(filename).normalize();
 		if (!target.startsWith(uploadRoot)) {
 			throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Error", "Invalid storage path");
@@ -114,7 +120,7 @@ public class ProductImageUploadService {
 			}
 		}
 
-		String publicUrl = properties.getPublicPath() + "/" + filename;
+		String publicUrl = properties.publicPath(resolved) + "/" + filename;
 		return new ProductImageUploadResponse(publicUrl, storeFormat.contentType(), toStore.length);
 	}
 

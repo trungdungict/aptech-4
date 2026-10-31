@@ -53,3 +53,28 @@ export const LazyAdminOrderDetailPage = lazyNamed(
   () => import('@/features/admin/orders/pages/AdminOrderDetailPage'),
   (m) => m.AdminOrderDetailPage,
 )
+
+export const LazyAdminPromotionsHubPage = lazyNamed(
+  () => import('@/features/admin/promotions/pages/AdminPromotionsHubPage'),
+  (m) => m.AdminPromotionsHubPage,
+)
+
+export const LazyAdminStrategyListPage = lazyNamed(
+  () => import('@/features/admin/promotions/pages/AdminStrategyListPage'),
+  (m) => m.AdminStrategyListPage,
+)
+
+export const LazyAdminStrategyFormPage = lazyNamed(
+  () => import('@/features/admin/promotions/pages/AdminStrategyFormPage'),
+  (m) => m.AdminStrategyFormPage,
+)
+
+export const LazyAdminCampaignListPage = lazyNamed(
+  () => import('@/features/admin/promotions/pages/AdminCampaignListPage'),
+  (m) => m.AdminCampaignListPage,
+)
+
+export const LazyAdminCampaignEditPage = lazyNamed(
+  () => import('@/features/admin/promotions/pages/AdminCampaignEditPage'),
+  (m) => m.AdminCampaignEditPage,
+)

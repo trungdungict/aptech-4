@@ -2,20 +2,19 @@
 
 ## Session objective
 
-Final SRE dashboard SLI/SLO review — diagnostics + budget visibility (targets unchanged).
+Persist non-null `imageUrl` for every FoodMart seed product (not FE fallback only).
 
 ## Task ID
 
-Ad-hoc. Progress remains **54/64**.
+**Persist FoodMart seed product images — DONE**
 
 ## Delivered
 
-- Verified SLI math vs event counts (availability + latency)
-- Row 6: budget remaining/consumed, diagnostic counts, slow-by-endpoint panel
-- `aptech_slo:latency_slow_events:30d` recording rule
-- Default dashboard range Last 6h; SLO still 30d rules
-- Docs updated
+- `FoodMartProductImages` copies classpath assets → `/uploads/products/{deterministic-uuid}.ext` and returns public paths
+- `DemoSeedService.upsertProduct` sets/restores seed baseline `imageUrl` for `FOOD-*` only
+- `make seed-demo` syncs product images into `aptech4-api` uploads volume
+- Docs/tests updated; FE Edit Product continues to show persisted URL
 
 ## Exact next action
 
-Resume roadmap P15/P16. Keep **54/64**.
+Stop after this seed-image persistence fix.

@@ -12,6 +12,10 @@ public record DemoSeedResult(
 		int ordersSeeded,
 		int notificationsSeeded,
 		int retiredProductsRemoved,
-		int retiredCategoriesRemoved
+		int retiredCategoriesRemoved,
+		int promotionStrategiesCreated,
+		int promotionStrategiesUpdated,
+		int promotionCampaignsCreated,
+		int promotionCampaignsUpdated
 ) {
 }

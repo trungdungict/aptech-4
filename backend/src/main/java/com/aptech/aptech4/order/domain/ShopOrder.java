@@ -59,6 +59,16 @@ public class ShopOrder extends AbstractUuidEntity {
 	@Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
 	private BigDecimal totalAmount;
 
+	/** Order-level promotion discount (ADR-020); defaults to 0 for legacy rows. */
+	@Column(name = "discount_amount", nullable = false, precision = 12, scale = 2)
+	private BigDecimal discountAmount = BigDecimal.ZERO;
+
+	@Column(name = "promotion_summary", length = 255)
+	private String promotionSummary;
+
+	@OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+	private List<OrderPromotionSnapshot> promotionSnapshots = new ArrayList<>();
+
 	@Column(name = "shipping_recipient_name", nullable = false, length = 200)
 	private String shippingRecipientName;
 
@@ -107,6 +117,7 @@ public class ShopOrder extends AbstractUuidEntity {
 		order.user = user;
 		order.status = OrderStatus.PENDING_PAYMENT;
 		order.shippingAmount = BigDecimal.ZERO;
+		order.discountAmount = BigDecimal.ZERO;
 		order.shippingRecipientName = address.getRecipientName();
 		order.shippingLine1 = address.getLine1();
 		order.shippingLine2 = address.getLine2();
@@ -180,6 +191,31 @@ public class ShopOrder extends AbstractUuidEntity {
 
 	public void setTotalAmount(BigDecimal totalAmount) {
 		this.totalAmount = totalAmount;
+	}
+
+	public BigDecimal getDiscountAmount() {
+		return discountAmount;
+	}
+
+	public void setDiscountAmount(BigDecimal discountAmount) {
+		this.discountAmount = discountAmount == null ? BigDecimal.ZERO : discountAmount;
+	}
+
+	public String getPromotionSummary() {
+		return promotionSummary;
+	}
+
+	public void setPromotionSummary(String promotionSummary) {
+		this.promotionSummary = promotionSummary;
+	}
+
+	public List<OrderPromotionSnapshot> getPromotionSnapshots() {
+		return promotionSnapshots;
+	}
+
+	public void addPromotionSnapshot(OrderPromotionSnapshot snapshot) {
+		promotionSnapshots.add(snapshot);
+		snapshot.setOrder(this);
 	}
 
 	public String getShippingRecipientName() {

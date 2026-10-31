@@ -41,4 +41,20 @@ class ProductImagePathRulesTest {
 		assertThat(ProductImagePathRules.normalizeOrNull(path))
 				.isEqualTo("/uploads/products/9d1f7e4b-1111-4111-8111-111111111111.jpg");
 	}
+
+	@Test
+	void rejectsPromotionPathForProducts() {
+		assertThatThrownBy(() -> ProductImagePathRules.normalizeOrNull(
+				"/uploads/promotions/9d1f7e4b-1111-4111-8111-111111111111.png"
+		)).isInstanceOf(ApiException.class);
+	}
+
+	@Test
+	void promotionRulesRejectProductPathAndAcceptPromotionPath() {
+		String promo = "/uploads/promotions/9d1f7e4b-1111-4111-8111-111111111111.png";
+		assertThat(PromotionImagePathRules.normalizeOrNull(promo)).isEqualTo(promo);
+		assertThatThrownBy(() -> PromotionImagePathRules.normalizeOrNull(
+				"/uploads/products/9d1f7e4b-1111-4111-8111-111111111111.png"
+		)).isInstanceOf(ApiException.class);
+	}
 }

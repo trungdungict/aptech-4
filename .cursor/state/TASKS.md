@@ -701,6 +701,330 @@ Counts are maintained in `PROGRESS.md` (recalculate from this file).
 
 ---
 
+## P18 — Promotion domain and database foundation (ADR-020)
+
+### P18-T01 — Confirm ADR-020 Accepted + R1–R9
+- **Phase:** P18
+- **Status:** DONE
+- **Deps:** —
+- **Files:** `.cursor/decisions/ADR-020-promotion-management.md`, `.cursor/plans/09-promotion-management.md`
+- **AC:** ADR Accepted; R1–R9 locked
+- **Evidence:** 2026-10-31 — ADR-020 Accepted with R1–R9
+
+### P18-T02 — Liquibase 140–144
+- **Phase:** P18
+- **Status:** DONE
+- **Deps:** P18-T01
+- **Files:** `backend/src/main/resources/db/changelog/changes/140-*.yaml` … `144-*.yaml`, master include
+- **AC:** Additive only; ≤130 untouched
+- **Evidence:** 2026-10-31 — IT DB applied 140–144 (29 changesets); PromotionDomainIntegrationTest green
+
+### P18-T03 — Promotion JPA entities/repos
+- **Phase:** P18
+- **Status:** DONE
+- **Deps:** P18-T02
+- **Files:** `backend/.../promotion/domain/*`, `promotion/persistence/*`
+- **Evidence:** 2026-10-31 — domain unit + IT green
+
+### P18-T04 — Order discount + snapshot entity
+- **Phase:** P18
+- **Status:** DONE
+- **Deps:** P18-T02
+- **Files:** `ShopOrder`, `OrderPromotionSnapshot`, migration 144
+- **Evidence:** 2026-10-31 — IT asserts default discount 0 + snapshot persist; CheckoutIntegrationTest still green
+
+### P18-T05 — Shared upload purpose PRODUCT|PROMOTION
+- **Phase:** P18
+- **Status:** DONE
+- **Deps:** P18-T02
+- **Files:** `UploadPurpose`, `ImageUploadPathRules`, upload service/controller/security/web config
+- **Evidence:** 2026-10-31 — ProductImageUploadServiceTest 17/17; path isolation tests green
+
+---
+
+## P19 — Promotion Admin and Public APIs (ADR-020)
+
+### P19-T01 — Admin Promotion Strategy CRUD
+- **Phase:** P19
+- **Status:** DONE
+- **Deps:** P18
+- **Files:** `AdminPromotionStrategyController`, `PromotionStrategyService`, strategy DTOs
+- **AC:** ADMIN-only; validation; OpenAPI paths
+- **Evidence:** 2026-10-31 — PromotionApiIntegrationTest
+
+### P19-T02 — Admin Promotion Campaign CRUD + lifecycle
+- **Phase:** P19
+- **Status:** DONE
+- **Deps:** P19-T01
+- **Files:** `AdminPromotionCampaignController`, `PromotionCampaignService`
+- **AC:** activate/pause/schedule/preview; UTC effectiveStatus; R1/R4
+- **Evidence:** 2026-10-31 — lifecycle + schedule ITs
+
+### P19-T03 — Campaign eligibility management
+- **Phase:** P19
+- **Status:** DONE
+- **Deps:** P19-T02
+- **Files:** `PUT …/eligibility`, product/category validation by strategy type
+- **Evidence:** 2026-10-31 — eligibility IT
+
+### P19-T04 — Admin Promotion Placement CRUD
+- **Phase:** P19
+- **Status:** DONE
+- **Deps:** P19-T02
+- **Files:** `AdminPromotionPlacementController`, `PromotionPlacementService`
+- **Evidence:** 2026-10-31 — placement create/order ITs
+
+### P19-T05 — Public homepage + placements APIs
+- **Phase:** P19
+- **Status:** DONE
+- **Deps:** P19-T04
+- **Files:** `PublicPromotionController`, `PublicPromotionService`, SecurityConfig permit GET
+- **AC:** status ∧ UTC window ∧ ordering; empty → empty JSON (FoodMart FE fallback P20)
+- **Evidence:** 2026-10-31 — public filter/order/empty ITs
+
+### P19-T06 — Preview endpoint (schedule effectiveness only)
+- **Phase:** P19
+- **Status:** DONE
+- **Deps:** P19-T02
+- **Files:** `POST …/preview` — no checkout pricing (P22)
+- **Evidence:** 2026-10-31 — preview IT
+
+### P19-T07 — OpenAPI / docs
+- **Phase:** P19
+- **Status:** DONE
+- **Deps:** P19-T05
+- **Files:** `backend/docs/OPENAPI.md`
+- **Evidence:** 2026-10-31 — Promotions section added
+
+### P19-T08 — Public placement cache + invalidation (R7)
+- **Phase:** P19
+- **Status:** DONE
+- **Deps:** P19-T05
+- **Files:** `PromotionCache*`, `CacheConfig`, `PromotionCacheInvalidator` on mutations
+- **AC:** short TTL + miss after Admin mutation without waiting for TTL
+- **Evidence:** 2026-10-31 — PromotionCacheIntegrationTest
+
+---
+
+## P20 — Storefront homepage promotion UI (ADR-020 R3)
+
+### P20-T01 — Public promotion DTOs + API client
+- **Phase:** P20
+- **Status:** DONE
+- **Deps:** P19-T05
+- **Files:** `frontend/src/features/promotions/types.ts`, `api/promotions-api.ts`, query keys
+- **Evidence:** 2026-10-31 — promotions-api tests
+
+### P20-T02 — HomeHeroCarousel + HomePromoStack + PromoBannerCard
+- **Phase:** P20
+- **Status:** DONE
+- **Deps:** P20-T01
+- **Files:** `features/promotions/components/*`
+- **AC:** left hero carousel + right stacked promos; image/CTA resolution
+- **Evidence:** 2026-10-31 — HomePage promotion tests
+
+### P20-T03 — FoodMart fallback on empty/error/null slots
+- **Phase:** P20
+- **Status:** DONE
+- **Deps:** P20-T02
+- **Files:** `lib/foodmart-fallback.ts`, `HomePromotionShowcase.tsx`
+- **AC:** R3 — empty/fail/null promoTop|promoBottom → static FoodMart
+- **Evidence:** 2026-10-31 — fallback unit + HomePage ITs
+
+### P20-T04 — Wire HomePage + Vitest coverage
+- **Phase:** P20
+- **Status:** DONE
+- **Deps:** P20-T03
+- **Files:** `pages/HomePage.tsx`, `pages/HomePage.test.tsx`, promotion lib tests
+- **Evidence:** 2026-10-31 — frontend tests + production build
+
+---
+
+## P21 — Admin promotion UI (ADR-020)
+
+### P21-T01 — Admin promotions API client + routes/RBAC
+- **Phase:** P21
+- **Status:** DONE
+- **Deps:** P19, P20
+- **Files:** `admin/promotions/api/*`, `router.tsx`, `nav.ts`, lazy routes
+- **Evidence:** 2026-10-31 — CUSTOMER blocked; Admin hub deep-link
+
+### P21-T02 — Strategy list/create/edit/status
+- **Phase:** P21
+- **Status:** DONE
+- **Deps:** P21-T01
+- **Files:** `AdminStrategyListPage`, `AdminStrategyFormPage`
+- **Evidence:** 2026-10-31 — strategy create IT
+
+### P21-T03 — Campaign list + edit tabs (details/lifecycle/eligibility/placements/preview)
+- **Phase:** P21
+- **Status:** DONE
+- **Deps:** P21-T02
+- **Files:** `AdminCampaignListPage`, `AdminCampaignEditPage`, UTC helpers, promotion upload field
+- **AC:** activate/pause/schedule/preview; eligibility; placement CRUD + purpose=PROMOTION; confirm destructive actions
+- **Evidence:** 2026-10-31 — AdminPromotionPages tests
+
+### P21-T04 — Vitest + build; no P20 regression
+- **Phase:** P21
+- **Status:** DONE
+- **Deps:** P21-T03
+- **Evidence:** 2026-10-31 — admin promotions + storefront promotion tests + `npm run build`
+
+---
+
+## P22 — Checkout pricing, snapshots, expiry (ADR-020)
+
+**Phase status:** DONE — P22-T01…T06 complete (2026-10-31).
+
+**Audit notes:** Schema `144` present. Checkout applies `PromotionPricingService` before payment; snapshots cascade with order. P22 clarifications: order-level dual eligibility = OR; aggregate cap via end-trim so snapshot sums == `discount_amount`. No Flutter. Inventory semantics unchanged.
+
+### P22-T01 — PromotionPricingService + unit matrix
+- **Phase:** P22
+- **Status:** DONE
+- **Deps:** P18, P19
+- **Files:** `promotion/application/PromotionPricingService.java`, `PricingCartLine`, `AppliedPromotion`, `PromotionPricingResult`, `PromotionPricingServiceTest`
+- **AC:**
+  - Backend-only selection; ignore any client campaign preference
+  - Effective via `PromotionCampaign.isPricingEffective` (ACTIVE ∧ inclusive UTC ∧ strategy ACTIVE ∧ ≠ BANNER_ONLY)
+  - Eligibility: order-level empty=all; one set=that set; both=OR (P22); PRODUCT/CATEGORY type-specific; `min_*` vs **full cart**
+  - Priority DESC, starts_at ASC, id ASC; non-stackable first + all stackable; non-compounding; end-trim so snapshots sum to order discount; HALF_UP scale 2
+  - Empty cart / zero subtotal / ineligible → discount 0
+- **Verify:** Unit tests AC-S1…S9 + OR eligibility + caps/rounding/UTC bounds with fixed `Clock`
+- **Evidence:** 2026-10-31 — `./mvnw -Dtest=PromotionPricingServiceTest test` → Tests run: 21, Failures: 0
+
+### P22-T02 — Wire CheckoutService + persist snapshots + CheckoutResponse
+- **Phase:** P22
+- **Status:** DONE
+- **Deps:** P22-T01
+- **Files:** `CheckoutService`, `CheckoutResponse`, `PromotionCampaignRepository.findPricingWindowCandidates`, `CheckoutPromotionIntegrationTest`
+- **AC:**
+  - After line/subtotal build, before payment: apply pricing; set `discount_amount`, `promotion_summary`, snapshots; `totalAmount = subtotal + shipping − discount` (≥ 0)
+  - Reserve / confirm / release / payment / cart-clear / idempotency unchanged
+  - Exception before commit → no order, no snapshots; FAILED payment still persists order+snapshots atomically
+  - No-promotion path: `discount_amount = 0`, empty snapshots, legacy total
+  - Response: `discountAmount` + `appliedPromotions` (ADR D7)
+- **Verify:** Focused checkout ITs (no promo + fixed/% + stack + eligibility + inactive windows + failure + client fields ignored)
+- **Evidence:** 2026-10-31 — `./mvnw -Dtest=PromotionPricingServiceTest,CheckoutPromotionIntegrationTest,CheckoutIntegrationTest test` → Tests run: 30, Failures: 0
+
+### P22-T03 — Order GET exposes discount + applied promotions
+- **Phase:** P22
+- **Status:** DONE
+- **Deps:** P22-T02
+- **Files:** `OrderResponse`, `OrderService`, `OrderPromotionGetIntegrationTest`
+- **AC:** Read from persisted order/snapshots only; legacy orders → `discountAmount=0`, empty list; never reprice from live campaigns; ownership unchanged
+- **Verify:** Order detail IT with snapshot after campaign/strategy delete still shows historical amounts
+- **Evidence:** 2026-10-31 — `./mvnw -Dtest=OrderPromotionGetIntegrationTest,OrderLifecycleIntegrationTest,CheckoutPromotionIntegrationTest,CheckoutIntegrationTest,CustomerDeterministicAssistantServiceTest test` → Tests run: 29, Failures: 0
+
+### P22-T04 — Minimal FE checkout/order discount display
+- **Phase:** P22
+- **Status:** DONE
+- **Deps:** P22-T02, P22-T03
+- **Files:** `checkout/types.ts`, `orders/types.ts`, `OrderPriceSummary`, customer/admin order detail + history, focused Vitest
+- **AC:** Types match API; show order-level discount when > 0; applied promo names/amounts; no client-side discount math; no campaign picker; legacy zero discount renders normally
+- **Verify:** Focused Vitest + `npm run build`
+- **Evidence:** 2026-10-31 — focused tests 28 passed; `npm run build` SUCCESS
+- **Notes:** Scope = contract consumption only (user constraint + ADR D7)
+
+### P22-T05 — CampaignExpiryJob
+- **Phase:** P22
+- **Status:** DONE
+- **Deps:** P19-T02
+- **Files:** `CampaignExpiryJob`, `PromotionCampaignService.expireDueCampaigns`, `PromotionCampaignRepository.findActivePastEnd`, `application.yml` `aptech.promotions.expiry-poll-ms`, `CampaignExpiryIntegrationTest`
+- **AC:** ACTIVE ∧ `clock.instant() > ends_at` → EXPIRED; inclusive end remains ACTIVE; PAUSED/SCHEDULED unchanged; idempotent; UTC `Clock`; snapshots untouched; checkout independent of job
+- **Verify:** IT with fixed `Clock`; re-run no-op
+- **Evidence:** 2026-10-31 — `./mvnw -Dtest=CampaignExpiryIntegrationTest,PromotionCampaignEffectivenessTest,PromotionPricingServiceTest test` → Tests run: 26, Failures: 0
+- **Notes:** No new Liquibase — `idx_promotion_campaigns_status_window` already exists
+
+### P22-T06 — Integration matrix + suite green
+- **Phase:** P22
+- **Status:** DONE
+- **Deps:** P22-T02…T05
+- **AC:** Cover prompt test list 1–15 (no promo, fixed, %, priority, stackable/non, product/category, inactive/paused/not-started/expired, UTC bounds, cap/negative guard, rounding, snapshot persist, delete FK SET NULL, rollback, existing checkout/inventory green, expiry idempotency)
+- **Verify:** Full relevant backend IT suite; report commands + counts
+- **Evidence:** 2026-10-31 — Matrix gaps closed (category checkout, end-trim+summary, two-stackable IT, AC-H6 strategy mutate, DRAFT expiry, expiry→cache clear). `make test-promotions` / focused `-Dtest=…` → **55 tests, 0 failures**. Full `./mvnw test` promotion classes green; AuthIntegrationTest needed local `CREATE DATABASE aptech4_auth_it` (env gap, not promo). No production code changes.
+- **Notes:** `PromotionCacheIntegrationTest` (Testcontainers) green in full suite when Docker available; excluded from `make test-promotions` default list comment.
+
+---
+
+## P23 — Promotion E2E / smoke (Phase 7)
+
+### P23-T01 — Promotion journey smoke via local stack
+- **Phase:** P23
+- **Status:** DONE
+- **Deps:** P22-T06, P20, P21
+- **Files:** `scripts/smoke-promotions.sh`, `Makefile` (`smoke-promotions`)
+- **AC:**
+  - Admin auth + create/configure campaign (banner + %); invalid strategy rejected
+  - Public homepage shows active hero; hides draft/paused/past-window; FoodMart fallback path intact when empty
+  - Customer checkout applies server discount + snapshots; order GET preserves history after campaign mutate
+  - Past `endsAt` effectiveness without wall-clock wait; no real payments; cleanup smoke-owned rows only
+- **Verify:** `make smoke-promotions` against `WEB_PORT` nginx stack + `DEMO_*` credentials; optional browser UI check; focused FE Vitest if touched
+- **Evidence:** 2026-10-31 — `make smoke-promotions` **OK** (all PASS asserts). Browser: Featured offers showed live hero title. Focused FE Vitest **28/28**. ACTIVE→EXPIRED job status flip **BLOCKED** on live stack (no test Clock) — covered by `CampaignExpiryIntegrationTest`. No production behavior changes.
+- **Notes:** Reuses existing bash/nginx smoke pattern (no new Playwright/Cypress). Updated in P24 to check `demo-promo-*` seed fixtures.
+
+---
+
+## P24 — Promotion mock / seed data (Phase 8)
+
+### P24-T01 — Idempotent demo promotion fixtures
+- **Phase:** P24
+- **Status:** DONE
+- **Deps:** P23-T01, P08-T01, P18
+- **Files:** `DemoPromotionCatalog`, `DemoPromotionSeedService`, `DemoSeedService`/`DemoSeedResult`/`DemoSeedMarkers`, `DemoResetService`/`Plan`/`Result`, `PromotionCampaignRepository.findBySlug*`, `docs/DEMO_SEED.md`, `scripts/smoke-promotions.sh`
+- **AC:**
+  - Seed creates strategies/campaigns/placements for % / fixed / product / category / OR / stackable / scheduled / paused / draft / expired / hero
+  - Idempotent upsert by `DEMO-PROMO-*` codes and `demo-promo-*` slugs; reset deletes only those keys
+  - Pricing campaigns PAUSED by default; hero ACTIVE; no seeded promo orders
+  - `make seed-demo` ×2 stable; smoke reports missing seed and validates fixtures when present
+- **Verify:** `DemoSeedIntegrationTest` + `DemoResetIntegrationTest`; `make seed-demo` ×2; `make smoke-promotions`
+- **Evidence:** 2026-10-31 — seed/reset ITs **9/0**; seed-demo first `strat +9 camp +12`, second `+0/~9/~12`; smoke-promotions **OK** (seed hero PASS). No `.env`/volume wipe. Phase 8 complete.
+- **Notes:** Activate paused pricing campaigns in Admin for live discount demos. Natural keys later migrated to `PROMO-*` / grocery slugs (see UX cleanup below).
+
+### UX — Promotion page image, strategy pagination, realistic seed (ad-hoc)
+- **Phase:** post-P24
+- **Status:** DONE
+- **Deps:** P24-T01
+- **Files:** `DemoPromotionCatalog`/`DemoPromotionSeedService`/`DemoSeedMarkers`/`DemoResetService`, `promo-hero.jpg`, `Makefile` seed sync, `HomeHeroCarousel`, `AdminStrategyListPage`, `smoke-promotions.sh`, FE/BE tests, `docs/DEMO_SEED.md`
+- **AC:**
+  - Featured offers renders real campaign JPG (not 1×1 PNG); safe URL + `onError` fallback; Makefile syncs into uploads volume
+  - Admin strategies paginated client-side (size 10) over existing List API; page clamp after invalid page
+  - Visible seed names/codes realistic (no Demo/Smoke); retired `DEMO-PROMO-*`/`demo-promo-*` purged on seed/reset; pricing PAUSED; hero ACTIVE; smoke uses new stable IDs
+- **Verify:** FE Vitest (HomeHero + Admin promo pages); seed/reset ITs; promotion ITs; `npm run build`; `make seed-demo` ×2; `make smoke-promotions`; live homepage image HTTP 200
+- **Evidence:** 2026-10-31 — FE **15/15** focused; seed/reset ITs green; PromotionApi/Domain/Expiry ITs green (after creating missing `aptech4_catalog_it`); FE production build OK; seed1 purged 12/9 retired then `+9/+12`; seed2 `+0/~9/~12` + hero JPG sync; smoke-promotions **OK**; homepage title `Ưu đãi mua sắm tiết kiệm`, JPG **184781** bytes; Admin strategies no Demo/Smoke labels.
+- **Notes:** Pagination is client-side because admin strategies API remains an unpaginated List. Orphaned prior `SMK-*`/`TMP-*` smoke strategies cleaned by exact code prefix (no volume wipe).
+
+### UX — Admin auth redirect on expired/missing session (ad-hoc)
+- **Phase:** post-P24
+- **Status:** DONE
+- **Deps:** existing auth client + RequireAdmin
+- **Files:** `session-coordinator.ts`, `AuthProvider.tsx`, `api-client.ts`, `safe-redirect.ts`, auth/API Vitest
+- **AC:**
+  - Protected 401 after failed refresh clears session and redirects to login with safe `next=`
+  - Missing storage → `/admin/orders` goes to login (no 401 Retry UI)
+  - 403 keeps session; 5xx does not clear; refresh single-flight preserved
+- **Verify:** focused Vitest auth/api/admin + `npm run build`
+- **Evidence:** 2026-10-31 — Vitest **45/45**; production build OK.
+
+### UX — Admin Edit Product current image preview (ad-hoc)
+- **Phase:** post-P24
+- **Status:** DONE
+- **Deps:** product admin form + `resolveProductImage`
+- **Files:** `ProductImageUploadField.tsx`, `AdminProductFormPage.tsx`, product image/form Vitest
+- **AC:** Current image (upload path or catalog fallback) labeled; no-image placeholder; new-file preview; empty file input preserves `imageUrl` on save
+- **Verify:** focused product Vitest + `npm run build`
+- **Evidence:** 2026-10-31 — Vitest **34/34**; production build OK.
+
+### UX — Persist FoodMart seed product images (ad-hoc)
+- **Phase:** post-P24
+- **Status:** DONE
+- **Deps:** FoodMart seed + product upload path rules
+- **Files:** `FoodMartProductImages.java`, `db/demo/foodmart-product-images.json`, `db/demo/product-images/*`, `DemoSeedService.java`, Makefile `seed-demo` sync, `DEMO_SEED.md`, seed ITs
+- **AC:** Every seed-owned `FOOD-*` product persists non-null `/uploads/products/{uuid}.ext`; assets synced into uploads volume; re-seed idempotent and repairs missing files; non-seed products untouched
+- **Verify:** `FoodMartProductImagesTest` + seed/reset ITs; FE product image Vitest; `npm run build`; `make seed-demo` ×2; public catalog + image HTTP; `make smoke-promotions`
+- **Evidence:** 2026-11-01 — BE tests **7/7** (`FoodMartProductImagesTest` 2, `FoodMartCatalogTest` 1, `DemoSeedIntegrationTest` 1, `DemoResetIntegrationTest` 3); FE **34/34**; build OK; seed×2 → 48/48 non-null unique URLs, sample HTTP 200; smoke-promotions OK
+
+---
+
 ## P17 — Final acceptance
 
 ### P17-T01 — End-to-end acceptance checklist execution

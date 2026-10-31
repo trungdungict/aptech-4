@@ -2,6 +2,8 @@ import { Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
 import {
+  LazyAdminCampaignEditPage,
+  LazyAdminCampaignListPage,
   LazyAdminCategoryFormPage,
   LazyAdminCategoryListPage,
   LazyAdminLayout,
@@ -10,6 +12,9 @@ import {
   LazyAdminOverviewPage,
   LazyAdminProductFormPage,
   LazyAdminProductListPage,
+  LazyAdminPromotionsHubPage,
+  LazyAdminStrategyFormPage,
+  LazyAdminStrategyListPage,
 } from '@/features/admin/admin-lazy-routes'
 import { AdminRouteFallback } from '@/features/admin/components/AdminRouteFallback'
 import { RequireAdmin } from '@/features/auth/components/RequireAdmin'
@@ -53,6 +58,25 @@ export function AppRouter() {
         />
         <Route path="orders" element={<LazyAdminOrderListPage />} />
         <Route path="orders/:orderId" element={<LazyAdminOrderDetailPage />} />
+        <Route path="promotions" element={<LazyAdminPromotionsHubPage />} />
+        <Route path="promotions/strategies" element={<LazyAdminStrategyListPage />} />
+        <Route
+          path="promotions/strategies/new"
+          element={<LazyAdminStrategyFormPage mode="create" />}
+        />
+        <Route
+          path="promotions/strategies/:strategyId/edit"
+          element={<LazyAdminStrategyFormPage mode="edit" />}
+        />
+        <Route path="promotions/campaigns" element={<LazyAdminCampaignListPage />} />
+        <Route
+          path="promotions/campaigns/new"
+          element={<LazyAdminCampaignEditPage mode="create" />}
+        />
+        <Route
+          path="promotions/campaigns/:campaignId"
+          element={<LazyAdminCampaignEditPage mode="edit" />}
+        />
       </Route>
 
       <Route element={<RootLayout />}>

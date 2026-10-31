@@ -48,16 +48,25 @@ public class DemoResetRunner implements ApplicationRunner {
 
 		DemoResetPlan plan = demoResetService.plan();
 		log.info(
-				"Demo reset plan — jdbcUrl={} demoUsers={} demoCategories={} demoProducts={} orders={} carts={} reservations={}",
+				"Demo reset plan — jdbcUrl={} demoUsers={} demoCategories={} demoProducts={} promoStrategies={} promoCampaigns={} orders={} carts={} reservations={}",
 				plan.jdbcUrl(),
 				plan.demoUsers(),
 				plan.demoCategories(),
 				plan.demoProducts(),
+				plan.demoPromotionStrategies(),
+				plan.demoPromotionCampaigns(),
 				plan.dependentOrders(),
 				plan.dependentCarts(),
 				plan.dependentReservations()
 		);
-		log.info("Scope emails={} slugs={} skus={}", plan.demoEmails(), plan.demoCategorySlugs(), plan.demoProductSkus());
+		log.info(
+				"Scope emails={} categorySlugs={} skus={} promoCodes={} promoSlugs={}",
+				plan.demoEmails(),
+				plan.demoCategorySlugs(),
+				plan.demoProductSkus(),
+				plan.demoPromotionStrategyCodes(),
+				plan.demoPromotionCampaignSlugs()
+		);
 		log.info(
 				"This deletes ONLY rows matching those natural keys (+ their dependents). Not a database/volume wipe."
 		);

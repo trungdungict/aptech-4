@@ -1,5 +1,5 @@
 {
-  "_comment": "Maps stable FOOD-* SKUs to Vite public FoodMart assets. Backend imageUrl is always null — resolution is client-side only. Paths must exist under frontend/public.",
+  "_comment": "Legacy client fallback when product.imageUrl is null. Seed persists /uploads/products/{uuid}.ext via foodmart-product-images.json; prefer API imageUrl. Paths under frontend/public.",
   "FOOD-FRUIT-APPLE-001": "/assets/foodmart/images/products/thumb-raspberries.png",
   "FOOD-FRUIT-BANANA-001": "/assets/foodmart/images/products/thumb-bananas.png",
   "FOOD-FRUIT-STRAWBERRY-001": "/assets/foodmart/images/products/thumb-raspberries.png",

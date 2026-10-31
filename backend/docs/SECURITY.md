@@ -24,7 +24,9 @@ Authorities come from the **server-signed access JWT** `roles` claim (and login/
 | Surface | Rule | Notes |
 |---------|------|-------|
 | Public allow-list | No auth | Health, auth, OpenAPI, `/error` |
-| `/api/v1/admin/**` | `ROLE_ADMIN` | Filter-chain matcher; includes categories, products, and `…/products/{id}/inventory` |
+| `/api/v1/admin/**` | `ROLE_ADMIN` | Filter-chain matcher; includes categories, products, inventory, uploads (`?purpose=PRODUCT\|PROMOTION`) |
+| `GET /uploads/products/**` | Public | Path-only product images |
+| `GET /uploads/promotions/**` | Public | Path-only promotion banners (isolated from products) |
 | `GET /api/v1/categories/**` | Public | Active categories only; inactive → omitted / 404 |
 | `GET /api/v1/products/**` | Public | Active products + active category; inactive → omitted / 404 |
 | Other `/api/v1/**` | Authenticated access JWT | Deny-by-default |
