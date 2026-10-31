@@ -6,8 +6,24 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { listAdminCategories } from '@/features/admin/categories/api/admin-categories-api'
 import { adminCategoryQueryKeys } from '@/features/admin/categories/hooks/admin-category-query-keys'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
 import { catalogQueryKeys } from '@/features/catalog/hooks/catalog-query-keys'
 import { ApiClientError } from '@/lib/api/api-error'
+
+import {
+  adminAlertErrorClass,
+  adminAlertSuccessClass,
+  adminNativeSelectClass,
+  adminPageLeadClass,
+  adminPageSectionClass,
+  adminPageTitleClass,
+} from '../../lib/admin-ui'
 
 import * as productsApi from '../api/admin-products-api'
 import { adminProductQueryKeys } from '../hooks/admin-product-query-keys'
@@ -113,9 +129,11 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
 
   if (isEdit && productQuery.isLoading) {
     return (
-      <p className="text-sm text-muted-foreground" role="status">
-        Loading product…
-      </p>
+      <div className="mx-auto max-w-xl space-y-4" role="status" aria-live="polite">
+        <p className="sr-only">Loading product…</p>
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
     )
   }
 
@@ -126,7 +144,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
       )
     }
     return (
-      <p className="text-sm text-red-700" role="alert">
+      <p className="text-sm text-destructive" role="alert">
         {productQuery.error instanceof ApiClientError
           ? productQuery.error.userMessage
           : 'Unable to load product.'}
@@ -135,154 +153,167 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
   }
 
   return (
-    <section className="mx-auto max-w-xl space-y-6">
-      <div className="space-y-1">
-        <p className="text-sm text-muted-foreground">
-          <Link to="/admin/products" className="text-primary underline-offset-4 hover:underline">
+    <section className={`mx-auto max-w-xl ${adminPageSectionClass}`}>
+      <div className="space-y-2">
+        <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+          <Link to="/admin/products" className="font-medium text-primary hover:underline">
             Products
           </Link>
           <span aria-hidden="true"> / </span>
-          {isEdit ? 'Edit' : 'New'}
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          <span className="text-foreground">{isEdit ? 'Edit' : 'New'}</span>
+        </nav>
+        <h1 className={adminPageTitleClass}>
           {isEdit ? 'Edit product' : 'Create product'}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className={adminPageLeadClass}>
           Fields match the admin product API. Inventory quantities are not editable here.
         </p>
       </div>
 
-      <form
-        className="space-y-4 rounded-2xl border border-border bg-card p-5"
-        noValidate
-        onSubmit={form.handleSubmit((values) => {
-          setSuccessMessage(null)
-          setFormError(null)
-          saveMutation.mutate(values)
-        })}
-      >
-        <Field
-          id="product-sku"
-          label="SKU"
-          error={form.formState.errors.sku?.message}
-        >
-          <input
-            id="product-sku"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            disabled={saveMutation.isPending}
-            {...form.register('sku')}
-          />
-        </Field>
-        <Field
-          id="product-name"
-          label="Name"
-          error={form.formState.errors.name?.message}
-        >
-          <input
-            id="product-name"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            disabled={saveMutation.isPending}
-            {...form.register('name')}
-          />
-        </Field>
-        <Field
-          id="product-description"
-          label="Description"
-          error={form.formState.errors.description?.message}
-        >
-          <textarea
-            id="product-description"
-            rows={4}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            disabled={saveMutation.isPending}
-            {...form.register('description')}
-          />
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            id="product-price"
-            label="Unit price"
-            error={form.formState.errors.unitPrice?.message}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle>
+            <h2 className="text-base font-semibold">Product details</h2>
+          </CardTitle>
+          <CardDescription>SKU, pricing, and category assignment.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form
+            className="space-y-4"
+            noValidate
+            onSubmit={form.handleSubmit((values) => {
+              setSuccessMessage(null)
+              setFormError(null)
+              saveMutation.mutate(values)
+            })}
           >
-            <input
-              id="product-price"
-              inputMode="decimal"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              disabled={saveMutation.isPending}
-              {...form.register('unitPrice')}
-            />
-          </Field>
-          <Field
-            id="product-currency"
-            label="Currency"
-            error={form.formState.errors.currency?.message}
-          >
-            <input
-              id="product-currency"
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-              disabled={saveMutation.isPending}
-              {...form.register('currency')}
-            />
-          </Field>
-        </div>
-        <Field
-          id="product-category"
-          label="Category"
-          error={form.formState.errors.categoryId?.message}
-        >
-          <select
-            id="product-category"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            disabled={saveMutation.isPending || categoriesQuery.isLoading}
-            {...form.register('categoryId')}
-          >
-            <option value="">Select a category</option>
-            {selectedInactive ? (
-              <option value={selectedInactive.id}>
-                {selectedInactive.name} (inactive — reassignment required)
-              </option>
+            <Field
+              id="product-sku"
+              label="SKU"
+              error={form.formState.errors.sku?.message}
+            >
+              <Input
+                id="product-sku"
+                disabled={saveMutation.isPending}
+                aria-invalid={Boolean(form.formState.errors.sku)}
+                {...form.register('sku')}
+              />
+            </Field>
+            <Field
+              id="product-name"
+              label="Name"
+              error={form.formState.errors.name?.message}
+            >
+              <Input
+                id="product-name"
+                disabled={saveMutation.isPending}
+                aria-invalid={Boolean(form.formState.errors.name)}
+                {...form.register('name')}
+              />
+            </Field>
+            <Field
+              id="product-description"
+              label="Description"
+              error={form.formState.errors.description?.message}
+            >
+              <Textarea
+                id="product-description"
+                rows={4}
+                disabled={saveMutation.isPending}
+                aria-invalid={Boolean(form.formState.errors.description)}
+                {...form.register('description')}
+              />
+            </Field>
+
+            <Separator />
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                id="product-price"
+                label="Unit price"
+                error={form.formState.errors.unitPrice?.message}
+              >
+                <Input
+                  id="product-price"
+                  inputMode="decimal"
+                  disabled={saveMutation.isPending}
+                  aria-invalid={Boolean(form.formState.errors.unitPrice)}
+                  {...form.register('unitPrice')}
+                />
+              </Field>
+              <Field
+                id="product-currency"
+                label="Currency"
+                error={form.formState.errors.currency?.message}
+              >
+                <Input
+                  id="product-currency"
+                  disabled={saveMutation.isPending}
+                  aria-invalid={Boolean(form.formState.errors.currency)}
+                  {...form.register('currency')}
+                />
+              </Field>
+            </div>
+            <Field
+              id="product-category"
+              label="Category"
+              error={form.formState.errors.categoryId?.message}
+            >
+              <select
+                id="product-category"
+                className={adminNativeSelectClass}
+                disabled={saveMutation.isPending || categoriesQuery.isLoading}
+                aria-invalid={Boolean(form.formState.errors.categoryId)}
+                {...form.register('categoryId')}
+              >
+                <option value="">Select a category</option>
+                {selectedInactive ? (
+                  <option value={selectedInactive.id}>
+                    {selectedInactive.name} (inactive — reassignment required)
+                  </option>
+                ) : null}
+                {activeCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {categoriesQuery.isError ? (
+              <p className="text-sm text-destructive" role="alert">
+                Unable to load categories for the form.
+              </p>
             ) : null}
-            {activeCategories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </Field>
 
-        {categoriesQuery.isError ? (
-          <p className="text-sm text-red-700" role="alert">
-            Unable to load categories for the form.
-          </p>
-        ) : null}
+            {formError ? (
+              <p
+                className={adminAlertErrorClass}
+                role="alert"
+              >
+                {formError}
+              </p>
+            ) : null}
+            {successMessage ? (
+              <p
+                className={adminAlertSuccessClass}
+                role="status"
+              >
+                {successMessage}
+              </p>
+            ) : null}
 
-        {formError ? (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {formError}
-          </p>
-        ) : null}
-        {successMessage ? (
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-900" role="status">
-            {successMessage}
-          </p>
-        ) : null}
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            disabled={saveMutation.isPending}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-          >
-            {saveMutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
-          </button>
-          <Link
-            to="/admin/products"
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            Back to list
-          </Link>
-        </div>
-      </form>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <Button type="submit" disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/admin/products">Back to list</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </section>
   )
 }
@@ -299,27 +330,24 @@ function Field({
   children: React.ReactNode
 }) {
   return (
-    <div className="space-y-1 text-sm">
-      <label className="block text-muted-foreground" htmlFor={id}>
-        {label}
-      </label>
+    <div className="space-y-1.5 text-sm">
+      <Label htmlFor={id}>{label}</Label>
       {children}
-      {error ? <p className="text-xs text-red-700">{error}</p> : null}
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
     </div>
   )
 }
 
 function Unavailable({ title, message }: { title: string; message: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
-      <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">{message}</p>
-      <Link
-        to="/admin/products"
-        className="mt-4 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
-      >
-        Back to products
-      </Link>
-    </div>
+    <Card className="border-dashed shadow-none">
+      <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <p className="text-sm text-muted-foreground">{message}</p>
+        <Button asChild variant="link">
+          <Link to="/admin/products">Back to products</Link>
+        </Button>
+      </CardContent>
+    </Card>
   )
 }

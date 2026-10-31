@@ -39,6 +39,9 @@ make ollama-health
 # Full stack + AI (API talks to Compose service `ollama`)
 make deploy-local-ai
 
+# Complete local demo (core + AI + monitoring + model pull + seed + smokes)
+make up-all
+
 # Stop Ollama without touching Postgres/Redis volumes
 make down-ai
 ```

@@ -9,7 +9,7 @@ See ADR-010 (seed) and ADR-011 (reset).
 | Command | What it does | Destructive? |
 |---------|----------------|--------------|
 | `make seed-check` | Prints DB target; refuses `prod` profile; checks DEMO_/JWT secrets | No |
-| `make seed-demo` | Upsert demo users/categories/products/inventory | No deletes |
+| `make seed-demo` | Upsert demo users + FoodMart catalog/inventory; purge retired `DEMO-*` keys | Deletes **retired catalog keys only** |
 | `make reset-demo-dry` | Prints JDBC URL + counts of matching demo rows | No |
 | `make reset-demo CONFIRM=yes` | Deletes **demo-scoped** rows, then reseeds | Yes — demo scope only |
 | `make clean` | `mvn clean` (build artifacts) | No DB/volumes |
@@ -25,19 +25,20 @@ See ADR-010 (seed) and ADR-011 (reset).
 | Roles | `CUSTOMER`, `ADMIN` | From Liquibase `010-identity` — seed looks them up; **reset never deletes roles** |
 | Admin user | `DEMO_ADMIN_EMAIL` (default `admin@aptech4.local`) | Role `ADMIN`; password hashed with BCrypt |
 | Customer user | `DEMO_CUSTOMER_EMAIL` (default `customer@aptech4.local`) | Role `CUSTOMER` |
-| Categories | slugs `demo-electronics`, `demo-books`, `demo-home`, `demo-archive` | Archive is **inactive** |
-| Products | exact SKUs in `DemoSeedCatalog` (`DEMO-*`) | Mixed prices, one zero stock, one inactive |
+| Categories | FoodMart slugs from `db/demo/foodmart-catalog.json` (`food-*`) | 8 grocery categories |
+| Products | FoodMart SKUs (`FOOD-*`) | 48 products; includes zero-stock SKUs |
 | Inventory | per seeded product | `on_hand ≥ reserved`; never negative |
+| Journeys | addresses, cart, sample orders, notifications | FoodMart products only |
 
-Does **not** create carts, orders, payments, or refresh tokens on seed. Seed does **not** delete non-seed rows.
+Seed also **purges retired** legacy `DEMO-*` / `demo-*` natural keys listed in `DemoSeedMarkers` (local-demo guard). It does **not** delete unrelated non-demo rows.
 
 ## Reset scope
 
 Deletes only rows matching:
 
-1. Configured demo emails (`DEMO_ADMIN_EMAIL` / `DEMO_CUSTOMER_EMAIL`)
-2. Category slugs from `DemoSeedCatalog`
-3. Product SKUs from `DemoSeedCatalog`
+1. Configured demo emails (`DEMO_ADMIN_EMAIL` / `DEMO_CUSTOMER_EMAIL`) + journey extras
+2. Category slugs from `DemoSeedMarkers.resetCategorySlugs()` (FoodMart + retired)
+3. Product SKUs from `DemoSeedMarkers.resetProductSkus()` (FoodMart + retired)
 4. Dependents of those rows (carts, reservations, orders/payments/checkout for those users/products, inventory, `user_roles`, addresses, refresh tokens)
 
 Non-demo users/products/categories and role reference data are kept. FK constraints stay enabled (no `TRUNCATE` of business tables).
@@ -63,19 +64,21 @@ Defined in [`.env.example`](../.env.example). Copy to gitignored `.env` for loca
 
 | Account | Email | Password (from `.env.example`) | Role | Intended use |
 |---------|-------|--------------------------------|------|--------------|
-| CUSTOMER | `customer@aptech4.local` | `CustomerDemo_change_me!` | CUSTOMER | Catalog / cart / checkout / orders |
-| ADMIN | `admin@aptech4.local` | `AdminDemo_change_me!` | ADMIN | `/admin` dashboard, products, categories, orders |
+| CUSTOMER | `customer@aptech4.local` | `customer` (local default) | CUSTOMER | Catalog / cart / checkout / orders |
+| ADMIN | `admin@aptech4.local` | `admin` (local default) | ADMIN | `/admin` dashboard, products, categories, orders |
+
+See also [DEMO_ENVIRONMENT.md](./DEMO_ENVIRONMENT.md) for FoodMart catalog, `make up-all` / `make down-all`, and expected counts.
 
 Verified locally against Compose stack (`http://localhost:8088`) after `make seed-demo` (login 200 + role checks; CUSTOMER rejected on `/api/v1/admin/**`).
 
 ```
 DEMO_ADMIN_EMAIL=admin@aptech4.local
-DEMO_ADMIN_PASSWORD=AdminDemo_change_me!
+DEMO_ADMIN_PASSWORD=admin
 DEMO_CUSTOMER_EMAIL=customer@aptech4.local
-DEMO_CUSTOMER_PASSWORD=CustomerDemo_change_me!
+DEMO_CUSTOMER_PASSWORD=customer
 ```
 
-Re-seed alone does **not** reset an existing user's password; use `make reset-demo CONFIRM=yes` to delete demo users then recreate them with env passwords.
+Re-seed alone does **not** reset an existing user's password; use `make reset-demo CONFIRM=yes` (or `make down-all CONFIRM=yes && make up-all`) to recreate demo users with env passwords.
 
 ### Compose web CORS note
 
@@ -103,7 +106,7 @@ make reset-demo CONFIRM=yes
 ### Verify (stack nginx or direct API)
 
 ```bash
-make smoke-demo           # login + DEMO-* products via http://localhost:8088
+make smoke-demo           # login + FOOD-* products via http://localhost:8088
 # or:
 curl -sS -X POST http://localhost:8088/api/v1/auth/login \
   -H 'Content-Type: application/json' \

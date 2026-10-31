@@ -4,10 +4,17 @@ import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import * as cartApi from '@/features/cart/api/cart-api'
 import { cartQueryKeys } from '@/features/cart/hooks/cart-query-keys'
-import { formatProductPrice } from '@/features/catalog/lib/format-price'
+import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { orderQueryKeys } from '@/features/orders/hooks/order-query-keys'
 import { ApiClientError } from '@/lib/api/api-error'
 
@@ -169,238 +176,283 @@ export function CheckoutPage() {
       </div>
 
       {cartQuery.isLoading || addressesQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Loading checkout…
-        </p>
+        <CheckoutLoadingSkeleton />
       ) : cartQuery.isError ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+        <p
+          className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+          role="alert"
+        >
           {cartQuery.error instanceof ApiClientError
             ? cartQuery.error.userMessage
             : 'Unable to load cart.'}
         </p>
       ) : !cart || cart.items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
-          <p className="text-sm text-muted-foreground">Nothing to checkout.</p>
-          <Link to="/cart" className="mt-4 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline">
-            Back to cart
-          </Link>
-        </div>
+        <Card className="border-dashed shadow-none">
+          <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+            <p className="text-sm text-muted-foreground">Nothing to checkout.</p>
+            <Button asChild variant="link">
+              <Link to="/cart">Back to cart</Link>
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
-        <>
-          {cart.hasUnavailableItems ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-              Remove unavailable items from the cart before placing an order.
-            </p>
-          ) : null}
-
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <h2 className="text-sm font-semibold text-foreground">Order review</h2>
-            <ul className="mt-3 divide-y divide-border">
-              {cart.items.map((item) => (
-                <li key={item.id} className="flex justify-between gap-4 py-2 text-sm">
-                  <span className="text-foreground">
-                    {item.productName} × {item.quantity}
-                    {!item.available ? ' (unavailable)' : ''}
-                  </span>
-                  <span className="shrink-0 font-medium">
-                    {formatProductPrice(item.lineSubtotal, item.currency)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-right text-base font-semibold text-foreground">
-              Cart subtotal {formatProductPrice(cart.subtotal, cart.currency)}
-            </p>
-          </div>
-
-          <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-foreground">Shipping address</h2>
-              <button
-                type="button"
-                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                onClick={() => setShowAddressForm((v) => !v)}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
+          <div className="space-y-4">
+            {cart.hasUnavailableItems ? (
+              <p
+                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                role="status"
               >
-                {showAddressForm ? 'Cancel' : 'Add address'}
-              </button>
-            </div>
-
-            {addressesQuery.isError ? (
-              <p className="text-sm text-red-700" role="alert">
-                {addressesQuery.error instanceof ApiClientError
-                  ? addressesQuery.error.userMessage
-                  : 'Unable to load addresses.'}
+                Remove unavailable items from the cart before placing an order.
               </p>
             ) : null}
 
-            {addresses.length === 0 && !showAddressForm ? (
-              <p className="text-sm text-muted-foreground">
-                Add a shipping address to continue. Checkout requires a server-side{' '}
-                <code className="text-xs">addressId</code>.
-              </p>
-            ) : null}
-
-            {addresses.length > 0 ? (
-              <fieldset className="space-y-2">
-                <legend className="sr-only">Choose shipping address</legend>
-                {addresses.map((address) => (
-                  <label
-                    key={address.id}
-                    className="flex cursor-pointer gap-3 rounded-lg border border-border px-3 py-2 text-sm hover:bg-muted"
+            <Card className="shadow-sm">
+              <CardHeader>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="space-y-1.5">
+                    <CardTitle>Shipping address</CardTitle>
+                    <CardDescription>Required before placing an order.</CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto px-0"
+                    onClick={() => setShowAddressForm((v) => !v)}
                   >
-                    <input
-                      type="radio"
-                      name="addressId"
-                      value={address.id}
-                      checked={effectiveAddressId === address.id}
-                      onChange={() => setSelectedAddressId(address.id)}
-                      disabled={checkoutMutation.isPending}
-                    />
-                    <span>
-                      <span className="font-medium text-foreground">{address.recipientName}</span>
-                      {address.defaultAddress ? (
-                        <span className="ml-2 text-xs text-muted-foreground">Default</span>
-                      ) : null}
-                      <br />
-                      <span className="text-muted-foreground">
-                        {address.line1}
-                        {address.line2 ? `, ${address.line2}` : ''}, {address.city}
-                        {address.stateRegion ? `, ${address.stateRegion}` : ''}{' '}
-                        {address.postalCode ?? ''} {address.countryCode}
-                      </span>
-                    </span>
-                  </label>
-                ))}
-              </fieldset>
-            ) : null}
-
-            {showAddressForm ? (
-              <form
-                className="grid gap-3 border-t border-border pt-4 sm:grid-cols-2"
-                onSubmit={addressForm.handleSubmit(async (values) => {
-                  await createAddressMutation.mutateAsync({
-                    label: values.label || undefined,
-                    recipientName: values.recipientName,
-                    line1: values.line1,
-                    line2: values.line2 || undefined,
-                    city: values.city,
-                    stateRegion: values.stateRegion || undefined,
-                    postalCode: values.postalCode || undefined,
-                    countryCode: values.countryCode || 'VN',
-                    phone: values.phone || undefined,
-                    defaultAddress: values.defaultAddress ?? true,
-                  })
-                })}
-                noValidate
-              >
-                {(
-                  [
-                    ['recipientName', 'Recipient name', true],
-                    ['line1', 'Address line 1', true],
-                    ['line2', 'Address line 2', false],
-                    ['city', 'City', true],
-                    ['stateRegion', 'State / region', false],
-                    ['postalCode', 'Postal code', false],
-                    ['countryCode', 'Country (ISO-2)', false],
-                    ['phone', 'Phone', false],
-                    ['label', 'Label', false],
-                  ] as const
-                ).map(([name, label, required]) => (
-                  <label key={name} className="block space-y-1 text-sm sm:col-span-1">
-                    <span className="text-muted-foreground">
-                      {label}
-                      {required ? ' *' : ''}
-                    </span>
-                    <input
-                      className="w-full rounded-lg border border-border bg-background px-3 py-2"
-                      disabled={createAddressMutation.isPending}
-                      {...addressForm.register(name)}
-                    />
-                    {addressForm.formState.errors[name] ? (
-                      <span className="text-xs text-red-700">
-                        {addressForm.formState.errors[name]?.message}
-                      </span>
-                    ) : null}
-                  </label>
-                ))}
-                {createAddressMutation.isError ? (
-                  <p className="sm:col-span-2 text-sm text-red-700" role="alert">
-                    {createAddressMutation.error instanceof ApiClientError
-                      ? createAddressMutation.error.userMessage
-                      : 'Could not save address.'}
+                    {showAddressForm ? 'Cancel' : 'Add address'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {addressesQuery.isError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {addressesQuery.error instanceof ApiClientError
+                      ? addressesQuery.error.userMessage
+                      : 'Unable to load addresses.'}
                   </p>
                 ) : null}
-                <button
-                  type="submit"
-                  disabled={createAddressMutation.isPending}
-                  className="sm:col-span-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-                >
-                  {createAddressMutation.isPending ? 'Saving…' : 'Save address'}
-                </button>
-              </form>
+
+                {addresses.length === 0 && !showAddressForm ? (
+                  <p className="text-sm text-muted-foreground">
+                    Add a shipping address to continue. Checkout requires a saved address owned by
+                    your account.
+                  </p>
+                ) : null}
+
+                {addresses.length > 0 ? (
+                  <fieldset className="space-y-2">
+                    <legend className="sr-only">Choose shipping address</legend>
+                    {addresses.map((address) => (
+                      <label
+                        key={address.id}
+                        className="flex cursor-pointer gap-3 rounded-xl border border-border px-3 py-3 text-sm transition hover:border-primary/40 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+                      >
+                        <input
+                          type="radio"
+                          name="addressId"
+                          value={address.id}
+                          checked={effectiveAddressId === address.id}
+                          onChange={() => setSelectedAddressId(address.id)}
+                          disabled={checkoutMutation.isPending}
+                          className="mt-1"
+                        />
+                        <span>
+                          <span className="font-medium text-foreground">{address.recipientName}</span>
+                          {address.defaultAddress ? (
+                            <Badge variant="secondary" className="ml-2 align-middle">
+                              Default
+                            </Badge>
+                          ) : null}
+                          <br />
+                          <span className="text-muted-foreground">
+                            {address.line1}
+                            {address.line2 ? `, ${address.line2}` : ''}, {address.city}
+                            {address.stateRegion ? `, ${address.stateRegion}` : ''}{' '}
+                            {address.postalCode ?? ''} {address.countryCode}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </fieldset>
+                ) : null}
+
+                {showAddressForm ? (
+                  <form
+                    className="grid gap-3 border-t border-border pt-4 sm:grid-cols-2"
+                    onSubmit={addressForm.handleSubmit(async (values) => {
+                      await createAddressMutation.mutateAsync({
+                        label: values.label || undefined,
+                        recipientName: values.recipientName,
+                        line1: values.line1,
+                        line2: values.line2 || undefined,
+                        city: values.city,
+                        stateRegion: values.stateRegion || undefined,
+                        postalCode: values.postalCode || undefined,
+                        countryCode: values.countryCode || 'VN',
+                        phone: values.phone || undefined,
+                        defaultAddress: values.defaultAddress ?? true,
+                      })
+                    })}
+                    noValidate
+                  >
+                    {(
+                      [
+                        ['recipientName', 'Recipient name', true],
+                        ['line1', 'Address line 1', true],
+                        ['line2', 'Address line 2', false],
+                        ['city', 'City', true],
+                        ['stateRegion', 'State / region', false],
+                        ['postalCode', 'Postal code', false],
+                        ['countryCode', 'Country (ISO-2)', false],
+                        ['phone', 'Phone', false],
+                        ['label', 'Label', false],
+                      ] as const
+                    ).map(([name, label, required]) => (
+                      <div key={name} className="space-y-1.5 sm:col-span-1">
+                        <Label htmlFor={`checkout-address-${name}`}>
+                          {label}
+                          {required ? ' *' : ''}
+                        </Label>
+                        <Input
+                          id={`checkout-address-${name}`}
+                          disabled={createAddressMutation.isPending}
+                          aria-invalid={Boolean(addressForm.formState.errors[name])}
+                          {...addressForm.register(name)}
+                        />
+                        {addressForm.formState.errors[name] ? (
+                          <span className="text-xs text-destructive">
+                            {addressForm.formState.errors[name]?.message}
+                          </span>
+                        ) : null}
+                      </div>
+                    ))}
+                    {createAddressMutation.isError ? (
+                      <p className="sm:col-span-2 text-sm text-destructive" role="alert">
+                        {createAddressMutation.error instanceof ApiClientError
+                          ? createAddressMutation.error.userMessage
+                          : 'Could not save address.'}
+                      </p>
+                    ) : null}
+                    <Button
+                      type="submit"
+                      disabled={createAddressMutation.isPending}
+                      className="sm:col-span-2"
+                    >
+                      {createAddressMutation.isPending ? 'Saving…' : 'Save address'}
+                    </Button>
+                  </form>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            {outcomeMessage ? (
+              <div
+                className={`rounded-xl px-4 py-3 text-sm ${
+                  unknownOutcome
+                    ? 'border border-amber-200 bg-amber-50 text-amber-950'
+                    : 'border border-destructive/30 bg-destructive/5 text-destructive'
+                }`}
+                role="alert"
+              >
+                <p>{outcomeMessage}</p>
+                {unknownOutcome ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link to="/orders">View orders</Link>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={checkoutMutation.isPending}
+                      onClick={() => submitCheckout()}
+                    >
+                      Retry same attempt
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={startNewAttempt}>
+                      Start new attempt
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={startNewAttempt}
+                  >
+                    Dismiss and start new attempt
+                  </Button>
+                )}
+              </div>
             ) : null}
           </div>
 
-          {outcomeMessage ? (
-            <div
-              className={`rounded-lg px-4 py-3 text-sm ${unknownOutcome ? 'border border-amber-200 bg-amber-50 text-amber-950' : 'bg-red-50 text-red-700'}`}
-              role="alert"
-            >
-              <p>{outcomeMessage}</p>
-              {unknownOutcome ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Link
-                    to="/orders"
-                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium"
-                  >
-                    View orders
-                  </Link>
-                  <button
-                    type="button"
-                    className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-                    disabled={checkoutMutation.isPending}
-                    onClick={() => submitCheckout()}
-                  >
-                    Retry same attempt
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium"
-                    onClick={startNewAttempt}
-                  >
-                    Start new attempt
-                  </button>
-                </div>
-              ) : (
-                <button
+          <Card className="sticky top-20 shadow-sm">
+            <CardHeader>
+              <CardTitle>Order review</CardTitle>
+              <CardDescription>Lines and subtotal from your current cart.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ul className="divide-y divide-border">
+                {cart.items.map((item) => (
+                  <li key={item.id} className="flex justify-between gap-4 py-3 text-sm">
+                    <span className="text-foreground">
+                      {item.productName} × {item.quantity}
+                      {!item.available ? ' (unavailable)' : ''}
+                    </span>
+                    <ProductPrice
+                      unitPrice={item.lineSubtotal}
+                      currency={item.currency}
+                      className="shrink-0 text-sm font-medium text-foreground"
+                    />
+                  </li>
+                ))}
+              </ul>
+              <Separator />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm text-muted-foreground">Cart subtotal</span>
+                <ProductPrice
+                  unitPrice={cart.subtotal}
+                  currency={cart.currency}
+                  className="text-base font-semibold text-foreground"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Demo checkout uses mock payment only. Shipping is confirmed by the server (demo
+                shipping is zero).
+              </p>
+              <div className="flex flex-col gap-2 pt-2">
+                <Button
                   type="button"
-                  className="mt-3 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium"
-                  onClick={startNewAttempt}
+                  size="lg"
+                  disabled={!canSubmit}
+                  onClick={() => submitCheckout()}
                 >
-                  Dismiss and start new attempt
-                </button>
-              )}
-            </div>
-          ) : null}
-
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to="/cart"
-              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
-            >
-              Back to cart
-            </Link>
-            <button
-              type="button"
-              disabled={!canSubmit}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
-              onClick={() => submitCheckout()}
-            >
-              {checkoutMutation.isPending ? 'Placing order…' : 'Place order (mock payment)'}
-            </button>
-          </div>
-        </>
+                  {checkoutMutation.isPending ? 'Placing order…' : 'Place order (mock payment)'}
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to="/cart">Back to cart</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </section>
+  )
+}
+
+function CheckoutLoadingSkeleton() {
+  return (
+    <div
+      className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
+      role="status"
+      aria-live="polite"
+    >
+      <p className="sr-only">Loading checkout…</p>
+      <Skeleton className="h-64 w-full rounded-xl" />
+      <Skeleton className="h-72 w-full rounded-xl" />
+    </div>
   )
 }

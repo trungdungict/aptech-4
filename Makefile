@@ -9,6 +9,8 @@ SHELL := /bin/bash
 COMPOSE := docker compose
 COMPOSE_STACK := $(COMPOSE) --profile stack
 COMPOSE_MONITORING := $(COMPOSE) --profile monitoring
+# Complete local demo: core app + Ollama AI + Prometheus/Grafana/exporters
+COMPOSE_DEMO := $(COMPOSE) --profile stack --profile ai --profile monitoring
 ENV_FILE := .env
 MOBILE_DIR := mobile
 DEV_FLUTTER := ./scripts/dev-flutter.sh
@@ -30,11 +32,14 @@ SEED_SERVER_PORT ?= 18081
 # Do not `include` .env in Make (values may break Make syntax / leak via -d).
 # Shell recipes and scripts/mobile-docker.sh source .env instead; never echo secrets.
 
-.PHONY: help env-check up-deps down-deps down clean ps logs-deps health-deps reset-deps-volumes \
-	build-stack deploy-local down-local health-local logs-local smoke-local smoke-demo \
-	monitoring-up monitoring-down monitoring-status monitoring-validate \
+.PHONY: help env-check up-deps down-deps down down-all up-all clean ps logs-deps health-deps reset-deps-volumes \
+	build-stack deploy-local deploy-demo-stack deploy-local-ai down-local health-local health-demo-stack \
+	logs-local smoke-local smoke-demo smoke-chat \
+	up-ai ollama-pull ollama-ensure-model ollama-health down-ai \
+	monitoring-up monitoring-down monitoring-status monitoring-validate monitoring-validate-demo \
 	invalidate-catalog-cache \
 	seed-check seed-demo reset-demo-dry reset-demo \
+	check-up-all-makefile test-monitoring-validate-demo \
 	postman-export postman-validate postman-info postman-help postman-smoke \
 	check-tools check-env check-env-flutter install-tools setup deps get doctor run test analyze status \
 	clean-mobile \
@@ -49,23 +54,35 @@ POSTMAN_INFO := ./scripts/postman-info.sh
 POSTMAN_COLLECTION := postman/APTECH-4-Local.postman_collection.json
 POSTMAN_ENVIRONMENT := postman/APTECH-4-Local.postman_environment.json
 
-# Host JDK 21 preferred for seed/run; falls back to Docker Temurin Maven.
-JAVA_HOME_21 ?= /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-export PATH := /opt/homebrew/opt/openjdk@21/bin:$(PATH)
+# Host JDK 21 for seed/run (make seed-demo uses ./mvnw on the host).
+# Prefer an already-exported JAVA_HOME (WSL/Linux Temurin, etc.).
+# On macOS only, if Homebrew OpenJDK 21 is installed, use it without overriding JAVA_HOME.
+HOMEBREW_OPENJDK21_BIN := /opt/homebrew/opt/openjdk@21/bin
+HOMEBREW_OPENJDK21_HOME := /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+ifeq ($(shell test -x $(HOMEBREW_OPENJDK21_BIN)/java && echo yes),yes)
+  JAVA_HOME ?= $(HOMEBREW_OPENJDK21_HOME)
+  export JAVA_HOME
+  export PATH := $(HOMEBREW_OPENJDK21_BIN):$(PATH)
+endif
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*##"; printf "Aptech-4 Make targets\n\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  %-22s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@printf '\nLocal stack (Compose profile stack):\n'
-	@printf '  make build-stack && make deploy-local — API + web + Postgres + Redis\n'
+	@printf '\nLocal stack (Compose profiles stack / ai / monitoring):\n'
+	@printf '  make deploy-local — core only (API + web + Postgres + Redis)\n'
+	@printf '  make deploy-demo-stack — core + Ollama AI + Prometheus/Grafana/exporters\n'
 	@printf '  Web: http://localhost:$(WEB_PORT)  (same-origin /api/v1 → Spring)\n'
-	@printf '  make health-local / logs-local / smoke-local / down-local (volumes kept)\n'
-	@printf '\nMonitoring (Compose profile monitoring; optional):\n'
-	@printf '  make monitoring-up / monitoring-status / monitoring-down — see docs/MONITORING.md\n'
+	@printf '  make up-all — complete demo: deploy-demo-stack + model + seed + smokes\n'
+	@printf '  make down — stop stack+ai+monitoring (volumes kept)\n'
+	@printf '  make down-all CONFIRM=yes — DELETE all demo named volumes\n'
+	@printf '\nAI / monitoring:\n'
+	@printf '  Chat health via JWT: GET /api/v1/chat/health — docs/AI_ASSISTANT.md\n'
 	@printf '  Grafana http://127.0.0.1:$${GRAFANA_PORT:-3001}  Prometheus http://127.0.0.1:$${PROMETHEUS_PORT:-9090}\n'
-	@printf '\nDemo seed/reset (Compose Postgres; never auto on deploy-local):\n'
+	@printf '  make ollama-ensure-model / monitoring-validate-demo / smoke-chat\n'
+	@printf '\nDemo seed/reset (Compose Postgres; never auto on long-running API):\n'
 	@printf '  make seed-check → seed-demo → smoke-demo\n'
 	@printf '  make reset-demo-dry ; make reset-demo CONFIRM=yes\n'
 	@printf '  One-shot seed uses SERVER_PORT=$(SEED_SERVER_PORT) so stack API on :8080 can stay up\n'
+	@printf '  Full rebuild: make down-all CONFIRM=yes && make up-all  (see docs/DEMO_ENVIRONMENT.md)\n'
 	@printf '\nPostman (local API):\n'
 	@printf '  make postman-export / postman-validate / postman-info / postman-help\n'
 	@printf '  make postman-smoke — optional Newman folder 00-Smoke (requires npx)\n'
@@ -97,28 +114,62 @@ down-deps: ## Stop dependency containers (keeps named volumes)
 build-stack: env-check ## Build API + web images (Compose profile stack)
 	WEB_PORT="$(WEB_PORT)" $(COMPOSE_STACK) build api web
 
-deploy-local: env-check ## Start full local stack (build if needed); keeps volumes
+deploy-local: env-check ## Start core local stack only (API+web+Postgres+Redis); keeps volumes
 	WEB_PORT="$(WEB_PORT)" $(COMPOSE_STACK) up -d --build
 	@$(MAKE) --no-print-directory health-local
+
+# Complete demo stack: core + AI (Ollama) + monitoring. Does not pull models or seed DB.
+deploy-demo-stack: env-check ## Start stack+ai+monitoring with AI chat enabled; keeps volumes
+	@set -a; [[ -f "$(ENV_FILE)" ]] && source "./$(ENV_FILE)"; set +a; \
+	APTECH_AI_ENABLED=true \
+	SPRING_AI_MODEL_CHAT=ollama \
+	OLLAMA_BASE_URL=http://ollama:11434 \
+	SPRING_PROFILES_ACTIVE=local,ai \
+	WEB_PORT="$(WEB_PORT)" $(COMPOSE_DEMO) up -d --build
+	@$(MAKE) --no-print-directory health-demo-stack
+	@echo "Demo stack up (core + AI + monitoring). Model: make ollama-ensure-model"
 
 # Optional AI profile: Ollama + API with Spring AI enabled. Does NOT pull a model automatically.
 up-ai: env-check ## Start Ollama only (profile ai); preserves volumes
 	$(COMPOSE) --profile ai up -d ollama
 	@echo "Ollama up on 127.0.0.1:11434. Pull a model: make ollama-pull MODEL=llama3.2"
 
-deploy-local-ai: env-check ## Full stack + Ollama; enables chat against service DNS `ollama`
+deploy-local-ai: env-check ## Core stack + Ollama (no monitoring); enables chat against DNS `ollama`
 	APTECH_AI_ENABLED=true \
 	SPRING_AI_MODEL_CHAT=ollama \
 	OLLAMA_BASE_URL=http://ollama:11434 \
 	SPRING_PROFILES_ACTIVE=local,ai \
 	WEB_PORT="$(WEB_PORT)" $(COMPOSE) --profile stack --profile ai up -d --build
 	@$(MAKE) --no-print-directory health-local
-	@echo "AI stack up. Pull model if needed: make ollama-pull MODEL=$${APTECH_AI_MODEL:-llama3.2}"
+	@echo "AI stack up. Pull model if needed: make ollama-ensure-model"
 
 ollama-pull: ## Pull Ollama model into the ai volume (does not wipe DB)
-	@model="$(or $(MODEL),$(APTECH_AI_MODEL),llama3.2)"; \
+	@set -a; [[ -f "$(ENV_FILE)" ]] && source "./$(ENV_FILE)"; set +a; \
+	model="$(or $(MODEL),$${APTECH_AI_MODEL:-llama3.2})"; \
 	echo "Pulling $$model (may take several minutes / GBs)..."; \
-	$(COMPOSE) --profile ai exec ollama ollama pull "$$model"
+	$(COMPOSE) --profile ai exec -T ollama ollama pull "$$model"
+
+ollama-ensure-model: ## Fail if Ollama model missing after pull attempt (required for usable chat)
+	@set -euo pipefail; \
+	set -a; [[ -f "$(ENV_FILE)" ]] && source "./$(ENV_FILE)"; set +a; \
+	model="$(or $(MODEL),$${APTECH_AI_MODEL:-llama3.2})"; \
+	echo "Ensuring Ollama is up and model '$$model' is present…"; \
+	$(COMPOSE) --profile ai up -d ollama; \
+	for i in $$(seq 1 40); do \
+		if $(COMPOSE) --profile ai ps --format json ollama 2>/dev/null | grep -q '"Health":"healthy"'; then break; fi; \
+		if [[ $$i -eq 40 ]]; then echo "ERROR: ollama not healthy in time"; $(COMPOSE) --profile ai ps; exit 1; fi; \
+		sleep 3; \
+	done; \
+	if $(COMPOSE) --profile ai exec -T ollama ollama show "$$model" >/dev/null 2>&1; then \
+		echo "OK: model $$model already present"; \
+	else \
+		echo "Model $$model missing — pulling (may take several minutes / GBs; failure is fatal)…"; \
+		$(COMPOSE) --profile ai exec -T ollama ollama pull "$$model" \
+			|| { echo "ERROR: ollama pull failed for $$model — chat demo cannot proceed"; exit 1; }; \
+	fi; \
+	$(COMPOSE) --profile ai exec -T ollama ollama show "$$model" >/dev/null \
+		|| { echo "ERROR: model $$model still missing after pull"; exit 1; }; \
+	echo "OK: ollama model $$model ready"
 
 ollama-health: ## Check Ollama HTTP health on loopback
 	@curl -fsS http://127.0.0.1:11434/api/tags | head -c 400; echo
@@ -133,17 +184,36 @@ down-local: ## Stop api + web (and optionally leave deps); never removes volumes
 	$(COMPOSE) rm -f api web || true
 	@echo "Stopped api/web. Volumes preserved (aptech4_pgdata, aptech4_redisdata)."
 
-down: ## Stop all Compose services (deps + stack); never removes volumes
-	$(COMPOSE_STACK) stop || true
-	@echo "Stopped all profile=stack services. Volumes preserved (aptech4_pgdata, aptech4_redisdata)."
+down: ## Stop stack+ai+monitoring services; never removes volumes
+	$(COMPOSE_DEMO) stop || true
+	@echo "Stopped stack+ai+monitoring. Volumes preserved (pg/redis/ollama/prometheus/grafana)."
+
+down-all: ## DESTRUCTIVE: stop all Compose profiles and delete named volumes (CONFIRM=yes)
+	@if [[ "$(CONFIRM)" != "yes" ]]; then \
+		echo "Refuse: make down-all CONFIRM=yes is required."; \
+		echo "This deletes aptech4_pgdata, aptech4_redisdata, aptech4_ollama, aptech4_prometheus, aptech4_grafana."; \
+		echo "Ordinary 'make down' / 'make down-local' never remove volumes."; \
+		exit 1; \
+	fi
+	@echo "Stopping all Compose services and removing named volumes…"
+	$(COMPOSE_DEMO) down --volumes || $(COMPOSE) down --volumes
+	@echo "down-all finished. Named volumes removed. Next: make up-all"
+
+up-all: deploy-demo-stack ollama-ensure-model seed-demo smoke-demo smoke-chat monitoring-validate-demo ## Complete local demo stack + seed + smokes (volumes kept)
+	@echo "up-all finished."
+	@echo "  Web:        http://localhost:$(WEB_PORT)"
+	@echo "  Grafana:    http://127.0.0.1:$${GRAFANA_PORT:-3001}"
+	@echo "  Prometheus: http://127.0.0.1:$${PROMETHEUS_PORT:-9090}"
+	@echo "  Ollama:     http://127.0.0.1:11434"
+	@echo "See docs/DEMO_ENVIRONMENT.md"
 
 clean: ## Clean Maven target/ and Flutter build artifacts (never DB/volumes/.env)
 	cd backend && ./mvnw -q clean
 	@echo "Maven target/ cleaned. Database and Docker volumes untouched."
 	@$(DEV_FLUTTER) clean-mobile
 
-ps: ## Show compose service status
-	$(COMPOSE_STACK) ps -a
+ps: ## Show compose service status (stack+ai+monitoring)
+	$(COMPOSE_DEMO) ps -a
 
 logs-deps: ## Tail Postgres + Redis logs
 	$(COMPOSE) logs -f --tail=100 postgres redis
@@ -184,13 +254,33 @@ health-local: ## Wait until api + web containers are healthy
 	$(COMPOSE_STACK) logs --tail=80 api web || true; \
 	exit 1
 
+health-demo-stack: ## Wait until core + ollama + prometheus + grafana are healthy
+	@echo "Waiting for demo stack healthchecks (api/web/ollama/prometheus/grafana)..."
+	@for i in $$(seq 1 90); do \
+		api=$$($(COMPOSE_DEMO) ps --format json api 2>/dev/null | grep -c '"Health":"healthy"' || true); \
+		web=$$($(COMPOSE_DEMO) ps --format json web 2>/dev/null | grep -c '"Health":"healthy"' || true); \
+		ollama=$$($(COMPOSE_DEMO) ps --format json ollama 2>/dev/null | grep -c '"Health":"healthy"' || true); \
+		prom=$$($(COMPOSE_DEMO) ps --format json prometheus 2>/dev/null | grep -c '"Health":"healthy"' || true); \
+		graf=$$($(COMPOSE_DEMO) ps --format json grafana 2>/dev/null | grep -c '"Health":"healthy"' || true); \
+		if [[ "$$api" -ge 1 && "$$web" -ge 1 && "$$ollama" -ge 1 && "$$prom" -ge 1 && "$$graf" -ge 1 ]]; then \
+			echo "OK: api, web, ollama, prometheus, grafana are healthy."; \
+			$(COMPOSE_DEMO) ps; \
+			exit 0; \
+		fi; \
+		sleep 3; \
+	done; \
+	echo "ERROR: demo stack not healthy in time (api=$$api web=$$web ollama=$$ollama prom=$$prom graf=$$graf)."; \
+	$(COMPOSE_DEMO) ps; \
+	$(COMPOSE_DEMO) logs --tail=60 api web ollama prometheus grafana || true; \
+	exit 1
+
 monitoring-up: env-check ## Start Prometheus/Grafana/exporters (profile monitoring); starts Postgres+Redis
 	@$(COMPOSE) up -d postgres redis
 	@$(COMPOSE_MONITORING) up -d
 	@echo "Monitoring up (volumes aptech4_prometheus / aptech4_grafana preserved)."
 	@echo "Grafana:    http://127.0.0.1:$${GRAFANA_PORT:-3001}  (user/pass from .env GRAFANA_*)"
 	@echo "Prometheus: http://127.0.0.1:$${PROMETHEUS_PORT:-9090}"
-	@echo "API scrape needs profile stack (make deploy-local). Docs: docs/MONITORING.md"
+	@echo "API scrape needs profile stack (make deploy-local / up-all). Docs: docs/MONITORING.md"
 
 monitoring-down: ## Stop monitoring services only; never removes volumes or app data
 	@$(COMPOSE_MONITORING) stop prometheus grafana postgres-exporter redis-exporter cadvisor || true
@@ -201,8 +291,9 @@ monitoring-status: ## Show monitoring + scrape-related container status
 	@$(COMPOSE) ps postgres redis api ollama 2>/dev/null || true
 	@$(COMPOSE_MONITORING) ps prometheus grafana postgres-exporter redis-exporter cadvisor 2>/dev/null || true
 
-monitoring-validate: ## Check Prometheus/Grafana readiness (monitoring-up first)
+monitoring-validate: ## Check Prometheus/Grafana readiness (does not require api target up)
 	@set -e; \
+	set -a; [[ -f "$(ENV_FILE)" ]] && source "./$(ENV_FILE)"; set +a; \
 	prom=http://127.0.0.1:$${PROMETHEUS_PORT:-9090}; \
 	graf=http://127.0.0.1:$${GRAFANA_PORT:-3001}; \
 	echo "GET $$prom/-/ready"; \
@@ -213,6 +304,9 @@ print("targets", [(t["labels"].get("job"), t["health"]) for t in d.get("data",{}
 	echo "GET $$graf/api/health"; \
 	curl -fsS "$$graf/api/health" | tee /tmp/aptech4-grafana-health.json; echo; \
 	echo "OK: monitoring-validate basic checks passed (inspect target health above)."
+
+monitoring-validate-demo: ## Require Prometheus/Grafana ready and critical scrape targets up (incl. aptech4-api)
+	@bash ./scripts/monitoring-validate-demo.sh
 
 smoke-local: ## HTTP smoke: web UI + public API via same-origin nginx proxy
 	@base="http://127.0.0.1:$(WEB_PORT)"; \
@@ -383,8 +477,18 @@ smoke-demo: ## After seed: login + public catalog via stack nginx (WEB_PORT)
 	echo "GET $$base/api/v1/products?size=5"; \
 	code=$$(curl -sS -o /tmp/aptech4-demo-products.json -w '%{http_code}' "$$base/api/v1/products?size=5"); \
 	test "$$code" = "200" || { echo "ERROR: products HTTP $$code"; exit 1; }; \
-	grep -q DEMO- /tmp/aptech4-demo-products.json || { echo "ERROR: expected DEMO-* SKUs in catalog"; exit 1; }; \
-	echo "OK: products $$code (demo SKUs present)"
+	grep -q 'FOOD-' /tmp/aptech4-demo-products.json || { echo "ERROR: expected FOOD-* SKUs in catalog"; exit 1; }; \
+	! grep -q 'DEMO-' /tmp/aptech4-demo-products.json || { echo "ERROR: legacy DEMO-* SKUs must not appear after FoodMart-only seed"; exit 1; }; \
+	echo "OK: products $$code (FoodMart SKUs present)"
+
+smoke-chat: ## Require AI chat READY + one authenticated completion (fail if AI omitted)
+	@WEB_PORT="$(WEB_PORT)" bash ./scripts/smoke-chat.sh
+
+check-up-all-makefile: ## Static check that up-all wires core+AI+monitoring (no Docker)
+	@bash ./scripts/check-up-all-makefile.sh
+
+test-monitoring-validate-demo: ## Offline: hard targets fail; cAdvisor-down warns only
+	@bash ./scripts/test-monitoring-validate-demo.sh
 
 # ---------------------------------------------------------------------------
 # Postman (local Compose API via Nginx :8088)
@@ -417,7 +521,8 @@ postman-help: ## How to import collection/environment and run requests
 postman-smoke: ## Optional Newman smoke (folder 00-Smoke); skips if npx/newman unavailable
 	@$(MAKE) --no-print-directory postman-validate
 	@# Prefer nvm node if present (sandbox/CI shells often lack npx on PATH).
-	@export PATH="$$HOME/.nvm/versions/node/$$(ls "$$HOME/.nvm/versions/node" 2>/dev/null | tail -1)/bin:/opt/homebrew/bin:$$PATH"; \
+	@export PATH="$$HOME/.nvm/versions/node/$$(ls "$$HOME/.nvm/versions/node" 2>/dev/null | tail -1)/bin:$${PATH}"; \
+	if [[ -d /opt/homebrew/bin ]]; then export PATH="/opt/homebrew/bin:$$PATH"; fi; \
 	if ! command -v npx >/dev/null 2>&1; then \
 		echo "SKIP: npx not found — install Node or run requests manually in Postman."; \
 	else \
@@ -425,8 +530,8 @@ postman-smoke: ## Optional Newman smoke (folder 00-Smoke); skips if npx/newman u
 		npx --yes newman@6 run "$(POSTMAN_COLLECTION)" \
 			-e "$(POSTMAN_ENVIRONMENT)" \
 			--folder "00-Smoke (safe)" \
-			--env-var "customerPassword=CustomerDemo_change_me!" \
-			--env-var "adminPassword=AdminDemo_change_me!" \
+			--env-var "customerPassword=customer" \
+			--env-var "adminPassword=admin" \
 			--env-var "baseUrl=http://localhost:$(WEB_PORT)/api/v1" \
 			--env-var "webOrigin=http://localhost:$(WEB_PORT)" \
 			--timeout-request 15000 \

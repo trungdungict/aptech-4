@@ -1,57 +1,44 @@
 import { Link } from 'react-router-dom'
 
-import { formatProductPrice } from '../lib/format-price'
+import { Card, CardContent } from '@/components/ui/card'
+
 import type { Product } from '../types'
+import { ProductImage } from './ProductImage'
+import { ProductPrice } from './ProductPrice'
+import { ProductStockBadge } from './ProductStockBadge'
 
 type ProductCardProps = {
   product: Product
 }
 
-function stockLabel(inStock: boolean | null): string {
-  if (inStock === true) return 'In stock'
-  if (inStock === false) return 'Out of stock'
-  return 'Stock unknown'
-}
-
 export function ProductCard({ product }: ProductCardProps) {
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition hover:border-primary/40">
+    <Card className="h-full gap-0 overflow-hidden border-border/80 py-0 shadow-none transition hover:border-primary/50 hover:shadow-sm">
       <Link
         to={`/products/${product.id}`}
-        className="flex flex-1 flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-full flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         aria-label={`View ${product.name}`}
       >
-        <div className="flex aspect-[4/3] items-center justify-center bg-muted text-sm text-muted-foreground">
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt=""
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <span aria-hidden="true">No image</span>
-          )}
-        </div>
-        <div className="flex flex-1 flex-col gap-2 p-4">
+        <ProductImage
+          sku={product.sku}
+          name={product.name}
+          imageUrl={product.imageUrl}
+          alt=""
+          className="border-b border-border/60"
+        />
+        <CardContent className="flex flex-1 flex-col gap-2 p-4">
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {product.categoryName}
           </p>
-          <h2 className="text-base font-semibold text-card-foreground">{product.name}</h2>
-          <p className="mt-auto text-lg font-semibold text-primary">
-            {formatProductPrice(product.unitPrice, product.currency)}
-          </p>
-          <p
-            className={
-              product.inStock === false
-                ? 'text-xs font-medium text-red-600'
-                : 'text-xs font-medium text-muted-foreground'
-            }
-          >
-            {stockLabel(product.inStock)}
-          </p>
-        </div>
+          <h2 className="line-clamp-2 text-base font-semibold text-card-foreground">
+            {product.name}
+          </h2>
+          <div className="mt-auto flex flex-wrap items-end justify-between gap-2 pt-2">
+            <ProductPrice unitPrice={product.unitPrice} currency={product.currency} />
+            <ProductStockBadge inStock={product.inStock} />
+          </div>
+        </CardContent>
       </Link>
-    </article>
+    </Card>
   )
 }

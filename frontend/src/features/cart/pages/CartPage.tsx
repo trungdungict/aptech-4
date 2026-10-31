@@ -1,13 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ImageIcon, MinusIcon, PlusIcon, ShoppingBagIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks/useAuth'
+import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { formatProductPrice } from '@/features/catalog/lib/format-price'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import * as cartApi from '../api/cart-api'
 import { cartQueryKeys } from '../hooks/cart-query-keys'
-import { CART_MAX_QUANTITY, type Cart } from '../types'
+import { CART_MAX_QUANTITY, type Cart, type CartItem } from '../types'
 
 export function CartPage() {
   const { user } = useAuth()
@@ -56,6 +64,15 @@ export function CartPage() {
   const canCheckout =
     cart != null && cart.items.length > 0 && !cart.hasUnavailableItems
 
+  const requestQuantity = (itemId: string, quantity: number) => {
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > CART_MAX_QUANTITY) {
+      return
+    }
+    updateMutation.reset()
+    removeMutation.reset()
+    updateMutation.mutate({ itemId, quantity })
+  }
+
   return (
     <section className="space-y-6">
       <div className="space-y-2">
@@ -66,11 +83,9 @@ export function CartPage() {
       </div>
 
       {cartQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Loading cart…
-        </p>
+        <CartLoadingSkeleton />
       ) : cartQuery.isError ? (
-        <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <p role="alert">
             {cartQuery.error instanceof ApiClientError
               ? cartQuery.error.status === 403
@@ -78,147 +93,227 @@ export function CartPage() {
                 : cartQuery.error.userMessage
               : 'Unable to load cart.'}
           </p>
-          <button
-            type="button"
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-            onClick={() => void cartQuery.refetch()}
-          >
+          <Button type="button" size="sm" onClick={() => void cartQuery.refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       ) : isEmpty ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
-          <p className="text-sm text-muted-foreground">Your cart is empty.</p>
-          <Link
-            to="/products"
-            className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-          >
-            Browse catalog
-          </Link>
-        </div>
+        <Card className="border-dashed shadow-none">
+          <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+            <ShoppingBagIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">Your cart is empty.</p>
+            <Button asChild>
+              <Link to="/products">Browse catalog</Link>
+            </Button>
+          </CardContent>
+        </Card>
       ) : cart ? (
-        <>
-          {cart.hasUnavailableItems ? (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-              Some items are no longer available. Remove them before checkout.
-            </p>
-          ) : null}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)] lg:items-start">
+          <div className="space-y-4">
+            {cart.hasUnavailableItems ? (
+              <p
+                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                role="status"
+              >
+                Some items are no longer available. Remove them before checkout.
+              </p>
+            ) : null}
 
-          {mutationError ? (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-              {mutationError instanceof ApiClientError
-                ? mutationError.userMessage
-                : 'Cart update failed.'}
-            </p>
-          ) : null}
+            {mutationError ? (
+              <p
+                className="rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+                role="alert"
+              >
+                {mutationError instanceof ApiClientError
+                  ? mutationError.userMessage
+                  : 'Cart update failed.'}
+              </p>
+            ) : null}
 
-          <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
-            {cart.items.map((item) => {
-              const busy = pendingItemId === item.id || clearMutation.isPending
-              return (
-                <li key={item.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-xs text-muted-foreground">
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt="" className="h-full w-full rounded-lg object-cover" />
-                    ) : (
-                      'No image'
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <Link
-                      to={`/products/${item.productId}`}
-                      className="font-medium text-foreground hover:underline"
-                    >
-                      {item.productName}
-                    </Link>
-                    <p className="text-sm text-muted-foreground">
-                      {formatProductPrice(item.unitPrice, item.currency)} each
-                    </p>
-                    {!item.available ? (
-                      <p className="text-sm font-medium text-amber-800">Unavailable</p>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="flex items-center gap-2 text-sm">
-                      <span className="text-muted-foreground">Qty</span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={CART_MAX_QUANTITY}
-                        value={item.quantity}
-                        disabled={busy || !item.available}
-                        aria-label={`Quantity for ${item.productName}`}
-                        className="w-16 rounded-lg border border-border bg-background px-2 py-1.5"
-                        onChange={(event) => {
-                          const next = Number(event.target.value)
-                          if (!Number.isInteger(next) || next < 1 || next > CART_MAX_QUANTITY) {
-                            return
-                          }
-                          updateMutation.reset()
-                          removeMutation.reset()
-                          updateMutation.mutate({ itemId: item.id, quantity: next })
-                        }}
-                      />
-                    </label>
-                    <p className="min-w-[6rem] text-sm font-semibold text-foreground">
-                      {formatProductPrice(item.lineSubtotal, item.currency)}
-                    </p>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
-                      onClick={() => {
-                        updateMutation.reset()
-                        removeMutation.reset()
-                        removeMutation.mutate(item.id)
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
+            <ul className="space-y-3">
+              {cart.items.map((item) => {
+                const busy = pendingItemId === item.id || clearMutation.isPending
+                return (
+                  <CartLineItem
+                    key={item.id}
+                    item={item}
+                    busy={busy}
+                    onQuantityChange={(quantity) => requestQuantity(item.id, quantity)}
+                    onRemove={() => {
+                      updateMutation.reset()
+                      removeMutation.reset()
+                      removeMutation.mutate(item.id)
+                    }}
+                  />
+                )
+              })}
+            </ul>
+          </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-lg font-semibold text-foreground">
-              Subtotal {formatProductPrice(cart.subtotal, cart.currency)}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
+          <Card className="sticky top-20 shadow-sm">
+            <CardHeader>
+              <CardTitle>Order summary</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Subtotal</span>
+                <ProductPrice
+                  unitPrice={cart.subtotal}
+                  currency={cart.currency}
+                  className="text-base font-semibold text-foreground"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Shipping and final totals are confirmed by the server at checkout. No tax or
+                discount lines are applied in this demo.
+              </p>
+            </CardContent>
+            <Separator />
+            <CardFooter className="flex flex-col gap-2 pt-4 sm:items-stretch">
+              {canCheckout ? (
+                <Button asChild size="lg" className="w-full">
+                  <Link to="/checkout">Checkout</Link>
+                </Button>
+              ) : (
+                <Button type="button" size="lg" className="w-full" disabled>
+                  Checkout unavailable
+                </Button>
+              )}
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/products">Continue shopping</Link>
+              </Button>
+              <Button
                 type="button"
+                variant="ghost"
+                className="w-full"
                 disabled={clearMutation.isPending || Boolean(pendingItemId)}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
                 onClick={() => {
                   clearMutation.reset()
                   clearMutation.mutate()
                 }}
               >
                 {clearMutation.isPending ? 'Clearing…' : 'Clear cart'}
-              </button>
-              <Link
-                to="/products"
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
-              >
-                Continue shopping
-              </Link>
-              {canCheckout ? (
-                <Link
-                  to="/checkout"
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-                >
-                  Checkout
-                </Link>
-              ) : (
-                <span className="rounded-lg bg-muted px-4 py-2 text-sm text-muted-foreground">
-                  Checkout unavailable
-                </span>
-              )}
-            </div>
-          </div>
-        </>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
       ) : null}
     </section>
+  )
+}
+
+type CartLineItemProps = {
+  item: CartItem
+  busy: boolean
+  onQuantityChange: (quantity: number) => void
+  onRemove: () => void
+}
+
+function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemProps) {
+  const qtyDisabled = busy || !item.available
+
+  return (
+    <li>
+      <Card className="gap-0 overflow-hidden py-0 shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
+          <Link
+            to={`/products/${item.productId}`}
+            className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={`View ${item.productName}`}
+          >
+            {item.imageUrl ? (
+              <img
+                src={item.imageUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="flex flex-col items-center gap-1 text-muted-foreground" aria-hidden="true">
+                <ImageIcon className="size-5 opacity-60" />
+                <span className="text-[10px] font-medium">No image</span>
+              </span>
+            )}
+          </Link>
+
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="space-y-1">
+                <Link
+                  to={`/products/${item.productId}`}
+                  className="font-medium text-foreground hover:underline"
+                >
+                  {item.productName}
+                </Link>
+                <p className="text-sm text-muted-foreground">
+                  {formatProductPrice(item.unitPrice, item.currency)} each
+                </p>
+              </div>
+              {!item.available ? <Badge variant="warning">Unavailable</Badge> : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={`Decrease ${item.productName} quantity`}
+                  disabled={qtyDisabled || item.quantity <= 1}
+                  onClick={() => onQuantityChange(item.quantity - 1)}
+                >
+                  <MinusIcon />
+                </Button>
+                <Input
+                  type="number"
+                  min={1}
+                  max={CART_MAX_QUANTITY}
+                  value={item.quantity}
+                  disabled={qtyDisabled}
+                  aria-label={`Quantity for ${item.productName}`}
+                  className="w-16 text-center tabular-nums"
+                  onChange={(event) => {
+                    onQuantityChange(Number(event.target.value))
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon-sm"
+                  aria-label={`Increase ${item.productName} quantity`}
+                  disabled={qtyDisabled || item.quantity >= CART_MAX_QUANTITY}
+                  onClick={() => onQuantityChange(item.quantity + 1)}
+                >
+                  <PlusIcon />
+                </Button>
+              </div>
+
+              <ProductPrice
+                unitPrice={item.lineSubtotal}
+                currency={item.currency}
+                className="min-w-[6rem] text-sm font-semibold text-foreground"
+              />
+
+              <Button type="button" variant="outline" size="sm" disabled={busy} onClick={onRemove}>
+                Remove
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </li>
+  )
+}
+
+function CartLoadingSkeleton() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]" role="status" aria-live="polite">
+      <p className="sr-only">Loading cart…</p>
+      <div className="space-y-3">
+        {Array.from({ length: 2 }, (_, i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-56 w-full rounded-xl" />
+    </div>
   )
 }

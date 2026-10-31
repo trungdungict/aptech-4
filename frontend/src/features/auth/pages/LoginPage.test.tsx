@@ -33,20 +33,29 @@ describe('LoginPage', () => {
 
     expect(await screen.findByText(/email is required/i)).toBeInTheDocument()
     expect(screen.getByText(/password is required/i)).toBeInTheDocument()
-    expect(fetch).not.toHaveBeenCalled()
+    expect(
+      vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/auth/login')),
+    ).toBe(false)
   })
 
   it('shows backend invalid credentials and keeps the form enabled after failure', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch).mockResolvedValue(
-      jsonResponse(401, {
-        status: 401,
-        error: 'Unauthorized',
-        message: 'Invalid email or password',
-        path: '/api/v1/auth/login',
-        details: [],
-      }),
-    )
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/auth/login')) {
+        return jsonResponse(401, {
+          status: 401,
+          error: 'Unauthorized',
+          message: 'Invalid email or password',
+          path: '/api/v1/auth/login',
+          details: [],
+        })
+      }
+      if (url.includes('/categories')) {
+        return jsonResponse(200, [])
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
 
     renderWithProviders(<AppRouter />, { route: '/login' })
 
@@ -60,20 +69,48 @@ describe('LoginPage', () => {
 
   it('logs in successfully and updates auth state', async () => {
     const user = userEvent.setup()
-    vi.mocked(fetch).mockResolvedValue(
-      jsonResponse(200, {
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-        tokenType: 'Bearer',
-        expiresIn: 900,
-        user: {
-          id: '11111111-1111-1111-1111-111111111111',
-          email: 'customer@example.com',
-          fullName: 'Demo Customer',
-          roles: ['CUSTOMER'],
-        },
-      }),
-    )
+    const authBody = {
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 900,
+      user: {
+        id: '11111111-1111-1111-1111-111111111111',
+        email: 'customer@example.com',
+        fullName: 'Demo Customer',
+        roles: ['CUSTOMER'],
+      },
+    }
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/auth/login')) {
+        return jsonResponse(200, authBody)
+      }
+      if (url.includes('/categories')) {
+        return jsonResponse(200, [])
+      }
+      if (url.includes('/products')) {
+        return jsonResponse(200, {
+          items: [],
+          page: 0,
+          size: 8,
+          totalElements: 0,
+          totalPages: 0,
+          first: true,
+          last: true,
+        })
+      }
+      if (url.includes('/cart')) {
+        return jsonResponse(200, {
+          id: 'cart-1',
+          items: [],
+          subtotal: '0',
+          currency: 'VND',
+          hasUnavailableItems: false,
+        })
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
 
     renderWithProviders(<AppRouter />, { route: '/login' })
 
@@ -82,9 +119,13 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /aptech-4 storefront foundation/i })).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', {
+          name: /stock your kitchen from the live aptech-4 catalog/i,
+        }),
+      ).toBeInTheDocument()
     })
-    expect(screen.getByText(/customer@example.com/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/demo customer/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
   })
 

@@ -74,6 +74,8 @@ describe('ProductDetailPage', () => {
     renderWithProviders(<AppRouter />, { route: '/products/not-a-uuid' })
 
     expect(await screen.findByRole('heading', { name: /invalid product link/i })).toBeInTheDocument()
-    expect(fetch).not.toHaveBeenCalled()
+    expect(
+      vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes('/products/')),
+    ).toBe(false)
   })
 })

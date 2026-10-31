@@ -2,6 +2,7 @@ package com.aptech.aptech4.seed;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -53,8 +54,8 @@ class DemoSeedIntegrationTest {
 		IntegrationTestSupport.registerSecurityProperties(registry);
 		registry.add("aptech.seed.enabled", () -> "false");
 		registry.add("aptech.seed.exit-after", () -> "false");
-		registry.add("aptech.seed.admin-password", () -> "AdminDemo_change_me!");
-		registry.add("aptech.seed.customer-password", () -> "CustomerDemo_change_me!");
+		registry.add("aptech.seed.admin-password", () -> "admin");
+		registry.add("aptech.seed.customer-password", () -> "customer");
 		registry.add("aptech.seed.admin-email", () -> "admin@aptech4.local");
 		registry.add("aptech.seed.customer-email", () -> "customer@aptech4.local");
 	}
@@ -81,45 +82,73 @@ class DemoSeedIntegrationTest {
 	PasswordEncoder passwordEncoder;
 
 	@Test
-	void seedIsIdempotentAndHashesPasswords() {
+	void seedIsFoodMartOnlyIdempotentAndPurgesRetiredCatalog() {
 		assertThat(properties.isEnabled()).isFalse();
+		assertThat(DemoSeedCatalog.CATEGORIES).isEmpty();
+		assertThat(DemoSeedCatalog.PRODUCTS).isEmpty();
+
+		int expectedCategories = FoodMartCatalog.categories().size();
+		int expectedProducts = FoodMartCatalog.products().size();
+		assertThat(expectedCategories).isEqualTo(8);
+		assertThat(expectedProducts).isEqualTo(48);
+
+		insertRetiredLegacyCatalogRows();
 
 		DemoSeedResult first = demoSeedService.seedAll();
-		assertThat(first.usersCreated()).isEqualTo(2);
-		assertThat(first.categoriesCreated()).isEqualTo(DemoSeedCatalog.CATEGORIES.size());
-		assertThat(first.productsCreated()).isEqualTo(DemoSeedCatalog.PRODUCTS.size());
-		assertThat(first.inventoryUpserts()).isEqualTo(DemoSeedCatalog.PRODUCTS.size());
+		assertThat(first.usersCreated()).isGreaterThanOrEqualTo(2);
+		assertThat(first.categoriesCreated()).isEqualTo(expectedCategories);
+		assertThat(first.productsCreated()).isEqualTo(expectedProducts);
+		assertThat(first.inventoryUpserts()).isEqualTo(expectedProducts);
+		assertThat(first.ordersSeeded()).isGreaterThanOrEqualTo(6);
+		assertThat(first.addressesUpserted()).isGreaterThanOrEqualTo(2);
+		assertThat(first.retiredProductsRemoved()).isGreaterThanOrEqualTo(1);
+		assertThat(first.retiredCategoriesRemoved()).isGreaterThanOrEqualTo(1);
 
 		UUID adminId = userAccountRepository.findByEmailWithRoles("admin@aptech4.local").orElseThrow().getId();
 		UUID customerId = userAccountRepository.findByEmailWithRoles("customer@aptech4.local").orElseThrow().getId();
-		UUID phoneId = productRepository.findBySkuIgnoreCase("DEMO-ELEC-PHONE").orElseThrow().getId();
-		UUID electronicsId = categoryRepository.findBySlug("demo-electronics").orElseThrow().getId();
+		UUID bananaId = productRepository.findBySkuIgnoreCase("FOOD-FRUIT-BANANA-001").orElseThrow().getId();
+		UUID fruitsId = categoryRepository.findBySlug("food-fruits-vegetables").orElseThrow().getId();
 
 		var admin = userAccountRepository.findByEmailWithRoles("admin@aptech4.local").orElseThrow();
 		assertThat(admin.getRoles()).extracting(r -> r.getCode()).containsExactly(RoleCode.ADMIN);
 		assertThat(admin.getPasswordHash()).startsWith("$2");
-		assertThat(admin.getPasswordHash()).doesNotContain("AdminDemo_change_me!");
-		assertThat(passwordEncoder.matches("AdminDemo_change_me!", admin.getPasswordHash())).isTrue();
+		assertThat(admin.getPasswordHash()).doesNotContain("admin");
+		assertThat(passwordEncoder.matches("admin", admin.getPasswordHash())).isTrue();
 
 		var customer = userAccountRepository.findByEmailWithRoles("customer@aptech4.local").orElseThrow();
 		assertThat(customer.getRoles()).extracting(r -> r.getCode()).containsExactly(RoleCode.CUSTOMER);
+		assertThat(passwordEncoder.matches("customer", customer.getPasswordHash())).isTrue();
 		assertThat(customerId).isNotEqualTo(adminId);
+		assertThat(userAccountRepository.findByEmailWithRoles(DemoSeedMarkers.SECONDARY_CUSTOMER_EMAIL)).isPresent();
 
-		Category archive = categoryRepository.findBySlug("demo-archive").orElseThrow();
-		assertThat(archive.isActive()).isFalse();
-		assertThat(productRepository.findBySkuIgnoreCase("DEMO-HOME-OOS")).isPresent();
+		assertThat(productRepository.findBySkuIgnoreCase("DEMO-ELEC-PHONE")).isEmpty();
+		assertThat(productRepository.findBySkuIgnoreCase("DEMO-HOME-MUG")).isEmpty();
+		assertThat(categoryRepository.findBySlug("demo-electronics")).isEmpty();
+		assertThat(categoryRepository.findBySlug("demo-home")).isEmpty();
+		assertThat(categoryRepository.findBySlug("demo-archive")).isEmpty();
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where sku like 'DEMO-%'",
+				Integer.class)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from categories where slug like 'demo-%'",
+				Integer.class)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where name like 'Demo %'",
+				Integer.class)).isZero();
+
+		assertThat(productRepository.findBySkuIgnoreCase("FOOD-FRUIT-APPLE-001")).isPresent();
+		assertThat(categoryRepository.findBySlug("food-dairy-eggs")).isPresent();
+
 		Integer oosAvailable = jdbcTemplate.queryForObject(
 				"""
 						select (i.quantity_on_hand - i.quantity_reserved)
 						from products p
 						join inventory i on i.product_id = p.id
-						where lower(p.sku) = lower('DEMO-HOME-OOS')
+						where lower(p.sku) = lower('FOOD-BAKERY-FLATBREAD-001')
 						""",
 				Integer.class
 		);
 		assertThat(oosAvailable).isNotNull().isLessThanOrEqualTo(0);
-		Product inactive = productRepository.findBySkuIgnoreCase("DEMO-ELEC-OLD").orElseThrow();
-		assertThat(inactive.isActive()).isFalse();
 
 		Integer negativeStock = jdbcTemplate.queryForObject(
 				"select count(*) from inventory where quantity_on_hand < 0 or quantity_reserved < 0",
@@ -127,26 +156,48 @@ class DemoSeedIntegrationTest {
 		assertThat(negativeStock).isZero();
 
 		Integer userCount = jdbcTemplate.queryForObject("select count(*) from users", Integer.class);
-		Integer productCount = jdbcTemplate.queryForObject(
-				"select count(*) from products where sku like 'DEMO-%'",
+		Integer foodProductCount = jdbcTemplate.queryForObject(
+				"select count(*) from products where sku like 'FOOD-%'",
 				Integer.class);
+		assertThat(foodProductCount).isEqualTo(expectedProducts);
 
 		String originalAdminHash = admin.getPasswordHash();
 		DemoSeedResult second = demoSeedService.seedAll();
 		assertThat(second.usersCreated()).isZero();
-		assertThat(second.usersUpdated()).isEqualTo(2);
+		assertThat(second.usersUpdated()).isGreaterThanOrEqualTo(2);
+		assertThat(second.ordersSeeded()).isZero();
 		assertThat(second.categoriesCreated()).isZero();
 		assertThat(second.productsCreated()).isZero();
+		assertThat(second.retiredProductsRemoved()).isZero();
+		assertThat(second.retiredCategoriesRemoved()).isZero();
 
 		assertThat(jdbcTemplate.queryForObject("select count(*) from users", Integer.class)).isEqualTo(userCount);
 		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where sku like 'FOOD-%'",
+				Integer.class)).isEqualTo(foodProductCount);
+		assertThat(jdbcTemplate.queryForObject(
 				"select count(*) from products where sku like 'DEMO-%'",
-				Integer.class)).isEqualTo(productCount);
+				Integer.class)).isZero();
 		assertThat(userAccountRepository.findByEmailWithRoles("admin@aptech4.local").orElseThrow().getPasswordHash())
 				.isEqualTo(originalAdminHash);
 		assertThat(userAccountRepository.findByEmailWithRoles("admin@aptech4.local").orElseThrow().getId())
 				.isEqualTo(adminId);
-		assertThat(productRepository.findBySkuIgnoreCase("DEMO-ELEC-PHONE").orElseThrow().getId()).isEqualTo(phoneId);
-		assertThat(categoryRepository.findBySlug("demo-electronics").orElseThrow().getId()).isEqualTo(electronicsId);
+		assertThat(productRepository.findBySkuIgnoreCase("FOOD-FRUIT-BANANA-001").orElseThrow().getId()).isEqualTo(bananaId);
+		assertThat(categoryRepository.findBySlug("food-fruits-vegetables").orElseThrow().getId()).isEqualTo(fruitsId);
+	}
+
+	private void insertRetiredLegacyCatalogRows() {
+		Category electronics = Category.createNew("Electronics", "demo-electronics", "legacy", null);
+		categoryRepository.save(electronics);
+		Product phone = Product.createNew(
+				electronics,
+				"DEMO-ELEC-PHONE",
+				"Demo Smartphone X",
+				"legacy seed remnant",
+				new BigDecimal("12990000.00"),
+				"VND",
+				true
+		);
+		productRepository.save(phone);
 	}
 }

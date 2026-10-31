@@ -61,8 +61,8 @@ class DemoResetIntegrationTest {
 		registry.add("aptech.seed.enabled", () -> "false");
 		registry.add("aptech.seed.reset", () -> "false");
 		registry.add("aptech.seed.exit-after", () -> "false");
-		registry.add("aptech.seed.admin-password", () -> "AdminDemo_change_me!");
-		registry.add("aptech.seed.customer-password", () -> "CustomerDemo_change_me!");
+		registry.add("aptech.seed.admin-password", () -> "admin");
+		registry.add("aptech.seed.customer-password", () -> "customer");
 		registry.add("aptech.seed.admin-email", () -> "admin@aptech4.local");
 		registry.add("aptech.seed.customer-email", () -> "customer@aptech4.local");
 	}
@@ -100,14 +100,18 @@ class DemoResetIntegrationTest {
 		int usersBefore = count("select count(*) from users");
 		int productsBefore = count("select count(*) from products");
 
+		int expectedCategories = FoodMartCatalog.categories().size();
+		int expectedProducts = FoodMartCatalog.products().size();
+
 		DemoResetPlan plan = demoResetService.plan();
 		assertThat(plan.jdbcUrl()).contains("aptech4_reset_it");
-		assertThat(plan.demoUsers()).isEqualTo(2);
-		assertThat(plan.demoCategories()).isEqualTo(DemoSeedCatalog.CATEGORIES.size());
-		assertThat(plan.demoProducts()).isEqualTo(DemoSeedCatalog.PRODUCTS.size());
+		assertThat(plan.demoUsers()).isEqualTo(3);
+		assertThat(plan.demoCategories()).isEqualTo(expectedCategories);
+		assertThat(plan.demoProducts()).isEqualTo(expectedProducts);
 		assertThat(plan.demoEmails()).containsExactlyInAnyOrder(
 				"admin@aptech4.local",
-				"customer@aptech4.local"
+				"customer@aptech4.local",
+				DemoSeedMarkers.SECONDARY_CUSTOMER_EMAIL
 		);
 
 		assertThat(count("select count(*) from users")).isEqualTo(usersBefore);
@@ -130,14 +134,19 @@ class DemoResetIntegrationTest {
 				.hasMessageContaining("reset-confirm");
 		assertThat(userAccountRepository.findByEmailWithRoles("admin@aptech4.local")).isPresent();
 
+		int expectedCategories = FoodMartCatalog.categories().size();
+		int expectedProducts = FoodMartCatalog.products().size();
+
 		DemoResetResult first = demoResetService.execute("yes");
-		assertThat(first.usersDeleted()).isEqualTo(2);
-		assertThat(first.categoriesDeleted()).isEqualTo(DemoSeedCatalog.CATEGORIES.size());
-		assertThat(first.productsDeleted()).isEqualTo(DemoSeedCatalog.PRODUCTS.size());
+		assertThat(first.usersDeleted()).isEqualTo(3);
+		assertThat(first.categoriesDeleted()).isEqualTo(expectedCategories);
+		assertThat(first.productsDeleted()).isEqualTo(expectedProducts);
 
 		assertThat(userAccountRepository.findByEmailWithRoles("admin@aptech4.local")).isEmpty();
 		assertThat(userAccountRepository.findByEmailWithRoles("customer@aptech4.local")).isEmpty();
-		assertThat(categoryRepository.findBySlug("demo-electronics")).isEmpty();
+		assertThat(userAccountRepository.findByEmailWithRoles(DemoSeedMarkers.SECONDARY_CUSTOMER_EMAIL)).isEmpty();
+		assertThat(categoryRepository.findBySlug("food-fruits-vegetables")).isEmpty();
+		assertThat(productRepository.findBySkuIgnoreCase("FOOD-FRUIT-BANANA-001")).isEmpty();
 		assertThat(productRepository.findBySkuIgnoreCase("DEMO-ELEC-PHONE")).isEmpty();
 
 		assertThat(userAccountRepository.findByEmailWithRoles(nonDemo.email())).isPresent();
@@ -152,11 +161,13 @@ class DemoResetIntegrationTest {
 		assertThat(userAccountRepository.findByEmailWithRoles(nonDemo.email())).isPresent();
 
 		DemoSeedResult reseed = demoSeedService.seedAll();
-		assertThat(reseed.usersCreated()).isEqualTo(2);
-		assertThat(reseed.categoriesCreated()).isEqualTo(DemoSeedCatalog.CATEGORIES.size());
-		assertThat(reseed.productsCreated()).isEqualTo(DemoSeedCatalog.PRODUCTS.size());
+		assertThat(reseed.usersCreated()).isEqualTo(3);
+		assertThat(reseed.categoriesCreated()).isEqualTo(expectedCategories);
+		assertThat(reseed.productsCreated()).isEqualTo(expectedProducts);
 		assertThat(userAccountRepository.findByEmailWithRoles("admin@aptech4.local")).isPresent();
-		assertThat(productRepository.findBySkuIgnoreCase("DEMO-ELEC-PHONE")).isPresent();
+		assertThat(productRepository.findBySkuIgnoreCase("DEMO-ELEC-PHONE")).isEmpty();
+		assertThat(productRepository.findBySkuIgnoreCase("FOOD-DAIRY-MILK-001")).isPresent();
+		assertThat(categoryRepository.findBySlug("demo-electronics")).isEmpty();
 		assertThat(userAccountRepository.findByEmailWithRoles(nonDemo.email())).isPresent();
 		assertThat(count("select count(*) from roles")).isEqualTo(rolesBefore);
 

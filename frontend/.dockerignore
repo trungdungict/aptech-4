@@ -11,5 +11,6 @@ coverage/
 *.log
 .DS_Store
 .vite/
+.e2e-evidence/
 *.tsbuildinfo
 .cursor/

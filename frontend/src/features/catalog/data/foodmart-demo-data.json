@@ -1,0 +1,441 @@
+{
+  "_meta": {
+    "title": "FoodMart grocery demo catalog (Aptech-4 Phase 4)",
+    "currency": "VND",
+    "notes": [
+      "Persisted catalog source of truth is backend db/demo/foodmart-catalog.json (make seed-demo / up-all).",
+      "This file is a frontend mirror for tooling and optional API import dry-run — do not treat as DB seed.",
+      "Demo prices only — not market prices.",
+      "No brand, rating, stock quantity, or imageUrl — unsupported by product schema.",
+      "Images resolved client-side via foodmart-image-map.json by SKU."
+    ]
+  },
+  "categories": [
+    {
+      "key": "fruits-vegetables",
+      "name": "Fruits & Vegetables",
+      "description": "Fresh produce aisle — demo grocery category for the FoodMart storefront."
+    },
+    {
+      "key": "breads-bakery",
+      "name": "Breads & Bakery",
+      "description": "Baked goods and breakfast breads — demo category."
+    },
+    {
+      "key": "dairy-eggs",
+      "name": "Dairy & Eggs",
+      "description": "Milk, yogurt, eggs, and dairy staples — demo category."
+    },
+    {
+      "key": "meat-seafood",
+      "name": "Meat & Seafood",
+      "description": "Protein selections for the demo grocery catalog."
+    },
+    {
+      "key": "beverages",
+      "name": "Beverages",
+      "description": "Juices and soft drinks — demo category."
+    },
+    {
+      "key": "snacks-nuts",
+      "name": "Snacks & Nuts",
+      "description": "Snacks, nuts, and biscuits — demo category."
+    },
+    {
+      "key": "pantry-cooking",
+      "name": "Pantry & Cooking",
+      "description": "Oils, sauces, pasta, and pantry staples — demo category."
+    },
+    {
+      "key": "frozen-foods",
+      "name": "Frozen Foods",
+      "description": "Frozen vegetables and convenience items — demo category."
+    }
+  ],
+  "products": [
+    {
+      "sku": "FOOD-FRUIT-APPLE-001",
+      "categoryKey": "fruits-vegetables",
+      "name": "Crisp Red Apples (1 kg)",
+      "description": "Demo grocery item — fresh-style red apples for the FoodMart storefront.",
+      "unitPrice": 45000,
+      "imagePath": "/assets/foodmart/images/products/thumb-raspberries.png"
+    },
+    {
+      "sku": "FOOD-FRUIT-BANANA-001",
+      "categoryKey": "fruits-vegetables",
+      "name": "Ripe Bananas (1 kg)",
+      "description": "Demo grocery item — everyday bananas for smoothies and snacks.",
+      "unitPrice": 28000,
+      "imagePath": "/assets/foodmart/images/products/thumb-bananas.png"
+    },
+    {
+      "sku": "FOOD-FRUIT-STRAWBERRY-001",
+      "categoryKey": "fruits-vegetables",
+      "name": "Sweet Strawberries (250 g)",
+      "description": "Demo grocery item — berry pack for desserts and breakfast.",
+      "unitPrice": 62000,
+      "imagePath": "/assets/foodmart/images/products/thumb-raspberries.png"
+    },
+    {
+      "sku": "FOOD-VEG-AVOCADO-001",
+      "categoryKey": "fruits-vegetables",
+      "name": "Hass Avocados (2 pack)",
+      "description": "Demo grocery item — ready-to-slice avocados.",
+      "unitPrice": 55000,
+      "imagePath": "/assets/foodmart/images/products/thumb-avocado.png"
+    },
+    {
+      "sku": "FOOD-VEG-CUCUMBER-001",
+      "categoryKey": "fruits-vegetables",
+      "name": "Garden Cucumbers (500 g)",
+      "description": "Demo grocery item — crisp cucumbers for salads.",
+      "unitPrice": 22000,
+      "imagePath": "/assets/foodmart/images/products/thumb-cucumber.png"
+    },
+    {
+      "sku": "FOOD-VEG-TOMATO-001",
+      "categoryKey": "fruits-vegetables",
+      "name": "Vine Tomatoes (500 g)",
+      "description": "Demo grocery item — tomatoes for cooking and salads.",
+      "unitPrice": 32000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tomatoes.png"
+    },
+    {
+      "sku": "FOOD-BAKERY-BREAD-001",
+      "categoryKey": "breads-bakery",
+      "name": "Sandwich Loaf (400 g)",
+      "description": "Demo bakery item — soft sandwich bread.",
+      "unitPrice": 38000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-11.jpg"
+    },
+    {
+      "sku": "FOOD-BAKERY-CROISSANT-001",
+      "categoryKey": "breads-bakery",
+      "name": "Butter Croissants (4 pack)",
+      "description": "Demo bakery item — flaky breakfast croissants.",
+      "unitPrice": 49000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-12.jpg"
+    },
+    {
+      "sku": "FOOD-BAKERY-MUFFIN-001",
+      "categoryKey": "breads-bakery",
+      "name": "Blueberry Muffins (4 pack)",
+      "description": "Demo bakery item — sweet muffins for coffee time.",
+      "unitPrice": 52000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-13.jpg"
+    },
+    {
+      "sku": "FOOD-BAKERY-BAGEL-001",
+      "categoryKey": "breads-bakery",
+      "name": "Sesame Bagels (4 pack)",
+      "description": "Demo bakery item — bagels for toasting.",
+      "unitPrice": 42000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-14.jpg"
+    },
+    {
+      "sku": "FOOD-BAKERY-ROLL-001",
+      "categoryKey": "breads-bakery",
+      "name": "Dinner Rolls (6 pack)",
+      "description": "Demo bakery item — soft rolls for meals.",
+      "unitPrice": 35000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-11.jpg"
+    },
+    {
+      "sku": "FOOD-BAKERY-FLATBREAD-001",
+      "categoryKey": "breads-bakery",
+      "name": "Wholemeal Flatbread (3 pack)",
+      "description": "Demo bakery item — flatbread for wraps.",
+      "unitPrice": 36000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-12.jpg"
+    },
+    {
+      "sku": "FOOD-DAIRY-MILK-001",
+      "categoryKey": "dairy-eggs",
+      "name": "Fresh Milk (1 L)",
+      "description": "Demo dairy item — everyday drinking milk.",
+      "unitPrice": 34000,
+      "imagePath": "/assets/foodmart/images/products/thumb-milk.png"
+    },
+    {
+      "sku": "FOOD-DAIRY-YOGURT-001",
+      "categoryKey": "dairy-eggs",
+      "name": "Natural Yogurt (500 g)",
+      "description": "Demo dairy item — plain yogurt pot.",
+      "unitPrice": 29000,
+      "imagePath": "/assets/foodmart/images/products/thumb-milk.png"
+    },
+    {
+      "sku": "FOOD-DAIRY-EGGS-001",
+      "categoryKey": "dairy-eggs",
+      "name": "Free-Range Eggs (12 pack)",
+      "description": "Demo dairy item — large eggs for baking and breakfast.",
+      "unitPrice": 48000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-13.jpg"
+    },
+    {
+      "sku": "FOOD-DAIRY-BUTTER-001",
+      "categoryKey": "dairy-eggs",
+      "name": "Salted Butter (200 g)",
+      "description": "Demo dairy item — cooking and spreading butter.",
+      "unitPrice": 41000,
+      "imagePath": "/assets/foodmart/images/products/thumb-milk.png"
+    },
+    {
+      "sku": "FOOD-DAIRY-CHEESE-001",
+      "categoryKey": "dairy-eggs",
+      "name": "Cheddar Slices (200 g)",
+      "description": "Demo dairy item — mild cheddar slices.",
+      "unitPrice": 56000,
+      "imagePath": "/assets/foodmart/images/products/thumb-milk.png"
+    },
+    {
+      "sku": "FOOD-DAIRY-CREAM-001",
+      "categoryKey": "dairy-eggs",
+      "name": "Cooking Cream (200 ml)",
+      "description": "Demo dairy item — cream for sauces and desserts.",
+      "unitPrice": 33000,
+      "imagePath": "/assets/foodmart/images/products/thumb-milk.png"
+    },
+    {
+      "sku": "FOOD-MEAT-CHICKEN-001",
+      "categoryKey": "meat-seafood",
+      "name": "Chicken Breast (500 g)",
+      "description": "Demo meat item — boneless chicken breast pack.",
+      "unitPrice": 78000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tuna.jpg"
+    },
+    {
+      "sku": "FOOD-MEAT-BEEF-001",
+      "categoryKey": "meat-seafood",
+      "name": "Lean Beef Mince (400 g)",
+      "description": "Demo meat item — mince for everyday cooking.",
+      "unitPrice": 95000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tuna.jpg"
+    },
+    {
+      "sku": "FOOD-MEAT-PORK-001",
+      "categoryKey": "meat-seafood",
+      "name": "Pork Loin Chops (400 g)",
+      "description": "Demo meat item — pork chops for grilling.",
+      "unitPrice": 88000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tuna.jpg"
+    },
+    {
+      "sku": "FOOD-SEAFOOD-SALMON-001",
+      "categoryKey": "meat-seafood",
+      "name": "Salmon Fillet (300 g)",
+      "description": "Demo seafood item — salmon fillet portion.",
+      "unitPrice": 125000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tuna.jpg"
+    },
+    {
+      "sku": "FOOD-SEAFOOD-TUNA-001",
+      "categoryKey": "meat-seafood",
+      "name": "Canned Tuna in Oil (185 g)",
+      "description": "Demo seafood item — pantry tuna tin.",
+      "unitPrice": 39000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tuna.jpg"
+    },
+    {
+      "sku": "FOOD-SEAFOOD-SHRIMP-001",
+      "categoryKey": "meat-seafood",
+      "name": "Peeled Shrimp (250 g)",
+      "description": "Demo seafood item — shrimp for stir-fry.",
+      "unitPrice": 112000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tuna.jpg"
+    },
+    {
+      "sku": "FOOD-BEV-ORANGE-JUICE-001",
+      "categoryKey": "beverages",
+      "name": "Orange Juice (1 L)",
+      "description": "Demo beverage — chilled-style orange juice carton.",
+      "unitPrice": 42000,
+      "imagePath": "/assets/foodmart/images/products/thumb-orange-juice.png"
+    },
+    {
+      "sku": "FOOD-BEV-MELON-JUICE-001",
+      "categoryKey": "beverages",
+      "name": "Melon Juice (1 L)",
+      "description": "Demo beverage — sweet melon juice.",
+      "unitPrice": 44000,
+      "imagePath": "/assets/foodmart/images/products/thumb-orange-juice.png"
+    },
+    {
+      "sku": "FOOD-BEV-APPLE-JUICE-001",
+      "categoryKey": "beverages",
+      "name": "Apple Juice (1 L)",
+      "description": "Demo beverage — clear apple juice.",
+      "unitPrice": 40000,
+      "imagePath": "/assets/foodmart/images/products/thumb-orange-juice.png"
+    },
+    {
+      "sku": "FOOD-BEV-SPARKLING-001",
+      "categoryKey": "beverages",
+      "name": "Sparkling Water (1.5 L)",
+      "description": "Demo beverage — sparkling water bottle.",
+      "unitPrice": 25000,
+      "imagePath": "/assets/foodmart/images/products/thumb-orange-juice.png"
+    },
+    {
+      "sku": "FOOD-BEV-ICED-TEA-001",
+      "categoryKey": "beverages",
+      "name": "Iced Tea Lemon (500 ml)",
+      "description": "Demo beverage — ready-to-drink iced tea.",
+      "unitPrice": 22000,
+      "imagePath": "/assets/foodmart/images/products/thumb-orange-juice.png"
+    },
+    {
+      "sku": "FOOD-BEV-COCONUT-WATER-001",
+      "categoryKey": "beverages",
+      "name": "Coconut Water (330 ml)",
+      "description": "Demo beverage — coconut water carton.",
+      "unitPrice": 27000,
+      "imagePath": "/assets/foodmart/images/products/thumb-orange-juice.png"
+    },
+    {
+      "sku": "FOOD-SNACK-ALMONDS-001",
+      "categoryKey": "snacks-nuts",
+      "name": "Roasted Almonds (200 g)",
+      "description": "Demo snack — roasted almond pack.",
+      "unitPrice": 68000,
+      "imagePath": "/assets/foodmart/images/products/thumb-biscuits.png"
+    },
+    {
+      "sku": "FOOD-SNACK-CASHEW-001",
+      "categoryKey": "snacks-nuts",
+      "name": "Cashew Nuts (200 g)",
+      "description": "Demo snack — lightly salted cashews.",
+      "unitPrice": 72000,
+      "imagePath": "/assets/foodmart/images/products/thumb-biscuits.png"
+    },
+    {
+      "sku": "FOOD-SNACK-BISCUITS-001",
+      "categoryKey": "snacks-nuts",
+      "name": "Butter Biscuits (300 g)",
+      "description": "Demo snack — classic biscuit tin style pack.",
+      "unitPrice": 31000,
+      "imagePath": "/assets/foodmart/images/products/thumb-biscuits.png"
+    },
+    {
+      "sku": "FOOD-SNACK-CHIPS-001",
+      "categoryKey": "snacks-nuts",
+      "name": "Potato Chips Original (150 g)",
+      "description": "Demo snack — crispy potato chips.",
+      "unitPrice": 28000,
+      "imagePath": "/assets/foodmart/images/products/thumb-junk.jpg"
+    },
+    {
+      "sku": "FOOD-SNACK-TRAIL-MIX-001",
+      "categoryKey": "snacks-nuts",
+      "name": "Trail Mix (250 g)",
+      "description": "Demo snack — nuts and dried fruit mix.",
+      "unitPrice": 59000,
+      "imagePath": "/assets/foodmart/images/products/thumb-biscuits.png"
+    },
+    {
+      "sku": "FOOD-SNACK-CRACKERS-001",
+      "categoryKey": "snacks-nuts",
+      "name": "Salt Crackers (200 g)",
+      "description": "Demo snack — crackers for cheese boards.",
+      "unitPrice": 26000,
+      "imagePath": "/assets/foodmart/images/products/thumb-junk.jpg"
+    },
+    {
+      "sku": "FOOD-PANTRY-HONEY-001",
+      "categoryKey": "pantry-cooking",
+      "name": "Wildflower Honey (350 g)",
+      "description": "Demo pantry item — honey jar for tea and baking.",
+      "unitPrice": 75000,
+      "imagePath": "/assets/foodmart/images/products/thumb-honey.jpg"
+    },
+    {
+      "sku": "FOOD-PANTRY-OLIVE-OIL-001",
+      "categoryKey": "pantry-cooking",
+      "name": "Extra Virgin Olive Oil (500 ml)",
+      "description": "Demo pantry item — cooking olive oil.",
+      "unitPrice": 98000,
+      "imagePath": "/assets/foodmart/images/products/thumb-herb.jpg"
+    },
+    {
+      "sku": "FOOD-PANTRY-KETCHUP-001",
+      "categoryKey": "pantry-cooking",
+      "name": "Tomato Ketchup (500 g)",
+      "description": "Demo pantry item — everyday ketchup bottle.",
+      "unitPrice": 32000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tomatoketchup.png"
+    },
+    {
+      "sku": "FOOD-PANTRY-PASTA-001",
+      "categoryKey": "pantry-cooking",
+      "name": "Spaghetti Pasta (500 g)",
+      "description": "Demo pantry item — dried spaghetti.",
+      "unitPrice": 29000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tomatoketchup.png"
+    },
+    {
+      "sku": "FOOD-PANTRY-HERBS-001",
+      "categoryKey": "pantry-cooking",
+      "name": "Dried Mixed Herbs (40 g)",
+      "description": "Demo pantry item — herb blend for seasoning.",
+      "unitPrice": 24000,
+      "imagePath": "/assets/foodmart/images/products/thumb-herb.jpg"
+    },
+    {
+      "sku": "FOOD-PANTRY-RICE-001",
+      "categoryKey": "pantry-cooking",
+      "name": "Jasmine Rice (1 kg)",
+      "description": "Demo pantry item — fragrant rice bag.",
+      "unitPrice": 46000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-1.png"
+    },
+    {
+      "sku": "FOOD-FROZEN-VEG-MIX-001",
+      "categoryKey": "frozen-foods",
+      "name": "Frozen Mixed Vegetables (500 g)",
+      "description": "Demo frozen item — mixed veg bag.",
+      "unitPrice": 38000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tomatoes.png"
+    },
+    {
+      "sku": "FOOD-FROZEN-BERRIES-001",
+      "categoryKey": "frozen-foods",
+      "name": "Frozen Mixed Berries (400 g)",
+      "description": "Demo frozen item — berries for smoothies.",
+      "unitPrice": 65000,
+      "imagePath": "/assets/foodmart/images/products/thumb-raspberries.png"
+    },
+    {
+      "sku": "FOOD-FROZEN-PEAS-001",
+      "categoryKey": "frozen-foods",
+      "name": "Frozen Garden Peas (500 g)",
+      "description": "Demo frozen item — green peas.",
+      "unitPrice": 30000,
+      "imagePath": "/assets/foodmart/images/products/thumb-cucumber.png"
+    },
+    {
+      "sku": "FOOD-FROZEN-PIZZA-001",
+      "categoryKey": "frozen-foods",
+      "name": "Frozen Margherita Pizza (1 pc)",
+      "description": "Demo frozen item — ready-bake pizza.",
+      "unitPrice": 79000,
+      "imagePath": "/assets/foodmart/images/products/thumb-junk.jpg"
+    },
+    {
+      "sku": "FOOD-FROZEN-DUMPLINGS-001",
+      "categoryKey": "frozen-foods",
+      "name": "Frozen Dumplings (400 g)",
+      "description": "Demo frozen item — dumpling pack.",
+      "unitPrice": 69000,
+      "imagePath": "/assets/foodmart/images/products/product-thumb-2.png"
+    },
+    {
+      "sku": "FOOD-FROZEN-FISH-001",
+      "categoryKey": "frozen-foods",
+      "name": "Frozen Fish Fingers (300 g)",
+      "description": "Demo frozen item — fish fingers for quick meals.",
+      "unitPrice": 54000,
+      "imagePath": "/assets/foodmart/images/products/thumb-tuna.jpg"
+    }
+  ]
+}

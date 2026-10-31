@@ -1,11 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
+import { PackageIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks/useAuth'
-import { formatProductPrice } from '@/features/catalog/lib/format-price'
+import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import * as ordersApi from '../api/orders-api'
+import { OrderStatusBadge } from '../components/OrderStatusBadge'
 import { orderQueryKeys } from '../hooks/order-query-keys'
 import { ORDER_DEFAULT_PAGE_SIZE, ORDER_DEFAULT_SORT } from '../types'
 
@@ -15,8 +20,7 @@ function formatPlacedAt(iso: string): string {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(iso))
-  }
-  catch {
+  } catch {
     return iso
   }
 }
@@ -54,11 +58,9 @@ export function OrderHistoryPage() {
       </div>
 
       {ordersQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Loading orders…
-        </p>
+        <OrderHistorySkeleton />
       ) : ordersQuery.isError ? (
-        <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <p role="alert">
             {ordersQuery.error instanceof ApiClientError
               ? ordersQuery.error.status === 403
@@ -66,57 +68,58 @@ export function OrderHistoryPage() {
                 : ordersQuery.error.userMessage
               : 'Unable to load orders.'}
           </p>
-          <button
-            type="button"
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-            onClick={() => void ordersQuery.refetch()}
-          >
+          <Button type="button" size="sm" onClick={() => void ordersQuery.refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       ) : data && data.items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
-          <p className="text-sm text-muted-foreground">No orders yet.</p>
-          <Link
-            to="/products"
-            className="mt-4 inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-          >
-            Browse catalog
-          </Link>
-        </div>
+        <Card className="border-dashed shadow-none">
+          <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+            <PackageIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">No orders yet.</p>
+            <Button asChild>
+              <Link to="/products">Browse catalog</Link>
+            </Button>
+          </CardContent>
+        </Card>
       ) : data ? (
         <>
           <p className="text-sm text-muted-foreground">
             Showing page {data.page + 1} of {Math.max(data.totalPages, 1)} ({data.totalElements}{' '}
             total)
           </p>
-          <ul className="divide-y divide-border rounded-2xl border border-border bg-card">
+          <ul className="space-y-3">
             {data.items.map((order) => (
               <li key={order.id}>
                 <Link
                   to={`/orders/${order.id}`}
-                  className="flex flex-col gap-1 px-4 py-4 hover:bg-muted sm:flex-row sm:items-center sm:justify-between"
+                  className="block rounded-xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
-                  <div>
-                    <p className="font-medium text-foreground">
-                      Order <span className="font-mono text-sm">{order.id}</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatPlacedAt(order.placedAt)} · {order.status}
-                    </p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 space-y-2">
+                      <p className="font-medium text-foreground">
+                        Order <span className="font-mono text-sm">{order.id}</span>
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatPlacedAt(order.placedAt)}
+                      </p>
+                      <OrderStatusBadge status={order.status} />
+                    </div>
+                    <ProductPrice
+                      unitPrice={order.totalAmount}
+                      currency={order.currency}
+                      className="text-base font-semibold text-foreground"
+                    />
                   </div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {formatProductPrice(order.totalAmount, order.currency)}
-                  </p>
                 </Link>
               </li>
             ))}
           </ul>
-          <div className="flex gap-2">
-            <button
+          <div className="flex flex-wrap gap-2">
+            <Button
               type="button"
+              variant="outline"
               disabled={data.first}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               onClick={() => {
                 const next = new URLSearchParams(searchParams)
                 next.set('page', String(Math.max(0, page - 1)))
@@ -124,11 +127,11 @@ export function OrderHistoryPage() {
               }}
             >
               Previous
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               disabled={data.last}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               onClick={() => {
                 const next = new URLSearchParams(searchParams)
                 next.set('page', String(page + 1))
@@ -136,10 +139,21 @@ export function OrderHistoryPage() {
               }}
             >
               Next
-            </button>
+            </Button>
           </div>
         </>
       ) : null}
     </section>
+  )
+}
+
+function OrderHistorySkeleton() {
+  return (
+    <div className="space-y-3" role="status" aria-live="polite">
+      <p className="sr-only">Loading orders…</p>
+      {Array.from({ length: 3 }, (_, i) => (
+        <Skeleton key={i} className="h-24 w-full rounded-xl" />
+      ))}
+    </div>
   )
 }

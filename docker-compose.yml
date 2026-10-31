@@ -4,8 +4,9 @@
 # Profiles:
 #   (default)  postgres + redis only — `make up-deps`
 #   stack      + api + web (nginx) — `make deploy-local`
-#   ai         + ollama (optional local LLM) — `make up-ai` / `make deploy-local-ai`
+#   ai         + ollama (local LLM) — `make up-ai` / `make deploy-local-ai`
 #   monitoring Prometheus + Grafana + exporters — `make monitoring-up` (docs/MONITORING.md)
+# Complete local demo (`make up-all`) enables stack + ai + monitoring together.
 #
 # Same-origin routing: browser → web:80 → /api/* → api:8080
 # Postgres data: named volume aptech4_pgdata (never removed by Make stop targets).

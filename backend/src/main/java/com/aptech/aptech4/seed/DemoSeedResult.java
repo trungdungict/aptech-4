@@ -7,6 +7,11 @@ public record DemoSeedResult(
 		int categoriesUpdated,
 		int productsCreated,
 		int productsUpdated,
-		int inventoryUpserts
+		int inventoryUpserts,
+		int addressesUpserted,
+		int ordersSeeded,
+		int notificationsSeeded,
+		int retiredProductsRemoved,
+		int retiredCategoriesRemoved
 ) {
 }

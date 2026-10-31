@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button'
+
 type CatalogPaginationProps = {
   page: number
   totalPages: number
@@ -23,22 +25,24 @@ export function CatalogPagination({
         Page {page + 1} of {totalPages} · {totalElements} products
       </p>
       <div className="flex gap-2">
-        <button
+        <Button
           type="button"
-          className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+          variant="outline"
+          size="sm"
           disabled={disabled || page <= 0}
           onClick={() => onPageChange(page - 1)}
         >
           Previous
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+          variant="outline"
+          size="sm"
           disabled={disabled || page >= totalPages - 1}
           onClick={() => onPageChange(page + 1)}
         >
           Next
-        </button>
+        </Button>
       </div>
     </div>
   )

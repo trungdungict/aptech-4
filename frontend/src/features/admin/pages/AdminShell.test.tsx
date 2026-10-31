@@ -111,7 +111,9 @@ describe('Admin shell + role gate', () => {
     await user.click(screen.getByRole('link', { name: /^storefront$/i }))
 
     expect(
-      await screen.findByRole('heading', { name: /aptech-4 storefront foundation/i }),
+      await screen.findByRole('heading', {
+        name: /stock your kitchen from the live aptech-4 catalog/i,
+      }),
     ).toBeInTheDocument()
   })
 

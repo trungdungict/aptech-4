@@ -42,7 +42,8 @@ Local deps + demo seed (does **not** wipe volumes):
 make up-deps
 make seed-check                # dry preflight + read-only demo counts
 make seed-demo                 # idempotent upsert; see docs/DEMO_SEED.md
-make smoke-demo                # login + catalog via stack nginx (:8088)
+make smoke-demo                # login + FoodMart catalog via stack nginx (:8088)
+make up-all                    # complete demo: core + AI + monitoring + seed + smokes
 make reset-demo-dry            # print demo delete scope (no deletes)
 make reset-demo CONFIRM=yes    # scoped demo reset + reseed (not volume wipe)
 make down                      # stop Compose services; keeps volumes

@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
+import { Button } from '@/components/ui/button'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import { listCategories, listProducts, normalizeListParams } from '../api/catalog-api'
 import { CatalogFilters } from '../components/CatalogFilters'
 import { CatalogPagination } from '../components/CatalogPagination'
-import { ProductGrid } from '../components/ProductGrid'
+import { ProductGrid, ProductGridSkeleton } from '../components/ProductGrid'
 import { catalogQueryKeys } from '../hooks/catalog-query-keys'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import {
@@ -42,7 +43,6 @@ export function ProductListPage() {
       { replace: true },
     )
   }, [debouncedQ, draftQ, urlState, setSearchParams])
-
 
   const filterState: CatalogSearchState = { ...urlState, q: qInput }
   const queryState: CatalogSearchState = { ...urlState, q: debouncedQ }
@@ -89,16 +89,16 @@ export function ProductListPage() {
   return (
     <section className="space-y-6">
       <div className="space-y-2">
-        <p className="text-sm font-medium text-primary">
-          <Link to="/" className="hover:underline">
+        <p className="text-sm font-medium text-muted-foreground">
+          <Link to="/" className="text-primary hover:underline">
             Home
           </Link>
           <span aria-hidden="true"> / </span>
           Catalog
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Products</h1>
-        <p className="text-sm text-muted-foreground">
-          Browse active products from the Aptech-4 API. Prices and availability come from the server.
+        <p className="max-w-2xl text-sm text-muted-foreground">
+          Browse active products from the catalog. Prices and availability come from the server.
         </p>
       </div>
 
@@ -111,41 +111,34 @@ export function ProductListPage() {
       />
 
       {!filtersValid ? (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Fix the price filters to load products.
         </p>
       ) : productsQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Loading products…
-        </p>
+        <div role="status" aria-live="polite" className="space-y-3">
+          <p className="sr-only">Loading products…</p>
+          <ProductGridSkeleton />
+        </div>
       ) : productsQuery.isError ? (
-        <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="space-y-3 rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <p role="alert">
             {productsQuery.error instanceof ApiClientError
               ? productsQuery.error.userMessage
               : 'Unable to load products.'}
           </p>
-          <button
-            type="button"
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-            onClick={() => void productsQuery.refetch()}
-          >
+          <Button type="button" size="sm" onClick={() => void productsQuery.refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       ) : (productsQuery.data?.items.length ?? 0) === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
+        <div className="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
           <p className="font-medium text-foreground">No products match these filters</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Try clearing filters or searching a different keyword.
           </p>
-          <button
-            type="button"
-            className="mt-4 text-sm font-medium text-primary underline-offset-4 hover:underline"
-            onClick={clearFilters}
-          >
+          <Button type="button" variant="link" className="mt-4" onClick={clearFilters}>
             Clear filters
-          </button>
+          </Button>
         </div>
       ) : (
         <>

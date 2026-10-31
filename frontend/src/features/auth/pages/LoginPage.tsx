@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { ApiClientError } from '@/lib/api/api-error'
 import { safeInternalPath } from '@/lib/safe-redirect'
 
@@ -51,40 +53,40 @@ export function LoginPage() {
         </p>
       </div>
 
-      <form className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm" onSubmit={onSubmit} noValidate>
-        <AuthFormField
-          id="login-email"
-          label="Email"
-          type="email"
-          autoComplete="email"
-          disabled={isSubmitting}
-          error={errors.email?.message}
-          {...register('email')}
-        />
-        <AuthFormField
-          id="login-password"
-          label="Password"
-          type="password"
-          autoComplete="current-password"
-          disabled={isSubmitting}
-          error={errors.password?.message}
-          {...register('password')}
-        />
+      <Card className="gap-0 py-0 shadow-sm">
+        <CardContent className="p-6">
+          <form className="space-y-4" onSubmit={onSubmit} noValidate>
+            <AuthFormField
+              id="login-email"
+              label="Email"
+              type="email"
+              autoComplete="email"
+              disabled={isSubmitting}
+              error={errors.email?.message}
+              {...register('email')}
+            />
+            <AuthFormField
+              id="login-password"
+              label="Password"
+              type="password"
+              autoComplete="current-password"
+              disabled={isSubmitting}
+              error={errors.password?.message}
+              {...register('password')}
+            />
 
-        {formError ? (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
-            {formError}
-          </p>
-        ) : null}
+            {formError ? (
+              <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+                {formError}
+              </p>
+            ) : null}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isSubmitting ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? 'Signing in…' : 'Sign in'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <p className="text-center text-sm text-muted-foreground">
         No account yet?{' '}

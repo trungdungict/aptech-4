@@ -17,8 +17,8 @@ import org.springframework.util.StringUtils;
 import com.aptech.aptech4.identity.security.EmailNormalizer;
 
 /**
- * Deletes only rows keyed by seed natural keys (emails / slugs / SKUs from {@link DemoSeedCatalog}
- * + configured demo emails). Never truncates tables or drops volumes.
+ * Deletes only rows keyed by seed natural keys (demo emails + FoodMart / retired catalog keys).
+ * Never truncates tables or drops volumes. Production is refused by {@link DemoSeedGuard}.
  */
 @Service
 public class DemoResetService {
@@ -47,8 +47,8 @@ public class DemoResetService {
 		DemoSeedGuard.assertAllowed(environment, properties.isAllowOnProd());
 		String jdbcUrl = requireJdbcUrl();
 		List<String> emails = demoEmails();
-		List<String> slugs = DemoSeedMarkers.categorySlugs();
-		List<String> skus = DemoSeedMarkers.productSkus();
+		List<String> slugs = DemoSeedMarkers.resetCategorySlugs();
+		List<String> skus = DemoSeedMarkers.resetProductSkus();
 
 		List<UUID> userIds = queryUuids(
 				"select id from users where email in (" + placeholders(emails.size()) + ")",
@@ -98,8 +98,8 @@ public class DemoResetService {
 		requireJdbcUrl();
 
 		List<String> emails = demoEmails();
-		List<String> slugs = DemoSeedMarkers.categorySlugs();
-		List<String> skus = DemoSeedMarkers.productSkus();
+		List<String> slugs = DemoSeedMarkers.resetCategorySlugs();
+		List<String> skus = DemoSeedMarkers.resetProductSkus();
 
 		List<UUID> userIds = queryUuids(
 				"select id from users where email in (" + placeholders(emails.size()) + ")",
@@ -242,6 +242,78 @@ public class DemoResetService {
 		return result;
 	}
 
+	/**
+	 * Local-demo only: remove retired non-FoodMart catalog rows by exact SKU/slug.
+	 * Does not touch users, FoodMart catalog, or unrelated rows. Safe under {@link DemoSeedGuard}.
+	 */
+	@Transactional
+	public RetiredCatalogPurgeResult purgeRetiredCatalog() {
+		DemoSeedGuard.assertAllowed(environment, properties.isAllowOnProd());
+		requireJdbcUrl();
+
+		List<String> skus = DemoSeedMarkers.retiredProductSkus();
+		List<String> slugs = DemoSeedMarkers.retiredCategorySlugs();
+		if (skus.isEmpty() && slugs.isEmpty()) {
+			return new RetiredCatalogPurgeResult(0, 0);
+		}
+
+		List<UUID> productIds = skus.isEmpty()
+				? List.of()
+				: queryUuids(
+						"select id from products where sku in (" + placeholders(skus.size()) + ")",
+						skus.toArray()
+				);
+		List<UUID> categoryIds = slugs.isEmpty()
+				? List.of()
+				: queryUuids(
+						"select id from categories where slug in (" + placeholders(slugs.size()) + ")",
+						slugs.toArray()
+				);
+
+		if (!productIds.isEmpty()) {
+			Object[] productArgs = productIds.toArray();
+			jdbcTemplate.update(
+					"delete from stock_reservation_items where product_id in ("
+							+ placeholders(productIds.size()) + ")",
+					productArgs
+			);
+			jdbcTemplate.update(
+					"delete from cart_items where product_id in (" + placeholders(productIds.size()) + ")",
+					productArgs
+			);
+			jdbcTemplate.update(
+					"delete from inventory where product_id in (" + placeholders(productIds.size()) + ")",
+					productArgs
+			);
+			// order_items.product_id is ON DELETE SET NULL
+			jdbcTemplate.update(
+					"delete from products where id in (" + placeholders(productIds.size()) + ")",
+					productArgs
+			);
+		}
+
+		int categoriesDeleted = 0;
+		if (!categoryIds.isEmpty()) {
+			categoriesDeleted = jdbcTemplate.update(
+					"delete from categories where id in (" + placeholders(categoryIds.size()) + ")",
+					categoryIds.toArray()
+			);
+		}
+
+		RetiredCatalogPurgeResult result = new RetiredCatalogPurgeResult(productIds.size(), categoriesDeleted);
+		if (result.productsRemoved() > 0 || result.categoriesRemoved() > 0) {
+			log.info(
+					"Retired demo catalog purged: products {} categories {}",
+					result.productsRemoved(),
+					result.categoriesRemoved()
+			);
+		}
+		return result;
+	}
+
+	public record RetiredCatalogPurgeResult(int productsRemoved, int categoriesRemoved) {
+	}
+
 	private List<String> demoEmails() {
 		List<String> emails = new ArrayList<>();
 		if (StringUtils.hasText(properties.getAdminEmail())) {
@@ -249,6 +321,9 @@ public class DemoResetService {
 		}
 		if (StringUtils.hasText(properties.getCustomerEmail())) {
 			emails.add(EmailNormalizer.normalize(properties.getCustomerEmail()));
+		}
+		for (String extra : DemoSeedMarkers.extraCustomerEmails()) {
+			emails.add(EmailNormalizer.normalize(extra));
 		}
 		if (emails.isEmpty()) {
 			throw new IllegalStateException("Demo reset refused: no demo emails configured");

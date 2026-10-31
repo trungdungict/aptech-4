@@ -8,9 +8,9 @@ WEB_PORT="${WEB_PORT:-8088}"
 
 # Documented local-only demo credentials (docs/DEMO_SEED.md / .env.example). Never read .env here.
 DEMO_CUSTOMER_EMAIL='customer@aptech4.local'
-DEMO_CUSTOMER_PASSWORD='CustomerDemo_change_me!'
+DEMO_CUSTOMER_PASSWORD='customer'
 DEMO_ADMIN_EMAIL='admin@aptech4.local'
-DEMO_ADMIN_PASSWORD='AdminDemo_change_me!'
+DEMO_ADMIN_PASSWORD='admin'
 
 cat <<EOF
 ════════════════════════════════════════════════════════════

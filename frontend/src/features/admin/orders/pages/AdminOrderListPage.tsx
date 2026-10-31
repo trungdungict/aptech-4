@@ -1,9 +1,27 @@
 import { useQuery } from '@tanstack/react-query'
+import { ClipboardListIcon } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatProductPrice } from '@/features/catalog/lib/format-price'
+import { OrderStatusBadge } from '@/features/orders/components/OrderStatusBadge'
 import { ORDER_DEFAULT_PAGE_SIZE, ORDER_DEFAULT_SORT } from '@/features/orders/types'
 import { ApiClientError } from '@/lib/api/api-error'
+
+import {
+  adminAlertErrorClass,
+  adminNativeSelectClass,
+  adminPageLeadClass,
+  adminPageSectionClass,
+  adminPageTitleClass,
+  adminTableClass,
+  adminTableWrapClass,
+  adminTdClass,
+  adminThClass,
+} from '../../lib/admin-ui'
 
 import * as ordersApi from '../api/admin-orders-api'
 import { adminOrderQueryKeys } from '../hooks/admin-order-query-keys'
@@ -15,8 +33,7 @@ function formatPlacedAt(iso: string): string {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(iso))
-  }
-  catch {
+  } catch {
     return iso
   }
 }
@@ -56,112 +73,120 @@ export function AdminOrderListPage() {
   const data = ordersQuery.data
 
   return (
-    <section className="space-y-6">
+    <section className={adminPageSectionClass}>
       <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Orders</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className={adminPageTitleClass}>
+          Orders
+        </h1>
+        <p className={adminPageLeadClass}>
           All customer orders (admin). Totals and line items are checkout snapshots. Customer email
           is not returned by this API — only userId.
         </p>
       </div>
 
-      <form
-        className="flex flex-wrap gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          const form = new FormData(event.currentTarget)
-          const next = new URLSearchParams()
-          const nextStatus = String(form.get('status') ?? '')
-          const nextSort = String(form.get('sort') ?? ORDER_DEFAULT_SORT)
-          if (nextStatus) next.set('status', nextStatus)
-          next.set('sort', nextSort)
-          next.set('page', '0')
-          setSearchParams(next)
-        }}
-      >
-        <label className="sr-only" htmlFor="admin-order-status">
-          Status filter
-        </label>
-        <select
-          id="admin-order-status"
-          name="status"
-          defaultValue={status}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="">All statuses</option>
-          {ORDER_STATUS_VALUES.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="admin-order-sort">
-          Sort
-        </label>
-        <select
-          id="admin-order-sort"
-          name="sort"
-          defaultValue={sort}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        >
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          className="rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
-        >
-          Apply
-        </button>
-      </form>
+      <Card className="shadow-sm">
+        <CardContent className="pt-6">
+          <form
+            className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const form = new FormData(event.currentTarget)
+              const next = new URLSearchParams()
+              const nextStatus = String(form.get('status') ?? '')
+              const nextSort = String(form.get('sort') ?? ORDER_DEFAULT_SORT)
+              if (nextStatus) next.set('status', nextStatus)
+              next.set('sort', nextSort)
+              next.set('page', '0')
+              setSearchParams(next)
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-order-status">Status filter</Label>
+              <select
+                id="admin-order-status"
+                name="status"
+                defaultValue={status}
+                className={adminNativeSelectClass}
+              >
+                <option value="">All statuses</option>
+                {ORDER_STATUS_VALUES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-order-sort">Sort</Label>
+              <select
+                id="admin-order-sort"
+                name="sort"
+                defaultValue={sort}
+                className={adminNativeSelectClass}
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button type="submit" variant="outline">
+              Apply
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {ordersQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Loading orders…
-        </p>
+        <div className="space-y-3" role="status" aria-live="polite">
+          <p className="sr-only">Loading orders…</p>
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+        </div>
       ) : ordersQuery.isError ? (
-        <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className={`space-y-3 ${adminAlertErrorClass}`}>
           <p role="alert">
             {ordersQuery.error instanceof ApiClientError
               ? ordersQuery.error.userMessage
               : 'Unable to load orders.'}
           </p>
-          <button
-            type="button"
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-            onClick={() => void ordersQuery.refetch()}
-          >
+          <Button type="button" size="sm" onClick={() => void ordersQuery.refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       ) : data && data.items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
-          <p className="text-sm text-muted-foreground">No orders match these filters.</p>
-        </div>
+        <Card className="border-dashed shadow-none">
+          <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+            <ClipboardListIcon
+              className="size-10 text-muted-foreground opacity-60"
+              aria-hidden="true"
+            />
+            <p className="text-sm text-muted-foreground">No orders match these filters.</p>
+          </CardContent>
+        </Card>
       ) : data ? (
         <>
           <p className="text-sm text-muted-foreground">
             Showing page {data.page + 1} of {Math.max(data.totalPages, 1)} ({data.totalElements}{' '}
             total)
           </p>
-          <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-            <table className="w-full min-w-[44rem] text-left text-sm">
+          <div className={adminTableWrapClass}>
+            <table className={`${adminTableClass} min-w-[44rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Order</th>
-                  <th className="px-4 py-3 font-medium">Customer userId</th>
-                  <th className="px-4 py-3 font-medium">Placed</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Total</th>
+                  <th className={adminThClass}>Order</th>
+                  <th className={adminThClass}>Customer userId</th>
+                  <th className={adminThClass}>Placed</th>
+                  <th className={adminThClass}>Status</th>
+                  <th className={adminThClass}>Total</th>
+                  <th className={adminThClass}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {data.items.map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-4 py-3">
+                  <tr key={order.id} className="hover:bg-muted/30">
+                    <td className={adminTdClass}>
                       <Link
                         to={`/admin/orders/${order.id}`}
                         className="font-mono text-xs font-medium text-primary underline-offset-4 hover:underline"
@@ -169,26 +194,33 @@ export function AdminOrderListPage() {
                         {order.id}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    <td className={`${adminTdClass} font-mono text-xs text-muted-foreground`}>
                       {order.userId}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className={`${adminTdClass} text-muted-foreground`}>
                       {formatPlacedAt(order.placedAt)}
                     </td>
-                    <td className="px-4 py-3 font-medium text-foreground">{order.status}</td>
-                    <td className="px-4 py-3 font-semibold">
+                    <td className={adminTdClass}>
+                      <OrderStatusBadge status={order.status} />
+                    </td>
+                    <td className={`${adminTdClass} font-semibold text-foreground`}>
                       {formatProductPrice(order.totalAmount, order.currency)}
+                    </td>
+                    <td className={adminTdClass}>
+                      <Button asChild variant="link" size="sm" className="h-auto px-0">
+                        <Link to={`/admin/orders/${order.id}`}>View</Link>
+                      </Button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="flex gap-2">
-            <button
+          <div className="flex flex-wrap gap-2">
+            <Button
               type="button"
+              variant="outline"
               disabled={data.first}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               onClick={() => {
                 const next = new URLSearchParams(searchParams)
                 next.set('page', String(Math.max(0, page - 1)))
@@ -196,11 +228,11 @@ export function AdminOrderListPage() {
               }}
             >
               Previous
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               disabled={data.last}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               onClick={() => {
                 const next = new URLSearchParams(searchParams)
                 next.set('page', String(page + 1))
@@ -208,7 +240,7 @@ export function AdminOrderListPage() {
               }}
             >
               Next
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

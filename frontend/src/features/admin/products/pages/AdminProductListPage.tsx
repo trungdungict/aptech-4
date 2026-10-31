@@ -1,13 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { PackageIcon } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { listAdminCategories } from '@/features/admin/categories/api/admin-categories-api'
 import { adminCategoryQueryKeys } from '@/features/admin/categories/hooks/admin-category-query-keys'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { catalogQueryKeys } from '@/features/catalog/hooks/catalog-query-keys'
 import { formatProductPrice } from '@/features/catalog/lib/format-price'
 import { PRODUCT_DEFAULT_PAGE_SIZE, PRODUCT_DEFAULT_SORT } from '@/features/catalog/types'
 import { ApiClientError } from '@/lib/api/api-error'
+
+import {
+  adminAlertErrorClass,
+  adminNativeSelectClass,
+  adminPageLeadClass,
+  adminPageSectionClass,
+  adminPageTitleClass,
+  adminTableClass,
+  adminTableWrapClass,
+  adminTdClass,
+  adminThClass,
+} from '../../lib/admin-ui'
 
 import * as productsApi from '../api/admin-products-api'
 import { adminProductQueryKeys } from '../hooks/admin-product-query-keys'
@@ -62,105 +81,105 @@ export function AdminProductListPage() {
   const data = productsQuery.data
 
   return (
-    <section className="space-y-6">
+    <section className={adminPageSectionClass}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Products</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className={adminPageTitleClass}>
+            Products
+          </h1>
+          <p className={adminPageLeadClass}>
             Admin list includes inactive products. Soft-disable via status — no hard delete.
             Inventory cannot be changed here.
           </p>
         </div>
-        <Link
-          to="/admin/products/new"
-          className="inline-flex rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-        >
-          New product
-        </Link>
+        <Button asChild>
+          <Link to="/admin/products/new">New product</Link>
+        </Button>
       </div>
 
-      <form
-        className="flex flex-wrap gap-2"
-        onSubmit={(event) => {
-          event.preventDefault()
-          const form = new FormData(event.currentTarget)
-          const next = new URLSearchParams(searchParams)
-          const nextQ = String(form.get('q') ?? '').trim()
-          const nextActive = String(form.get('active') ?? '')
-          if (nextQ) next.set('q', nextQ)
-          else next.delete('q')
-          if (nextActive === 'true' || nextActive === 'false') next.set('active', nextActive)
-          else next.delete('active')
-          next.set('page', '0')
-          setSearchParams(next)
-        }}
-      >
-        <label className="sr-only" htmlFor="admin-product-q">
-          Search
-        </label>
-        <input
-          id="admin-product-q"
-          name="q"
-          defaultValue={q}
-          placeholder="Search name or SKU"
-          className="min-w-[12rem] flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        />
-        <label className="sr-only" htmlFor="admin-product-active">
-          Status filter
-        </label>
-        <select
-          id="admin-product-active"
-          name="active"
-          defaultValue={activeParam ?? ''}
-          className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-        >
-          <option value="">All statuses</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
-        <button
-          type="submit"
-          className="rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-muted"
-        >
-          Apply
-        </button>
-      </form>
+      <Card className="shadow-sm">
+        <CardContent className="pt-6">
+          <form
+            className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+            onSubmit={(event) => {
+              event.preventDefault()
+              const form = new FormData(event.currentTarget)
+              const next = new URLSearchParams(searchParams)
+              const nextQ = String(form.get('q') ?? '').trim()
+              const nextActive = String(form.get('active') ?? '')
+              if (nextQ) next.set('q', nextQ)
+              else next.delete('q')
+              if (nextActive === 'true' || nextActive === 'false') next.set('active', nextActive)
+              else next.delete('active')
+              next.set('page', '0')
+              setSearchParams(next)
+            }}
+          >
+            <div className="min-w-[12rem] flex-1 space-y-1.5">
+              <Label htmlFor="admin-product-q">Search</Label>
+              <Input
+                id="admin-product-q"
+                name="q"
+                defaultValue={q}
+                placeholder="Search name or SKU"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="admin-product-active">Status filter</Label>
+              <select
+                id="admin-product-active"
+                name="active"
+                defaultValue={activeParam ?? ''}
+                className={adminNativeSelectClass}
+              >
+                <option value="">All statuses</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </div>
+            <Button type="submit" variant="outline">
+              Apply
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       {statusError ? (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+        <p
+          className={adminAlertErrorClass}
+          role="alert"
+        >
           {statusError}
         </p>
       ) : null}
 
       {productsQuery.isLoading ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          Loading products…
-        </p>
+        <div className="space-y-3" role="status" aria-live="polite">
+          <p className="sr-only">Loading products…</p>
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+        </div>
       ) : productsQuery.isError ? (
-        <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className={`space-y-3 ${adminAlertErrorClass}`}>
           <p role="alert">
             {productsQuery.error instanceof ApiClientError
               ? productsQuery.error.userMessage
               : 'Unable to load products.'}
           </p>
-          <button
-            type="button"
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-            onClick={() => void productsQuery.refetch()}
-          >
+          <Button type="button" size="sm" onClick={() => void productsQuery.refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       ) : data && data.items.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
-          <p className="text-sm text-muted-foreground">No products match these filters.</p>
-          <Link
-            to="/admin/products/new"
-            className="mt-4 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
-          >
-            Create a product
-          </Link>
-        </div>
+        <Card className="border-dashed shadow-none">
+          <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+            <PackageIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">No products match these filters.</p>
+            <Button asChild variant="link">
+              <Link to="/admin/products/new">Create a product</Link>
+            </Button>
+          </CardContent>
+        </Card>
       ) : data ? (
         <>
           <p className="text-sm text-muted-foreground">
@@ -168,16 +187,16 @@ export function AdminProductListPage() {
             total)
             {categoriesQuery.isSuccess ? ` · ${categoriesQuery.data.length} categories loaded` : ''}
           </p>
-          <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-            <table className="w-full min-w-[40rem] text-left text-sm">
+          <div className={adminTableWrapClass}>
+            <table className={`${adminTableClass} min-w-[40rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">SKU</th>
-                  <th className="px-4 py-3 font-medium">Price</th>
-                  <th className="px-4 py-3 font-medium">Category</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
+                  <th className={adminThClass}>Name</th>
+                  <th className={adminThClass}>SKU</th>
+                  <th className={adminThClass}>Price</th>
+                  <th className={adminThClass}>Category</th>
+                  <th className={adminThClass}>Status</th>
+                  <th className={adminThClass}>Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -185,36 +204,28 @@ export function AdminProductListPage() {
                   const pending =
                     statusMutation.isPending && statusMutation.variables?.id === product.id
                   return (
-                    <tr key={product.id}>
-                      <td className="px-4 py-3 font-medium text-foreground">{product.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{product.sku}</td>
-                      <td className="px-4 py-3">
+                    <tr key={product.id} className="hover:bg-muted/30">
+                      <td className={`${adminTdClass} font-medium text-foreground`}>{product.name}</td>
+                      <td className={`${adminTdClass} font-mono text-xs`}>{product.sku}</td>
+                      <td className={adminTdClass}>
                         {formatProductPrice(product.unitPrice, product.currency)}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{product.categoryName}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={
-                            product.active
-                              ? 'font-medium text-emerald-800'
-                              : 'font-medium text-amber-800'
-                          }
-                        >
+                      <td className={`${adminTdClass} text-muted-foreground`}>{product.categoryName}</td>
+                      <td className={adminTdClass}>
+                        <Badge variant={product.active ? 'success' : 'warning'}>
                           {product.active ? 'Active' : 'Inactive'}
-                        </span>
+                        </Badge>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={adminTdClass}>
                         <div className="flex flex-wrap gap-2">
-                          <Link
-                            to={`/admin/products/${product.id}/edit`}
-                            className="font-medium text-primary underline-offset-4 hover:underline"
-                          >
-                            Edit
-                          </Link>
-                          <button
+                          <Button asChild variant="link" size="sm" className="h-auto px-0">
+                            <Link to={`/admin/products/${product.id}/edit`}>Edit</Link>
+                          </Button>
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="sm"
                             disabled={pending}
-                            className="font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-60"
                             onClick={() => {
                               const next = !product.active
                               const ok = window.confirm(
@@ -232,7 +243,7 @@ export function AdminProductListPage() {
                               : product.active
                                 ? 'Deactivate'
                                 : 'Activate'}
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -241,11 +252,11 @@ export function AdminProductListPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex gap-2">
-            <button
+          <div className="flex flex-wrap gap-2">
+            <Button
               type="button"
+              variant="outline"
               disabled={data.first}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               onClick={() => {
                 const next = new URLSearchParams(searchParams)
                 next.set('page', String(Math.max(0, page - 1)))
@@ -253,11 +264,11 @@ export function AdminProductListPage() {
               }}
             >
               Previous
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
               disabled={data.last}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               onClick={() => {
                 const next = new URLSearchParams(searchParams)
                 next.set('page', String(page + 1))
@@ -265,7 +276,7 @@ export function AdminProductListPage() {
               }}
             >
               Next
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

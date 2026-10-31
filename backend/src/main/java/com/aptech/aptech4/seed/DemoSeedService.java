@@ -3,6 +3,7 @@ package com.aptech.aptech4.seed;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -31,8 +32,8 @@ import com.aptech.aptech4.identity.persistence.UserAccountRepository;
 import com.aptech.aptech4.identity.security.EmailNormalizer;
 
 /**
- * Idempotent demo seed. Upserts only managed natural keys (emails / slugs / SKUs). Does not delete
- * foreign data. Does not overwrite existing user passwords (create-only for credentials).
+ * Idempotent demo seed. Upserts FoodMart catalog + demo users/journeys. Purges retired non-FoodMart
+ * catalog keys under {@link DemoSeedGuard}. Does not overwrite existing user passwords.
  */
 @Service
 public class DemoSeedService {
@@ -48,6 +49,8 @@ public class DemoSeedService {
 	private final InventoryRepository inventoryRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final ObjectProvider<CatalogCacheInvalidator> catalogCacheInvalidator;
+	private final DemoJourneySeedService journeySeedService;
+	private final DemoResetService demoResetService;
 
 	public DemoSeedService(
 			DemoSeedProperties properties,
@@ -58,7 +61,9 @@ public class DemoSeedService {
 			ProductRepository productRepository,
 			InventoryRepository inventoryRepository,
 			PasswordEncoder passwordEncoder,
-			ObjectProvider<CatalogCacheInvalidator> catalogCacheInvalidator
+			ObjectProvider<CatalogCacheInvalidator> catalogCacheInvalidator,
+			DemoJourneySeedService journeySeedService,
+			DemoResetService demoResetService
 	) {
 		this.properties = properties;
 		this.environment = environment;
@@ -69,6 +74,8 @@ public class DemoSeedService {
 		this.inventoryRepository = inventoryRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.catalogCacheInvalidator = catalogCacheInvalidator;
+		this.journeySeedService = journeySeedService;
+		this.demoResetService = demoResetService;
 	}
 
 	@Transactional
@@ -98,7 +105,7 @@ public class DemoSeedService {
 		if (upsertUser(
 				properties.getCustomerEmail(),
 				properties.getCustomerPassword(),
-				properties.getCustomerFullName(),
+				"Nguyễn Văn Minh",
 				Set.of(customerRole)
 		)) {
 			usersCreated++;
@@ -110,7 +117,8 @@ public class DemoSeedService {
 		int categoriesCreated = 0;
 		int categoriesUpdated = 0;
 		Map<String, Category> categoriesByKey = new HashMap<>();
-		for (DemoSeedCatalog.CategoryFixture fixture : DemoSeedCatalog.CATEGORIES) {
+		List<DemoSeedCatalog.CategoryFixture> allCategories = FoodMartCatalog.categories();
+		for (DemoSeedCatalog.CategoryFixture fixture : allCategories) {
 			boolean created = upsertCategory(fixture);
 			if (created) {
 				categoriesCreated++;
@@ -124,7 +132,8 @@ public class DemoSeedService {
 		int productsCreated = 0;
 		int productsUpdated = 0;
 		int inventoryUpserts = 0;
-		for (DemoSeedCatalog.ProductFixture fixture : DemoSeedCatalog.PRODUCTS) {
+		List<DemoSeedCatalog.ProductFixture> allProducts = FoodMartCatalog.products();
+		for (DemoSeedCatalog.ProductFixture fixture : allProducts) {
 			Category category = categoriesByKey.get(fixture.categoryKey());
 			if (category == null) {
 				throw new IllegalStateException("Unknown category key: " + fixture.categoryKey());
@@ -140,6 +149,11 @@ public class DemoSeedService {
 			inventoryUpserts++;
 		}
 
+		DemoResetService.RetiredCatalogPurgeResult purged = demoResetService.purgeRetiredCatalog();
+
+		DemoJourneySeedService.JourneyCounts journey = journeySeedService.seed(customerRole);
+		usersCreated += journey.usersCreated();
+
 		CatalogCacheInvalidator invalidator = catalogCacheInvalidator.getIfAvailable();
 		if (invalidator != null) {
 			invalidator.onInventoryMutation();
@@ -153,17 +167,27 @@ public class DemoSeedService {
 				categoriesUpdated,
 				productsCreated,
 				productsUpdated,
-				inventoryUpserts
+				inventoryUpserts,
+				journey.addressesUpserted(),
+				journey.ordersSeeded(),
+				journey.notificationsSeeded(),
+				purged.productsRemoved(),
+				purged.categoriesRemoved()
 		);
 		log.info(
-				"Demo seed complete: users +{}/~{} categories +{}/~{} products +{}/~{} inventory {}",
+				"Demo seed complete: users +{}/~{} categories +{}/~{} products +{}/~{} inventory {} addresses {} orders {} notifications {} retired -{}/-{}",
 				result.usersCreated(),
 				result.usersUpdated(),
 				result.categoriesCreated(),
 				result.categoriesUpdated(),
 				result.productsCreated(),
 				result.productsUpdated(),
-				result.inventoryUpserts()
+				result.inventoryUpserts(),
+				result.addressesUpserted(),
+				result.ordersSeeded(),
+				result.notificationsSeeded(),
+				result.retiredProductsRemoved(),
+				result.retiredCategoriesRemoved()
 		);
 		return result;
 	}
@@ -172,9 +196,13 @@ public class DemoSeedService {
 		DemoSeedGuard.assertAllowed(environment, properties.isAllowOnProd());
 	}
 
+	/**
+	 * Local demo seed allows short passwords (e.g. {@code admin}) so Compose/.env can share
+	 * credentials with the frontend import script. Public registration remains ≥8 chars.
+	 */
 	private static void requirePassword(String password, String label) {
-		if (!StringUtils.hasText(password) || password.length() < 8) {
-			throw new IllegalStateException(label + " must be set (≥8 chars) for seeding");
+		if (!StringUtils.hasText(password) || password.length() < 5) {
+			throw new IllegalStateException(label + " must be set (≥5 chars) for local demo seeding");
 		}
 	}
 

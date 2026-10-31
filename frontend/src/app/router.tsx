@@ -1,13 +1,17 @@
+import { Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
-import { AdminLayout } from '@/features/admin/components/AdminLayout'
-import { AdminCategoryFormPage } from '@/features/admin/categories/pages/AdminCategoryFormPage'
-import { AdminCategoryListPage } from '@/features/admin/categories/pages/AdminCategoryListPage'
-import { AdminOrderDetailPage } from '@/features/admin/orders/pages/AdminOrderDetailPage'
-import { AdminOrderListPage } from '@/features/admin/orders/pages/AdminOrderListPage'
-import { AdminOverviewPage } from '@/features/admin/pages/AdminOverviewPage'
-import { AdminProductFormPage } from '@/features/admin/products/pages/AdminProductFormPage'
-import { AdminProductListPage } from '@/features/admin/products/pages/AdminProductListPage'
+import {
+  LazyAdminCategoryFormPage,
+  LazyAdminCategoryListPage,
+  LazyAdminLayout,
+  LazyAdminOrderDetailPage,
+  LazyAdminOrderListPage,
+  LazyAdminOverviewPage,
+  LazyAdminProductFormPage,
+  LazyAdminProductListPage,
+} from '@/features/admin/admin-lazy-routes'
+import { AdminRouteFallback } from '@/features/admin/components/AdminRouteFallback'
 import { RequireAdmin } from '@/features/auth/components/RequireAdmin'
 import { RequireAuth } from '@/features/auth/components/RequireAuth'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
@@ -28,22 +32,27 @@ export function AppRouter() {
         path="admin"
         element={
           <RequireAdmin>
-            <AdminLayout />
+            <Suspense fallback={<AdminRouteFallback />}>
+              <LazyAdminLayout />
+            </Suspense>
           </RequireAdmin>
         }
       >
-        <Route index element={<AdminOverviewPage />} />
-        <Route path="products" element={<AdminProductListPage />} />
-        <Route path="products/new" element={<AdminProductFormPage mode="create" />} />
-        <Route path="products/:productId/edit" element={<AdminProductFormPage mode="edit" />} />
-        <Route path="categories" element={<AdminCategoryListPage />} />
-        <Route path="categories/new" element={<AdminCategoryFormPage mode="create" />} />
+        <Route index element={<LazyAdminOverviewPage />} />
+        <Route path="products" element={<LazyAdminProductListPage />} />
+        <Route path="products/new" element={<LazyAdminProductFormPage mode="create" />} />
+        <Route
+          path="products/:productId/edit"
+          element={<LazyAdminProductFormPage mode="edit" />}
+        />
+        <Route path="categories" element={<LazyAdminCategoryListPage />} />
+        <Route path="categories/new" element={<LazyAdminCategoryFormPage mode="create" />} />
         <Route
           path="categories/:categoryId/edit"
-          element={<AdminCategoryFormPage mode="edit" />}
+          element={<LazyAdminCategoryFormPage mode="edit" />}
         />
-        <Route path="orders" element={<AdminOrderListPage />} />
-        <Route path="orders/:orderId" element={<AdminOrderDetailPage />} />
+        <Route path="orders" element={<LazyAdminOrderListPage />} />
+        <Route path="orders/:orderId" element={<LazyAdminOrderDetailPage />} />
       </Route>
 
       <Route element={<RootLayout />}>

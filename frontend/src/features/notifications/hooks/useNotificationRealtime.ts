@@ -1,4 +1,4 @@
-import { Client, type IMessage, type StompSubscription } from '@stomp/stompjs'
+import type { Client, IMessage, StompSubscription } from '@stomp/stompjs'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 
@@ -20,6 +20,10 @@ const BASE_RECONNECT_MS = 1_500
 /**
  * Authenticated STOMP lifecycle for private notification push (ADR-018).
  * Connects only while authenticated; disconnects on logout / user switch.
+ *
+ * `@stomp/stompjs` is loaded via dynamic import so the broker client stays out of
+ * the anonymous initial entry chunk. Connection still starts as soon as the user
+ * is authenticated (NotificationBell remains eager; provider stays at AuthQueryBridge).
  */
 export function useNotificationRealtime(): { connected: boolean } {
   const { status, user } = useAuth()
@@ -48,85 +52,91 @@ export function useNotificationRealtime(): { connected: boolean } {
     let cancelled = false
     let reconnectAttempts = 0
 
-    const client = new Client({
-      brokerURL: wsBrokerUrl(),
-      reconnectDelay: 0, // we control reconnect below
-      heartbeatIncoming: 10000,
-      heartbeatOutgoing: 10000,
-      beforeConnect: async () => {
-        let token = getAccessToken()
-        if (!token) {
-          token = await refreshAccessTokenSingleFlight()
-        }
-        if (!token) {
-          throw new Error('No access token for STOMP CONNECT')
-        }
-        client.connectHeaders = {
-          Authorization: `Bearer ${token}`,
-        }
-      },
-      onConnect: () => {
-        if (cancelled) {
-          return
-        }
-        reconnectAttempts = 0
-        setConnected(true)
-        subscriptionRef.current?.unsubscribe()
-        subscriptionRef.current = client.subscribe(NOTIFICATION_USER_QUEUE, (message: IMessage) => {
-          const activeUserId = userIdRef.current
-          if (!activeUserId) {
+    void import('@stomp/stompjs').then(({ Client: StompClient }) => {
+      if (cancelled) {
+        return
+      }
+
+      const client = new StompClient({
+        brokerURL: wsBrokerUrl(),
+        reconnectDelay: 0, // we control reconnect below
+        heartbeatIncoming: 10000,
+        heartbeatOutgoing: 10000,
+        beforeConnect: async () => {
+          let token = getAccessToken()
+          if (!token) {
+            token = await refreshAccessTokenSingleFlight()
+          }
+          if (!token) {
+            throw new Error('No access token for STOMP CONNECT')
+          }
+          client.connectHeaders = {
+            Authorization: `Bearer ${token}`,
+          }
+        },
+        onConnect: () => {
+          if (cancelled) {
             return
           }
-          try {
-            const payload = JSON.parse(message.body) as AppNotification
-            if (!payload?.id) {
+          reconnectAttempts = 0
+          setConnected(true)
+          subscriptionRef.current?.unsubscribe()
+          subscriptionRef.current = client.subscribe(NOTIFICATION_USER_QUEUE, (message: IMessage) => {
+            const activeUserId = userIdRef.current
+            if (!activeUserId) {
               return
             }
-            applyNotificationPush(queryClient, activeUserId, {
-              ...payload,
-              orderId: payload.orderId ?? null,
-              readAt: payload.readAt ?? null,
-              unread: payload.unread ?? payload.readAt == null,
-            })
-          } catch {
-            // Ignore malformed frames; REST remains source of truth.
-          }
-        })
-        // Recover anything missed while disconnected.
-        void queryClient.invalidateQueries({
-          queryKey: notificationQueryKeys.root(userId),
-        })
-      },
-      onDisconnect: () => {
-        setConnected(false)
-      },
-      onWebSocketClose: () => {
-        setConnected(false)
-        if (cancelled) {
-          return
-        }
-        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          return
-        }
-        reconnectAttempts += 1
-        const delay = Math.min(30_000, BASE_RECONNECT_MS * 2 ** (reconnectAttempts - 1))
-        window.setTimeout(() => {
-          if (!cancelled && clientRef.current === client) {
-            void refreshAccessTokenSingleFlight().finally(() => {
-              if (!cancelled && !client.active) {
-                client.activate()
+            try {
+              const payload = JSON.parse(message.body) as AppNotification
+              if (!payload?.id) {
+                return
               }
-            })
+              applyNotificationPush(queryClient, activeUserId, {
+                ...payload,
+                orderId: payload.orderId ?? null,
+                readAt: payload.readAt ?? null,
+                unread: payload.unread ?? payload.readAt == null,
+              })
+            } catch {
+              // Ignore malformed frames; REST remains source of truth.
+            }
+          })
+          // Recover anything missed while disconnected.
+          void queryClient.invalidateQueries({
+            queryKey: notificationQueryKeys.root(userId),
+          })
+        },
+        onDisconnect: () => {
+          setConnected(false)
+        },
+        onWebSocketClose: () => {
+          setConnected(false)
+          if (cancelled) {
+            return
           }
-        }, delay)
-      },
-      onStompError: () => {
-        setConnected(false)
-      },
-    })
+          if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            return
+          }
+          reconnectAttempts += 1
+          const delay = Math.min(30_000, BASE_RECONNECT_MS * 2 ** (reconnectAttempts - 1))
+          window.setTimeout(() => {
+            if (!cancelled && clientRef.current === client) {
+              void refreshAccessTokenSingleFlight().finally(() => {
+                if (!cancelled && !client.active) {
+                  client.activate()
+                }
+              })
+            }
+          }, delay)
+        },
+        onStompError: () => {
+          setConnected(false)
+        },
+      })
 
-    clientRef.current = client
-    client.activate()
+      clientRef.current = client
+      client.activate()
+    })
 
     return () => {
       cancelled = true
