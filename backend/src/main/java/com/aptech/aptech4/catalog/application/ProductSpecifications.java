@@ -6,12 +6,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 
 import org.springframework.data.jpa.domain.Specification;
 
+import com.aptech.aptech4.catalog.api.AdminInventoryStockStatus;
 import com.aptech.aptech4.catalog.domain.Inventory;
 import com.aptech.aptech4.catalog.domain.Product;
 
@@ -91,6 +93,54 @@ final class ProductSpecifications {
 				Predicate skuMatch = cb.like(cb.lower(root.get("sku")), pattern);
 				Predicate descMatch = cb.like(cb.lower(cb.coalesce(root.get("description"), "")), pattern);
 				predicates.add(cb.or(nameMatch, skuMatch, descMatch));
+			}
+
+			return predicates.isEmpty()
+					? cb.conjunction()
+					: cb.and(predicates.toArray(Predicate[]::new));
+		};
+	}
+
+	/**
+	 * Admin inventory list: all products (active/inactive) with optional stock-status filters.
+	 * Missing inventory rows are treated as available = 0.
+	 */
+	static Specification<Product> adminInventoryList(
+			String keyword,
+			Boolean active,
+			AdminInventoryStockStatus stockStatus,
+			int lowStockThreshold
+	) {
+		return (root, query, cb) -> {
+			List<Predicate> predicates = new ArrayList<>();
+			root.join("category", JoinType.INNER);
+			Join<Product, Inventory> inventory = root.join("inventory", JoinType.LEFT);
+
+			if (active != null) {
+				predicates.add(cb.equal(root.get("active"), active));
+			}
+			if (keyword != null && !keyword.isBlank()) {
+				String pattern = "%" + keyword.trim().toLowerCase(Locale.ROOT) + "%";
+				Predicate nameMatch = cb.like(cb.lower(root.get("name")), pattern);
+				Predicate skuMatch = cb.like(cb.lower(root.get("sku")), pattern);
+				predicates.add(cb.or(nameMatch, skuMatch));
+			}
+
+			Expression<Integer> onHand = cb.coalesce(inventory.get("quantityOnHand"), 0);
+			Expression<Integer> reserved = cb.coalesce(inventory.get("quantityReserved"), 0);
+			Expression<Integer> available = cb.diff(onHand, reserved);
+
+			AdminInventoryStockStatus status = stockStatus == null ? AdminInventoryStockStatus.ALL : stockStatus;
+			switch (status) {
+				case IN_STOCK -> predicates.add(cb.gt(available, lowStockThreshold));
+				case LOW -> predicates.add(cb.and(
+						cb.gt(available, 0),
+						cb.le(available, lowStockThreshold)
+				));
+				case OUT -> predicates.add(cb.le(available, 0));
+				case ALL -> {
+					// no stock predicate
+				}
 			}
 
 			return predicates.isEmpty()

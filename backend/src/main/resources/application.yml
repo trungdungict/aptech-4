@@ -65,6 +65,8 @@ aptech:
     # Soft-hold TTL for ACTIVE reservations (ADR-006). Checkout (P06-T03) should confirm before expiry.
     reservation-ttl-seconds: ${INVENTORY_RESERVATION_TTL_SECONDS:900}
     expiry-poll-ms: ${INVENTORY_EXPIRY_POLL_MS:60000}
+    # Admin inventory list/summary (P26). LOW = 0 < available <= threshold. Not AI chat threshold.
+    low-stock-threshold: ${INVENTORY_LOW_STOCK_THRESHOLD:5}
   promotions:
     # Lifecycle hygiene poll for ACTIVE→EXPIRED when now > ends_at (ADR-020 R9). Not required for checkout correctness.
     expiry-poll-ms: ${PROMOTIONS_EXPIRY_POLL_MS:60000}

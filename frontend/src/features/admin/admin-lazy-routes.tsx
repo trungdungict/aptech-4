@@ -34,6 +34,16 @@ export const LazyAdminProductFormPage = lazyNamed(
   (m) => m.AdminProductFormPage,
 )
 
+export const LazyAdminInventoryPage = lazyNamed(
+  () => import('@/features/admin/inventory/pages/AdminInventoryPage'),
+  (m) => m.AdminInventoryPage,
+)
+
+export const LazyAdminAnalyticsPage = lazyNamed(
+  () => import('@/features/admin/analytics/pages/AdminAnalyticsPage'),
+  (m) => m.AdminAnalyticsPage,
+)
+
 export const LazyAdminCategoryListPage = lazyNamed(
   () => import('@/features/admin/categories/pages/AdminCategoryListPage'),
   (m) => m.AdminCategoryListPage,

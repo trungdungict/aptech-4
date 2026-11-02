@@ -78,6 +78,149 @@ describe('Admin lazy routes', () => {
     expect(screen.getByRole('link', { name: /open campaigns/i })).toBeInTheDocument()
   })
 
+  it('supports deep links into admin inventory', async () => {
+    mockAdminFetch((url) => {
+      if (url.includes('/admin/inventory/summary')) {
+        return jsonResponse(200, {
+          totalProducts: 0,
+          inStockCount: 0,
+          lowStockCount: 0,
+          outOfStockCount: 0,
+          lowStockThreshold: 5,
+          availableDefinition: 'available = on_hand - reserved',
+        })
+      }
+      if (url.includes('/admin/inventory')) {
+        return jsonResponse(200, {
+          items: [],
+          page: 0,
+          size: 10,
+          totalElements: 0,
+          totalPages: 0,
+          first: true,
+          last: true,
+        })
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: '/admin/inventory',
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByRole('heading', { name: /^inventory$/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /^admin$/i })).toBeInTheDocument()
+  })
+
+  it('supports deep links into admin analytics', async () => {
+    const emptyAnalytics = {
+      from: '2026-01-01T00:00:00Z',
+      to: '2026-01-31T00:00:00Z',
+      timezone: 'UTC',
+      currency: 'VND',
+      revenueStatuses: ['PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED'],
+      placedOrderCount: 0,
+      revenueOrderCount: 0,
+      revenueTotal: 0,
+      averageOrderValue: 0,
+      cancellationCount: 0,
+      cancellationRate: 0,
+      statusCounts: {
+        PENDING_PAYMENT: 0,
+        PAID: 0,
+        PROCESSING: 0,
+        SHIPPED: 0,
+        COMPLETED: 0,
+        CANCELLED: 0,
+        FAILED: 0,
+      },
+      attention: { paid: 0, processing: 0, totalMatching: 0 },
+      inventory: {
+        totalProducts: 0,
+        inStockCount: 0,
+        lowStockCount: 0,
+        outOfStockCount: 0,
+        lowStockThreshold: 5,
+        availableDefinition: 'available = on_hand - reserved',
+      },
+      empty: true,
+      revenueDefinition: 'Sum of order.total_amount for statuses PAID/PROCESSING/SHIPPED/COMPLETED',
+    }
+
+    mockAdminFetch((url) => {
+      if (url.includes('/admin/analytics/overview')) {
+        return jsonResponse(200, emptyAnalytics)
+      }
+      if (url.includes('/admin/analytics/orders/status')) {
+        return jsonResponse(200, {
+          from: emptyAnalytics.from,
+          to: emptyAnalytics.to,
+          timezone: 'UTC',
+          counts: emptyAnalytics.statusCounts,
+          total: 0,
+          empty: true,
+        })
+      }
+      if (url.includes('/admin/analytics/orders/timeseries')) {
+        return jsonResponse(200, {
+          from: emptyAnalytics.from,
+          to: emptyAnalytics.to,
+          timezone: 'UTC',
+          bucket: 'DAY',
+          points: [],
+          empty: true,
+        })
+      }
+      if (url.includes('/admin/analytics/products/top')) {
+        return jsonResponse(200, {
+          from: emptyAnalytics.from,
+          to: emptyAnalytics.to,
+          timezone: 'UTC',
+          revenueStatuses: emptyAnalytics.revenueStatuses,
+          items: [],
+          empty: true,
+          note: 'snapshots',
+        })
+      }
+      if (url.includes('/admin/analytics/categories/sales')) {
+        return jsonResponse(200, {
+          from: emptyAnalytics.from,
+          to: emptyAnalytics.to,
+          timezone: 'UTC',
+          revenueStatuses: emptyAnalytics.revenueStatuses,
+          items: [],
+          empty: true,
+          attributionNote: 'live category',
+        })
+      }
+      if (url.includes('/admin/analytics/promotions/summary')) {
+        return jsonResponse(200, {
+          from: emptyAnalytics.from,
+          to: emptyAnalytics.to,
+          timezone: 'UTC',
+          currency: 'VND',
+          revenueStatuses: emptyAnalytics.revenueStatuses,
+          discountTotal: 0,
+          ordersWithPromotionCount: 0,
+          revenueOrderCount: 0,
+          breakdown: [],
+          empty: true,
+        })
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: '/admin/analytics',
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByRole('heading', { name: /^analytics$/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /^admin$/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^analytics$/i })).toBeInTheDocument()
+  })
+
   it('supports deep links into admin order detail', async () => {
     const orderId = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
     mockAdminFetch((url) => {

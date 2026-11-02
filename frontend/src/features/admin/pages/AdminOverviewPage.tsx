@@ -1,10 +1,12 @@
 import {
   ArrowRightIcon,
+  BarChart3Icon,
   FolderTreeIcon,
   LayoutDashboardIcon,
   MegaphoneIcon,
   PackageIcon,
   ShoppingBagIcon,
+  WarehouseIcon,
   type LucideIcon,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -24,6 +26,8 @@ import { ADMIN_NAV_ITEMS, type AdminNavItem } from '../nav'
 const MODULE_ICONS: Record<string, LucideIcon> = {
   overview: LayoutDashboardIcon,
   products: PackageIcon,
+  inventory: WarehouseIcon,
+  analytics: BarChart3Icon,
   categories: FolderTreeIcon,
   orders: ShoppingBagIcon,
   promotions: MegaphoneIcon,
@@ -42,8 +46,8 @@ export function AdminOverviewPage() {
         </div>
         <h1 className={adminPageTitleClass}>Admin overview</h1>
         <p className={`max-w-2xl ${adminPageLeadClass}`}>
-          Manage catalog, fulfillment, and promotion modules available in this workspace. Product,
-          category, order, and promotion administration are live; this page does not show fabricated
+          Manage catalog, fulfillment, inventory, analytics, and promotion modules available in this
+          workspace. Open Analytics for live KPIs from the API — this page does not show fabricated
           metrics.
         </p>
       </div>

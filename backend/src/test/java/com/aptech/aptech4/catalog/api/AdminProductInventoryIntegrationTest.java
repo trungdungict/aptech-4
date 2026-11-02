@@ -268,6 +268,91 @@ class AdminProductInventoryIntegrationTest {
 	}
 
 	@Test
+	void putIgnoresClientSuppliedQuantityReserved() throws Exception {
+		String admin = adminToken();
+		String suffix = UUID.randomUUID().toString().substring(0, 8);
+		UUID productId = seedProductWithInventory("ADM-INV-IGN-" + suffix, 10);
+
+		transactionTemplate.executeWithoutResult(status -> {
+			Inventory inv = inventoryRepository.findById(productId).orElseThrow();
+			inv.setQuantityReserved(3);
+			inventoryRepository.saveAndFlush(inv);
+		});
+
+		mockMvc.perform(put("/api/v1/admin/products/" + productId + "/inventory")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + admin)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "quantityOnHand": 8, "quantityReserved": 99 }
+						"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.quantityOnHand").value(8))
+			.andExpect(jsonPath("$.quantityReserved").value(3))
+			.andExpect(jsonPath("$.available").value(5));
+
+		assertInventory(productId, 8, 3);
+	}
+
+	@Test
+	void concurrentAdminUpdateAndReservePreserveInvariants() throws Exception {
+		String admin = adminToken();
+		String suffix = UUID.randomUUID().toString().substring(0, 8);
+		UUID productId = seedProductWithInventory("ADM-INV-XRACE-" + suffix, 10);
+		String customerToken = registerCustomer("inv.xrace." + suffix + "@example.com");
+
+		int threads = 12;
+		ExecutorService pool = Executors.newFixedThreadPool(threads);
+		CountDownLatch start = new CountDownLatch(1);
+		List<Future<?>> futures = new ArrayList<>();
+
+		for (int i = 0; i < threads; i++) {
+			final int idx = i;
+			futures.add(pool.submit(() -> {
+				start.await();
+				if (idx % 2 == 0) {
+					mockMvc.perform(put("/api/v1/admin/products/" + productId + "/inventory")
+							.header(HttpHeaders.AUTHORIZATION, "Bearer " + admin)
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{ "quantityOnHand": 10 }
+									"""))
+						.andReturn();
+				}
+				else {
+					mockMvc.perform(post("/api/v1/inventory/reservations")
+							.header(HttpHeaders.AUTHORIZATION, "Bearer " + customerToken)
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "idempotencyKey": "xrace-%d-%s",
+									  "items": [{ "productId": "%s", "quantity": 1 }]
+									}
+									""".formatted(idx, suffix, productId)))
+						.andReturn();
+				}
+				return null;
+			}));
+		}
+
+		start.countDown();
+		for (Future<?> future : futures) {
+			future.get(30, TimeUnit.SECONDS);
+		}
+		pool.shutdown();
+		assertThat(pool.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+
+		Inventory finalInv = transactionTemplate.execute(status ->
+				inventoryRepository.findById(productId).orElseThrow()
+		);
+		assertThat(finalInv.getQuantityOnHand()).isGreaterThanOrEqualTo(0);
+		assertThat(finalInv.getQuantityReserved()).isGreaterThanOrEqualTo(0);
+		assertThat(finalInv.getQuantityOnHand()).isGreaterThanOrEqualTo(finalInv.getQuantityReserved());
+		assertThat(finalInv.getAvailable()).isGreaterThanOrEqualTo(0);
+		assertThat(finalInv.getQuantityOnHand()).isEqualTo(10);
+		assertThat(finalInv.getQuantityReserved()).isBetween(0, 10);
+	}
+
+	@Test
 	void checkoutReservationReflectsAdminStockUpdates() throws Exception {
 		String admin = adminToken();
 		String suffix = UUID.randomUUID().toString().substring(0, 8);

@@ -35,6 +35,7 @@ SEED_SERVER_PORT ?= 18081
 .PHONY: help env-check up-deps down-deps down down-all up-all clean ps logs-deps health-deps reset-deps-volumes \
 	build-stack deploy-local deploy-demo-stack deploy-local-ai down-local health-local health-demo-stack \
 	logs-local smoke-local smoke-demo smoke-chat smoke-product-image-upload smoke-promotions \
+	smoke-inventory-analytics e2e-inventory-analytics \
 	test-product-image-upload test-promotions test-nginx-assets-no-spa-fallback \
 	up-ai ollama-pull ollama-ensure-model ollama-health down-ai \
 	monitoring-up monitoring-down monitoring-status monitoring-validate monitoring-validate-demo \
@@ -516,6 +517,12 @@ smoke-product-image-upload: ## Opt-in: Admin image upload via nginx (needs stack
 
 smoke-promotions: ## Opt-in: promotion journey via nginx (admin → public → checkout → order)
 	@bash ./scripts/smoke-promotions.sh
+
+smoke-inventory-analytics: ## Opt-in: Admin inventory + analytics via nginx (needs stack + DEMO_*)
+	@bash ./scripts/smoke-inventory-analytics.sh
+
+e2e-inventory-analytics: ## Opt-in: Playwright Admin inventory + analytics UI (stack + DEMO_*)
+	@bash ./scripts/e2e-inventory-analytics.sh
 
 test-product-image-upload: ## Host unit/IT + frontend suites for product image upload
 	@echo "== backend ProductImage* + AdminProductImageUpload =="

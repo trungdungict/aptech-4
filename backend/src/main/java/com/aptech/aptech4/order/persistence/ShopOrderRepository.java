@@ -100,4 +100,77 @@ public interface ShopOrderRepository extends JpaRepository<ShopOrder, UUID>, Jpa
 			@Param("to") Instant to,
 			Pageable pageable
 	);
+
+	/**
+	 * Daily UTC buckets: day (java.sql.Date), placed count, revenue for REVENUE statuses only.
+	 * Native so date_trunc is reliable on PostgreSQL.
+	 */
+	@Query(value = """
+			SELECT CAST((o.placed_at AT TIME ZONE 'UTC') AS date) AS day,
+			       COUNT(*) AS placed_count,
+			       COALESCE(SUM(CASE
+			         WHEN o.status IN ('PAID', 'PROCESSING', 'SHIPPED', 'COMPLETED')
+			         THEN o.total_amount ELSE 0 END), 0) AS revenue
+			FROM orders o
+			WHERE o.placed_at >= :from AND o.placed_at < :to
+			GROUP BY 1
+			ORDER BY 1
+			""", nativeQuery = true)
+	List<Object[]> dailyPlacedAndRevenue(@Param("from") Instant from, @Param("to") Instant to);
+
+	@Query("""
+			select c.id, c.name, sum(oi.quantity), sum(oi.lineTotal), count(oi)
+			from OrderItem oi
+			join oi.order o
+			join oi.product p
+			join p.category c
+			where o.status in :statuses
+			  and o.placedAt >= :from and o.placedAt < :to
+			  and oi.product is not null
+			group by c.id, c.name
+			order by sum(oi.lineTotal) desc, sum(oi.quantity) desc
+			""")
+	List<Object[]> categorySales(
+			@Param("statuses") Collection<OrderStatus> statuses,
+			@Param("from") Instant from,
+			@Param("to") Instant to,
+			Pageable pageable
+	);
+
+	@Query("""
+			select coalesce(sum(o.discountAmount), 0) from ShopOrder o
+			where o.status in :statuses and o.placedAt >= :from and o.placedAt < :to
+			""")
+	BigDecimal sumDiscountByStatuses(
+			@Param("statuses") Collection<OrderStatus> statuses,
+			@Param("from") Instant from,
+			@Param("to") Instant to
+	);
+
+	@Query("""
+			select count(distinct o.id) from ShopOrder o
+			where o.status in :statuses
+			  and o.placedAt >= :from and o.placedAt < :to
+			  and exists (select 1 from OrderPromotionSnapshot s where s.order = o)
+			""")
+	long countOrdersWithPromotionSnapshots(
+			@Param("statuses") Collection<OrderStatus> statuses,
+			@Param("from") Instant from,
+			@Param("to") Instant to
+	);
+
+	@Query("""
+			select s.campaignSlug, s.strategyCode,
+			       max(s.campaignName), max(s.strategyName), max(s.strategyType),
+			       sum(s.discountAmount), count(distinct o.id)
+			from OrderPromotionSnapshot s join s.order o
+			where o.status in :statuses and o.placedAt >= :from and o.placedAt < :to
+			group by s.campaignSlug, s.strategyCode
+			order by sum(s.discountAmount) desc
+			""")
+	List<Object[]> promotionBreakdown(
+			@Param("statuses") Collection<OrderStatus> statuses,
+			@Param("from") Instant from,
+			@Param("to") Instant to
+	);
 }

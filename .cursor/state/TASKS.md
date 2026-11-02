@@ -1052,6 +1052,182 @@ Counts are maintained in `PROGRESS.md` (recalculate from this file).
 
 ---
 
+## P25 — Inventory & Analytics audit / requirements
+
+### P25-T01 — Capability audit + phased plan (Inventory + Analytics)
+- **Phase:** P25
+- **Status:** DONE
+- **Deps:** ADR-006, Admin product inventory APIs, AdminAnalyticsService, Admin FE shell
+- **Files:** `.cursor/plans/10-inventory-analytics.md`, `.cursor/state/TASKS.md`, `PROGRESS.md`, `CURRENT_SESSION.md`
+- **AC:** Backend/FE capability matrices; metric formulas/sources; API sketch; P26–P31 plan; open business decisions listed; no production code
+- **Verify:** Plan readable; no migrations/`.env`/DB changes in this task
+- **Evidence:** 2026-11-01 — audit complete; plan `10-inventory-analytics.md`
+- **Notes:** Implementation blocked on business decisions in the plan.
+
+---
+
+## P26 — Inventory Admin APIs
+
+### P26-T01 — Admin inventory list + summary REST
+- **Phase:** P26
+- **Status:** DONE
+- **Deps:** P25-T01 + approved list/threshold decisions
+- **Files:** `AdminInventoryController`, `AdminInventoryListItemResponse`, `AdminInventorySummaryResponse`, `AdminInventoryStockStatus`, `AdminInventoryService` list/summary, `ProductSpecifications.adminInventoryList`, `InventorySortSupport`, `InventoryProperties.lowStockThreshold`, `application.yml`, `AdminInventoryListIntegrationTest`
+- **AC:** `GET /api/v1/admin/inventory` paginated with q/stockStatus/active/sort; `GET .../summary`; Admin-only; available = on_hand − reserved
+- **Verify:** integration tests + existing reservation ITs still green
+- **Evidence:** 2026-11-01 — focused `./mvnw -Dtest=AdminInventoryListIntegrationTest,AdminProductInventoryIntegrationTest,InventoryAvailableTest test` → 10 tests OK; full `./mvnw test` → 327 tests, 0 failures. Threshold `aptech.inventory.low-stock-threshold` default 5. Missing inventory rows → hasInventoryRow=false, available 0 (OUT).
+- **Notes:** No ledger migration; reserved not writable via list APIs; absolute PUT unchanged.
+
+### P26-T02 — Preserve absolute set-on-hand + reservation invariants
+- **Phase:** P26
+- **Status:** DONE
+- **Deps:** P26-T01
+- **Files:** (verify) `AdminInventoryService`, `InventoryReservationService`, `InventoryRepository` conditional SQL; ITs `AdminProductInventoryIntegrationTest`, `InventoryReservationIntegrationTest`, `CheckoutIntegrationTest`; plan invariant matrix
+- **AC:** Existing `PUT .../products/{id}/inventory` unchanged semantically; rejects onHand < reserved; concurrent checkout safe
+- **Verify:** `AdminProductInventoryIntegrationTest` + reservation ITs
+- **Evidence:** 2026-11-01 — No production defect. Added gap ITs `putIgnoresClientSuppliedQuantityReserved`, `concurrentAdminUpdateAndReservePreserveInvariants`. Focused `./mvnw -Dtest=AdminProductInventoryIntegrationTest,InventoryReservationIntegrationTest,CheckoutIntegrationTest,AdminInventoryListIntegrationTest,InventoryAvailableTest test` → 16 OK. Full suite 329 with 1 flake (`PromotionCacheIntegrationTest`, green on re-run); inventory/checkout subset re-run 13 OK.
+- **Notes:** Absolute-only (approved); no ledger. Coverage matrix in `10-inventory-analytics.md` §P26-T02.
+
+---
+
+## P27 — Inventory Admin UI
+
+### P27-T01 — `/admin/inventory` list page
+- **Phase:** P27
+- **Status:** DONE
+- **Deps:** P26-T01
+- **Files:** `features/admin/inventory/*`, `nav.ts`, `admin-lazy-routes.tsx`, `router.tsx`, `AdminOverviewPage.tsx`, Vitest
+- **AC:** Search/filter/paginate; show on-hand/reserved/available; low/OOS badges; link to product; loading/empty/error; no fake stock
+- **Verify:** Vitest + `npm run build`
+- **Evidence:** 2026-11-01 — `npm test` 256 OK; `npm run build` OK. Summary from `/admin/inventory/summary`; list filters q/active/stockStatus/sort; shared Pagination size 10; Adjust sheet uses product inventory GET/PUT.
+- **Notes:** Reuse shared Pagination; separate from product catalog form. Threshold displayed from summary API (not FE business rule).
+
+### P27-T02 — Adjust stock from inventory UI
+- **Phase:** P27
+- **Status:** DONE
+- **Deps:** P27-T01, P26-T02
+- **Files:** `AdjustInventorySheet.tsx` (absolute PUT); tests in `AdminInventoryPage.test.tsx`
+- **AC:** Admin can set on-hand safely; reserved shown; validation errors surfaced
+- **Verify:** Vitest for form/validation
+- **Evidence:** 2026-11-01 — Delivered with P27-T01: sheet shows on-hand/reserved/available; reserved not editable; duplicate submit blocked; API errors surfaced; invalidates list+summary.
+
+
+---
+
+## P28 — Analytics metric freeze + shared aggregation
+
+### P28-T01 — Freeze metric definitions + extract shared analytics service
+- **Phase:** P28
+- **Status:** DONE
+- **Deps:** P25-T01 + approved revenue/timeseries/threshold decisions
+- **Files:** `com.aptech.aptech4.analytics` (`AnalyticsMetrics`, `AnalyticsDateRange`, `AdminAnalyticsService`); chat tools/facades import shared service; unit tests under `analytics/`
+- **AC:** Documented formulas match code constants (`REVENUE_STATUSES`, UTC, AOV); chat tools unchanged externally
+- **Verify:** existing AdminAnalytics* unit/ITs green after extract
+- **Evidence:** 2026-11-01 — focused analytics/chat tests 37 OK; full suite 338 with 2 unrelated cache flakes (PromotionCache + CatalogCache) green on re-run. Chat tool method names/args/Map payloads preserved. AOV helper added but not injected into chat `salesSummary` map.
+- **Notes:** No fabricated metrics; no analytics fact table; no REST. Chat inventory threshold still `aptech.ai.low-stock-threshold` (documented vs P26 inventory threshold).
+
+---
+
+## P29 — Analytics Admin REST
+
+### P29-T01 — Analytics REST contract audit & freeze
+- **Phase:** P29
+- **Status:** DONE
+- **Deps:** P28-T01
+- **Files:** `.cursor/plans/10-inventory-analytics.md` (§Analytics REST contract), TASKS/PROGRESS/CURRENT_SESSION
+- **AC:** Endpoints, query params, DTO fields, formulas, attribution caveats, auth/errors, P29-T02 test matrix documented; no production code
+- **Verify:** Contract consistent with `AnalyticsMetrics` / P28 / P26 inventory summary / approved decisions
+- **Evidence:** 2026-11-01 — audited shared analytics + order/promo/category schema; contract frozen in plan. No controllers/FE/migrations.
+- **Notes:** Inventory KPIs reuse P26 `/admin/inventory/summary`; AOV on overview REST only (not chat).
+
+### P29-T02 — Admin analytics HTTP APIs (implement)
+- **Phase:** P29
+- **Status:** DONE
+- **Deps:** P29-T01
+- **Files:** `AdminAnalyticsController`, DTOs under `analytics/api`, `AdminAnalyticsService` REST methods, `ShopOrderRepository` aggregations, `AdminAnalyticsIntegrationTest` + unit tests
+- **AC:** Implement frozen contract: overview, status, timeseries (both series), top products, category sales, promotions summary; Admin-only; empty→zeros
+- **Verify:** IT matrix in plan §P29-T02; chat regression green
+- **Evidence:** 2026-11-01 — six GETs under `/api/v1/admin/analytics/**`; focused suite 23/23; full backend `./mvnw test` 349 tests 0 failures. AOV on overview only; chat `salesSummary` unchanged. Inventory embed reuses `AdminInventoryService.summary()`.
+- **Notes:** No fact tables/schema; no FE; no `.env`/commit.
+
+---
+
+## P30 — Analytics Admin UI
+
+### P30-T01 — Analytics dashboard UI audit & contract freeze
+- **Phase:** P30
+- **Status:** DONE
+- **Deps:** P29-T02
+- **Files:** `.cursor/plans/10-inventory-analytics.md` (§Analytics dashboard UI contract), TASKS/PROGRESS/CURRENT_SESSION
+- **AC:** Route/nav/layout, endpoint→section map, date URL behavior, query keys, charting choice, loading/empty/error, a11y/responsive, P30-T02 checklist + test matrix frozen against real P29 DTOs + Admin FE patterns; no UI code
+- **Verify:** Contract matches `nav.ts`/inventory page/`package.json`/P29 DTOs; no chart lib present
+- **Evidence:** 2026-11-01 — audited Admin FE (no chart deps; inventory per-section Query pattern; analytics not in nav/router); frozen CSS/SVG/tables; six-endpoint section map; URL Instant sync; independent section failure. Docs only.
+- **Notes:** Split from implementation like P29-T01/T02.
+
+### P30-T02 — `/admin/analytics` dashboard implementation
+- **Phase:** P30
+- **Status:** DONE
+- **Deps:** P30-T01
+- **Files:** `features/admin/analytics/*`, `nav.ts`, `admin-lazy-routes.tsx`, `router.tsx`, `AdminOverviewPage`, Vitest
+- **AC:** Real KPIs only per frozen UI contract; loading/empty/error per section; CSS/SVG/tables; no new chart dep; no mocks
+- **Verify:** Vitest matrix in plan §P30-T02; `npm run typecheck` / `test` / `build`
+- **Evidence:** 2026-11-01 — `/admin/analytics` lazy route + nav; six independent Query hooks to P29 endpoints; URL Instant sync; CSS/SVG timeseries + status bars; overview.inventory only. `npm run typecheck` OK; `npm run test` 269/269; `npm run build` OK.
+- **Notes:** Overview hub stays link-only (no fabricated KPIs).
+
+---
+
+## P31 — Inventory/Analytics integration QA
+
+### P31-T01 — Smoke, docs, final verification
+- **Phase:** P31
+- **Status:** DONE
+- **Deps:** P27-T02, P30-T02
+- **Files:** `scripts/smoke-inventory-analytics.sh`, `Makefile` (`smoke-inventory-analytics`), `docs/DEMO_SEED.md`, `.cursor/plans/10-inventory-analytics.md`, state docs
+- **AC:** Seeded demo shows low/OOS + order KPIs; smoke or scripted curl/Vitest path documented; TASKS evidence filled
+- **Verify:** focused BE+FE tests; `npm run build`; optional `make seed-demo` + smoke
+- **Evidence:** 2026-11-01 — Rebuilt api/web (volumes kept); `make smoke-inventory-analytics` **OK** (SPA deep links, RBAC, inventory summary/list/search/PUT/negatives, six analytics endpoints + validation). BE `./mvnw test`: **345** run, **1** flake `CatalogCacheIntegrationTest.productDetailCacheMissThenHitSkipsDb` (green on isolated re-run ×2); inventory/analytics ITs green; `PromotionCacheIntegrationTest` green. FE `npm run typecheck` OK; `npm test` **269/269** on re-run (earlier intermittent ProductCard/Analytics empty); `npm run build` OK. Roadmap P25–P31 COMPLETE.
+- **Notes:** Do not reset DB volumes. Below-reserved live PUT skipped (reserved=0 on smoke pick); covered by Admin inventory ITs.
+
+---
+
+## P32 — Inventory/Analytics verification hardening
+
+### P32-T01 — Browser E2E + flake hardening
+- **Phase:** P32
+- **Status:** DONE
+- **Deps:** P31-T01
+- **Files:** `frontend/e2e/admin-inventory-analytics.spec.ts`, `frontend/playwright.config.ts`, `scripts/e2e-inventory-analytics.sh`, `Makefile` (`e2e-inventory-analytics`), `CatalogCacheIntegrationTest`, `ProductCard.test.tsx`, `AdminAnalyticsPage.test.tsx`, plan/state docs
+- **AC:** Playwright coverage for admin inventory/analytics UI; CatalogCache IT hardened against Redis blip; FE async flakes fixed without weakened asserts; verification commands recorded
+- **Verify:** `make e2e-inventory-analytics`; `./mvnw -Dtest=CatalogCacheIntegrationTest test`; `./mvnw test`; `npm run typecheck`; `npm test`; `npm run build`
+- **Evidence:** 2026-11-01 — No prior Playwright/Cypress in repo; added `@playwright/test` + opt-in Make target. `make e2e-inventory-analytics` **3/3 PASS** against `:8088`. CatalogCache root cause: Testcontainers Redis/Lettuce blip + production `CacheErrorHandler` swallowing PUT → null `cache.get`; fixed with Redis wait, empty password override, direct PING probe, `requireProductDetailCached` re-drive (assertions kept). FE: ProductCard waited for auth leave `booting`; analytics empty test seeded Instant URL to avoid overview URL-sync double-fetch. BE full suite **345/0**; FE typecheck/build OK; Vitest **269/269**. P25–P31 remain COMPLETE.
+- **Notes:** Remaining debt: `PromotionCacheIntegrationTest` same Redis class of flake possible; headed UI not required (Playwright headless Chromium used).
+
+---
+
+## P33 — Analytics dashboard UX
+
+### P33-T01 — Analytics dashboard UX redesign + Refresh fix
+- **Phase:** P33
+- **Status:** DONE
+- **Deps:** P32-T01
+- **Files:** `frontend/src/features/admin/analytics/**`, Playwright E2E, state docs
+- **AC:** Compact modern dashboard layout; dual-series timeseries + ranking/status/inventory visuals; Refresh reliably refetches with loading/error UX; no backend/contract/formula changes; tests + E2E green
+- **Verify:** `npm run typecheck`; `npm test`; `npm run build`; `make e2e-inventory-analytics`
+- **Evidence:** 2026-11-02 — Refresh root cause: `refetch()` worked but no loading/disabled UI and sections keyed only on `isLoading` (not refetch). Fixed with local `isRefreshing`, `Promise.all` refetch (no URL rewrite), page-level refresh error, section “Updating…”. Redesign: 4 KPI cards, dual-axis SVG timeseries (revenue bars + orders line), status % bars, inventory stacked distribution, ranking bars for products/categories, compact promotions. No chart npm dep. Typecheck OK; analytics Vitest **19/19**; full FE **276/276** on re-run; build OK; E2E **3/3** after web image rebuild (volumes kept). P25–P32 remain COMPLETE.
+- **Notes:** Frontend-only. No invented targets/trends/ROI.
+
+### P33-T02 — Browser verification of Analytics UX
+- **Phase:** P33
+- **Status:** DONE
+- **Deps:** P33-T01
+- **Files:** `frontend/src/features/admin/analytics/**` (fixes only if defects confirmed), state docs, browser evidence screenshots
+- **AC:** Live browser verification of Refresh (unchanged/changed data), loading/error, filters/active window, responsive layout, chart readability, exact values in tables/details; confirmed defects fixed; TASKS evidence filled. Do **not** mark DONE without actual browser verification.
+- **Verify:** Browser session against `WEB_PORT` stack + sequential `npm run typecheck` → `npm test` → `npm run build` (stop at first failure)
+- **Evidence:** 2026-11-02 — Live browser @ `http://127.0.0.1:8088/admin/analytics` as Demo Admin. **Refresh unchanged:** button → `Refreshing…` (disabled/`aria-busy`), stale KPIs kept, `Last updated` 06:09:29→06:10:26 UTC, URL unchanged. **Filter change (changed window):** Last 7 days → `1/8 days` + active window `2026-10-26…→2026-11-02…`; Last 30 days → `1/31 days` + `2026-10-03…→2026-11-02…`; form From/Through sync. **Error:** simulated fetch failure → page alert + per-section “Unable to refresh… Retry”; data retained; restore fetch + Refresh cleared errors (`Last updated` 06:12:28). **Exact tables:** daily rows (peak `2026-10-31` / 9 / `332.000 ₫`); products Milk/Juice/Bananas 136/120/84; promo discount `8.000 ₫`. **Charts/layout:** dual-series timeseries readable; status % bars; mobile ~390px OK. Screenshots: `.cursor/state/evidence/p33-t02/`. **Defects:** none confirmed (no code changes). Sequential FE: typecheck OK; Vitest **276/276**; build OK. No fabricated target/trend/ROI. No commit/push/`.env`/volume changes.
+- **Notes:** Browser verification actually performed; P25–P32 remain COMPLETE.
+
+---
+
 ## P17 — Final acceptance
 
 ### P17-T01 — End-to-end acceptance checklist execution

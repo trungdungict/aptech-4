@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 
+import com.aptech.aptech4.analytics.AdminAnalyticsService;
 import com.aptech.aptech4.common.api.ApiException;
 
 @ExtendWith(MockitoExtension.class)

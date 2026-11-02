@@ -96,11 +96,15 @@ describe('ProductCard', () => {
     expect(
       screen.getByRole('button', { name: /decrease quantity for yellow bananas/i }),
     ).toBeDisabled()
+    // Add stays disabled while AuthProvider status === 'booting'; wait for restore, not just mount.
+    const addButton = await screen.findByRole('button', {
+      name: /add yellow bananas to cart/i,
+    })
+    await waitFor(() => {
+      expect(addButton).toBeEnabled()
+    })
     expect(
       screen.getByRole('button', { name: /increase quantity for yellow bananas/i }),
-    ).toBeEnabled()
-    expect(
-      await screen.findByRole('button', { name: /add yellow bananas to cart/i }),
     ).toBeEnabled()
   })
 

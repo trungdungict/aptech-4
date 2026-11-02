@@ -6,6 +6,8 @@ import {
   LazyAdminCampaignListPage,
   LazyAdminCategoryFormPage,
   LazyAdminCategoryListPage,
+  LazyAdminAnalyticsPage,
+  LazyAdminInventoryPage,
   LazyAdminLayout,
   LazyAdminOrderDetailPage,
   LazyAdminOrderListPage,
@@ -50,6 +52,8 @@ export function AppRouter() {
           path="products/:productId/edit"
           element={<LazyAdminProductFormPage mode="edit" />}
         />
+        <Route path="inventory" element={<LazyAdminInventoryPage />} />
+        <Route path="analytics" element={<LazyAdminAnalyticsPage />} />
         <Route path="categories" element={<LazyAdminCategoryListPage />} />
         <Route path="categories/new" element={<LazyAdminCategoryFormPage mode="create" />} />
         <Route

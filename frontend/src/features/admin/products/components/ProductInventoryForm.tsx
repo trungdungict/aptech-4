@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { catalogQueryKeys } from '@/features/catalog/hooks/catalog-query-keys'
 import { ApiClientError } from '@/lib/api/api-error'
 
+import { adminInventoryQueryKeys } from '../../inventory/hooks/admin-inventory-query-keys'
 import { adminAlertErrorClass, adminAlertSuccessClass } from '../../lib/admin-ui'
 import * as productsApi from '../api/admin-products-api'
 import { adminProductQueryKeys } from '../hooks/admin-product-query-keys'
@@ -57,6 +58,7 @@ export function ProductInventoryForm({ productId }: Props) {
       queryClient.setQueryData(adminProductQueryKeys.inventory(productId), updated)
       form.reset({ quantityOnHand: String(updated.quantityOnHand) })
       await queryClient.invalidateQueries({ queryKey: adminProductQueryKeys.all })
+      await queryClient.invalidateQueries({ queryKey: adminInventoryQueryKeys.all })
       await queryClient.invalidateQueries({ queryKey: catalogQueryKeys.all })
     },
     onError: (error) => {

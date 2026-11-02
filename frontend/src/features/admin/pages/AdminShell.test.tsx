@@ -80,7 +80,13 @@ describe('Admin shell + role gate', () => {
     expect(screen.getByText(/demo admin/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /^overview$/i })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: /^orders$/i })).toHaveAttribute('href', '/admin/orders')
-    expect(screen.queryByText(/revenue/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^analytics$/i })).toHaveAttribute(
+      'href',
+      '/admin/analytics',
+    )
+    // Hub stays link-only: no fabricated KPI figures (analytics card may mention "revenue" in copy).
+    expect(screen.queryByText(/₫/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/average order value/i)).not.toBeInTheDocument()
   })
 
   it('exposes product, category, and orders nav', async () => {

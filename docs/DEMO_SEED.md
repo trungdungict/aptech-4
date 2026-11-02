@@ -133,6 +133,8 @@ make reset-demo CONFIRM=yes
 ```bash
 make smoke-demo           # login + FOOD-* products via http://localhost:8088
 make smoke-promotions     # promotion journey (creates ephemeral TMP-* rows; checks grocery promo seed)
+make smoke-inventory-analytics  # Admin inventory + analytics APIs via nginx (needs DEMO_ADMIN_* / DEMO_CUSTOMER_*)
+make e2e-inventory-analytics    # Playwright Admin inventory + analytics UI (same stack + DEMO_*)
 # or:
 curl -sS -X POST http://localhost:8088/api/v1/auth/login \
   -H 'Content-Type: application/json' \

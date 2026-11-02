@@ -21,6 +21,18 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     description: 'Create, edit, and soft-disable products',
   },
   {
+    id: 'inventory',
+    label: 'Inventory',
+    to: '/admin/inventory',
+    description: 'Stock levels, low/out-of-stock filters, and on-hand adjustments',
+  },
+  {
+    id: 'analytics',
+    label: 'Analytics',
+    to: '/admin/analytics',
+    description: 'Order, revenue, inventory, and promotion KPIs',
+  },
+  {
     id: 'categories',
     label: 'Categories',
     to: '/admin/categories',

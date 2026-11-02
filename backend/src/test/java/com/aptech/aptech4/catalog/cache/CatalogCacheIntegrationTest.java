@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,6 +21,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -27,6 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -68,7 +73,10 @@ class CatalogCacheIntegrationTest {
 
 	@Container
 	@SuppressWarnings("resource")
-	static final GenericContainer<?> REDIS = new GenericContainer<>(REDIS_IMAGE).withExposedPorts(6379);
+	static final GenericContainer<?> REDIS = new GenericContainer<>(REDIS_IMAGE)
+			.withExposedPorts(6379)
+			.waitingFor(Wait.forLogMessage(".*Ready to accept connections.*\\n", 1)
+					.withStartupTimeout(Duration.ofSeconds(60)));
 
 	@DynamicPropertySource
 	static void registerProperties(DynamicPropertyRegistry registry) {
@@ -77,6 +85,8 @@ class CatalogCacheIntegrationTest {
 		registry.add("spring.datasource.password", POSTGRES::getPassword);
 		registry.add("spring.data.redis.host", REDIS::getHost);
 		registry.add("spring.data.redis.port", () -> String.valueOf(REDIS.getMappedPort(6379)));
+		// Testcontainers Redis has no AUTH. Clear host REDIS_PASSWORD so stack .env cannot break ITs.
+		registry.add("spring.data.redis.password", () -> "");
 		IntegrationTestSupport.registerSecurityProperties(registry);
 	}
 
@@ -113,12 +123,16 @@ class CatalogCacheIntegrationTest {
 	@Autowired
 	JwtService jwtService;
 
+	@Autowired
+	RedisConnectionFactory redisConnectionFactory;
+
 	private UUID categoryId;
 	private UUID productId;
 	private String suffix;
 
 	@BeforeEach
 	void seed() {
+		assertRedisPing();
 		suffix = UUID.randomUUID().toString().substring(0, 8);
 		catalogCacheInvalidator.onCategoryMutation(null);
 		transactionTemplate.executeWithoutResult(status -> {
@@ -150,9 +164,7 @@ class CatalogCacheIntegrationTest {
 		long afterMiss = stats.getPrepareStatementCount();
 		assertThat(afterMiss).isPositive();
 
-		Cache cache = cacheManager.getCache(CatalogCacheNames.PRODUCTS_DETAIL);
-		assertThat(cache).isNotNull();
-		assertThat(cache.get(CatalogCacheKeys.productDetail(productId))).isNotNull();
+		requireProductDetailCached(productId);
 
 		stats.clear();
 		ProductResponse second = productService.getPublic(productId);
@@ -210,8 +222,8 @@ class CatalogCacheIntegrationTest {
 	@Test
 	void productDisableInvalidatesDetailCache() throws Exception {
 		productService.getPublic(productId);
+		requireProductDetailCached(productId);
 		Cache detail = cacheManager.getCache(CatalogCacheNames.PRODUCTS_DETAIL);
-		assertThat(detail.get(CatalogCacheKeys.productDetail(productId))).isNotNull();
 
 		String admin = jwtService.createAccessToken(UUID.randomUUID(), "admin.cache@example.com", List.of("ADMIN"));
 		mockMvc.perform(patch("/api/v1/admin/products/{id}/status", productId)
@@ -241,5 +253,42 @@ class CatalogCacheIntegrationTest {
 		Statistics stats = sessionFactory.getStatistics();
 		stats.setStatisticsEnabled(true);
 		return stats;
+	}
+
+	/**
+	 * Direct Redis PING (bypasses CacheErrorHandler). Fails loudly when the
+	 * Testcontainers Redis socket is down instead of a later null {@code cache.get}.
+	 */
+	private void assertRedisPing() {
+		try (RedisConnection connection = redisConnectionFactory.getConnection()) {
+			String pong = connection.ping();
+			assertThat(pong).as("Redis PING").isEqualTo("PONG");
+			byte[] probeKey = ("it-redis-probe-" + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8);
+			connection.stringCommands().set(probeKey, "ok".getBytes(StandardCharsets.UTF_8));
+			assertThat(connection.stringCommands().get(probeKey))
+					.as("Redis SET/GET probe")
+					.isNotNull();
+			connection.keyCommands().del(probeKey);
+		}
+	}
+
+	/**
+	 * Production CacheErrorHandler swallows Redis PUT failures. If Lettuce blipped during
+	 * {@code @Cacheable} put, re-PING and re-drive one miss→put so the assertion measures
+	 * cache behavior rather than a transient socket error. Still requires a non-null entry.
+	 */
+	private void requireProductDetailCached(UUID id) {
+		Cache cache = cacheManager.getCache(CatalogCacheNames.PRODUCTS_DETAIL);
+		assertThat(cache).as("PRODUCTS_DETAIL cache region").isNotNull();
+		Object detailKey = CatalogCacheKeys.productDetail(id);
+		if (cache.get(detailKey) == null) {
+			assertRedisPing();
+			cache.evict(detailKey);
+			ProductResponse again = productService.getPublic(id);
+			assertThat(again.id()).isEqualTo(id);
+		}
+		assertThat(cache.get(detailKey))
+				.as("PRODUCTS_DETAIL must contain key after successful @Cacheable put")
+				.isNotNull();
 	}
 }
