@@ -15,6 +15,7 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.aptech.aptech4.api.HealthController;
+import com.aptech.aptech4.common.locale.RequestLocaleFilter;
 import com.aptech.aptech4.identity.security.JwtAuthenticationFilter;
 import com.aptech.aptech4.identity.security.JwtService;
 import com.aptech.aptech4.identity.security.RestAccessDeniedHandler;
@@ -27,6 +28,7 @@ import com.aptech.aptech4.identity.security.RestAuthenticationEntryPoint;
 })
 @Import({
 		SecurityConfig.class,
+		RequestLocaleFilter.class,
 		JwtService.class,
 		JwtAuthenticationFilter.class,
 		RestAuthenticationEntryPoint.class,

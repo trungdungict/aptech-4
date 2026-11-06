@@ -1,4 +1,8 @@
+import { useTranslation } from 'react-i18next'
+
+import { useOrderStatusLabel } from '../../orders/lib/use-order-status-label'
 import { ORDER_STATUS_DISPLAY_ORDER } from '../types'
+import { isKnownOrderStatus } from '../../orders/lib/admin-order-transitions'
 
 type StatusBarsProps = {
   counts: Record<string, number>
@@ -7,6 +11,8 @@ type StatusBarsProps = {
 }
 
 export function StatusBars({ counts, total, empty }: StatusBarsProps) {
+  const { t } = useTranslation('admin')
+  const statusLabel = useOrderStatusLabel()
   const keys = [
     ...ORDER_STATUS_DISPLAY_ORDER.filter((status) => status in counts),
     ...Object.keys(counts).filter(
@@ -19,15 +25,15 @@ export function StatusBars({ counts, total, empty }: StatusBarsProps) {
     <div className="space-y-3">
       {empty ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">
-          No orders in this range. All statuses are zero.
+          {t('analytics.status.empty')}
         </p>
       ) : null}
       <p className="text-sm text-muted-foreground">
-        Total placed:{' '}
+        {t('analytics.status.totalPlaced')}{' '}
         <span className="font-medium text-foreground tabular-nums">{total}</span>
-        <span className="text-xs"> (all statuses in window)</span>
+        <span className="text-xs"> {t('analytics.status.allStatusesInWindow')}</span>
       </p>
-      <ul className="space-y-2.5" aria-label="Order counts by status">
+      <ul className="space-y-2.5" aria-label={t('analytics.status.countsAria')}>
         {keys.map((status) => {
           const value = counts[status] ?? 0
           const barPct = (value / max) * 100
@@ -36,7 +42,7 @@ export function StatusBars({ counts, total, empty }: StatusBarsProps) {
             <li key={status} className="space-y-1">
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="font-medium text-foreground">
-                  {status.replaceAll('_', ' ')}
+                  {isKnownOrderStatus(status) ? statusLabel(status) : status.replaceAll('_', ' ')}
                 </span>
                 <span className="shrink-0 tabular-nums text-muted-foreground">
                   {value}

@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import { listCategories, listProducts, normalizeListParams } from '../api/catalog-api'
@@ -21,6 +23,9 @@ import {
 } from '../lib/catalog-search-params'
 
 export function ProductListPage() {
+  const { t } = useTranslation('catalog')
+  const { t: tc } = useTranslation('common')
+  const { locale } = useAppLocale()
   const [searchParams, setSearchParams] = useSearchParams()
   const urlState = useMemo(() => parseCatalogSearchParams(searchParams), [searchParams])
 
@@ -73,13 +78,13 @@ export function ProductListPage() {
   }
 
   const categoriesQuery = useQuery({
-    queryKey: catalogQueryKeys.categories(),
+    queryKey: catalogQueryKeys.categories(locale),
     queryFn: ({ signal }) => listCategories(signal),
     staleTime: 60_000,
   })
 
   const productsQuery = useQuery({
-    queryKey: catalogQueryKeys.productList(listParams),
+    queryKey: catalogQueryKeys.productList(locale, listParams),
     queryFn: ({ signal }) => listProducts(listParams, signal),
     enabled: filtersValid,
     placeholderData: (previous) => previous,
@@ -91,15 +96,13 @@ export function ProductListPage() {
       <div className="space-y-2">
         <p className="text-sm font-medium text-muted-foreground">
           <Link to="/" className="text-primary hover:underline">
-            Home
+            {tc('nav.home')}
           </Link>
           <span aria-hidden="true"> / </span>
-          Catalog
+          {tc('nav.catalog')}
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Products</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Browse active products from the catalog. Prices and availability come from the server.
-        </p>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('list.title')}</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">{t('list.subtitle')}</p>
       </div>
 
       <CatalogFilters
@@ -112,11 +115,11 @@ export function ProductListPage() {
 
       {!filtersValid ? (
         <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          Fix the price filters to load products.
+          {t('list.fixPriceFilters')}
         </p>
       ) : productsQuery.isLoading ? (
         <div role="status" aria-live="polite" className="space-y-3">
-          <p className="sr-only">Loading products…</p>
+          <p className="sr-only">{t('list.loadingSr')}</p>
           <ProductGridSkeleton />
         </div>
       ) : productsQuery.isError ? (
@@ -124,27 +127,27 @@ export function ProductListPage() {
           <p role="alert">
             {productsQuery.error instanceof ApiClientError
               ? productsQuery.error.userMessage
-              : 'Unable to load products.'}
+              : t('list.loadError')}
           </p>
           <Button type="button" size="sm" onClick={() => void productsQuery.refetch()}>
-            Retry
+            {tc('actions.retry')}
           </Button>
         </div>
       ) : (productsQuery.data?.items.length ?? 0) === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card px-6 py-12 text-center">
-          <p className="font-medium text-foreground">No products match these filters</p>
+          <p className="font-medium text-foreground">{t('list.empty')}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Try clearing filters or searching a different keyword.
+            {t('list.emptyHint')}
           </p>
           <Button type="button" variant="link" className="mt-4" onClick={clearFilters}>
-            Clear filters
+            {t('filters.clear')}
           </Button>
         </div>
       ) : (
         <>
           {productsQuery.isFetching ? (
             <p className="text-xs text-muted-foreground" role="status">
-              Updating…
+              {tc('status.updating')}
             </p>
           ) : null}
           <ProductGrid products={productsQuery.data?.items ?? []} />

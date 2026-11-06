@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,7 +17,7 @@ import { adminAlertErrorClass, adminAlertSuccessClass } from '../../lib/admin-ui
 import * as productsApi from '../api/admin-products-api'
 import { adminProductQueryKeys } from '../hooks/admin-product-query-keys'
 import {
-  adminInventoryFormSchema,
+  createAdminInventoryFormSchema,
   type AdminInventoryFormInput,
   type AdminInventoryFormValues,
 } from '../schemas'
@@ -26,6 +27,7 @@ type Props = {
 }
 
 export function ProductInventoryForm({ productId }: Props) {
+  const { t } = useTranslation('admin')
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -36,8 +38,9 @@ export function ProductInventoryForm({ productId }: Props) {
     retry: false,
   })
 
+  const resolver = useMemo(() => zodResolver(createAdminInventoryFormSchema(t)), [t])
   const form = useForm<AdminInventoryFormInput, unknown, AdminInventoryFormValues>({
-    resolver: zodResolver(adminInventoryFormSchema),
+    resolver,
     defaultValues: { quantityOnHand: '0' },
   })
 
@@ -54,7 +57,7 @@ export function ProductInventoryForm({ productId }: Props) {
       }),
     onSuccess: async (updated) => {
       setFormError(null)
-      setSuccessMessage('Stock quantity updated.')
+      setSuccessMessage(t('products.inventory.updated'))
       queryClient.setQueryData(adminProductQueryKeys.inventory(productId), updated)
       form.reset({ quantityOnHand: String(updated.quantityOnHand) })
       await queryClient.invalidateQueries({ queryKey: adminProductQueryKeys.all })
@@ -66,7 +69,7 @@ export function ProductInventoryForm({ productId }: Props) {
         setFormError(error.userMessage)
         return
       }
-      setFormError('Unable to update inventory.')
+      setFormError(t('products.inventory.updateError'))
     },
   })
 
@@ -75,11 +78,11 @@ export function ProductInventoryForm({ productId }: Props) {
       <Card className="shadow-sm" role="status" aria-live="polite">
         <CardHeader>
           <CardTitle>
-            <h2 className="text-base font-semibold">Inventory</h2>
+            <h2 className="text-base font-semibold">{t('products.inventory.title')}</h2>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="sr-only">Loading inventory…</p>
+          <p className="sr-only">{t('products.inventory.loading')}</p>
           <Skeleton className="h-24 w-full" />
         </CardContent>
       </Card>
@@ -91,14 +94,14 @@ export function ProductInventoryForm({ productId }: Props) {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>
-            <h2 className="text-base font-semibold">Inventory</h2>
+            <h2 className="text-base font-semibold">{t('products.inventory.title')}</h2>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-destructive" role="alert">
             {inventoryQuery.error instanceof ApiClientError
               ? inventoryQuery.error.userMessage
-              : 'Unable to load inventory.'}
+              : t('products.inventory.loadError')}
           </p>
         </CardContent>
       </Card>
@@ -112,26 +115,25 @@ export function ProductInventoryForm({ productId }: Props) {
     <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>
-          <h2 className="text-base font-semibold">Inventory</h2>
+          <h2 className="text-base font-semibold">{t('products.inventory.title')}</h2>
         </CardTitle>
         <CardDescription>
-          Sets absolute on-hand stock for this product. Reserved units are held by open
-          checkouts and cannot be reduced below.
+          {t('products.inventory.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {inventory ? (
           <dl className="mb-4 grid gap-2 text-sm sm:grid-cols-3">
             <div>
-              <dt className="text-muted-foreground">On hand</dt>
+              <dt className="text-muted-foreground">{t('products.inventory.onHand')}</dt>
               <dd className="font-medium tabular-nums">{inventory.quantityOnHand}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Reserved</dt>
+              <dt className="text-muted-foreground">{t('products.inventory.reserved')}</dt>
               <dd className="font-medium tabular-nums">{inventory.quantityReserved}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Available</dt>
+              <dt className="text-muted-foreground">{t('products.inventory.available')}</dt>
               <dd className="font-medium tabular-nums">{inventory.available}</dd>
             </div>
           </dl>
@@ -147,7 +149,7 @@ export function ProductInventoryForm({ productId }: Props) {
           })}
         >
           <div className="space-y-1.5 text-sm">
-            <Label htmlFor="product-stock-quantity">Stock quantity (on hand)</Label>
+            <Label htmlFor="product-stock-quantity">{t('products.inventory.quantityLabel')}</Label>
             <Input
               id="product-stock-quantity"
               inputMode="numeric"
@@ -161,8 +163,7 @@ export function ProductInventoryForm({ productId }: Props) {
               </p>
             ) : null}
             <p className="text-xs text-muted-foreground">
-              Available = on hand − reserved. Must be a non-negative integer and at least the
-              reserved amount.
+              {t('products.inventory.hint')}
             </p>
           </div>
 
@@ -178,7 +179,7 @@ export function ProductInventoryForm({ productId }: Props) {
           ) : null}
 
           <Button type="submit" disabled={busy}>
-            {busy ? 'Updating stock…' : 'Update stock'}
+            {busy ? t('products.inventory.updating') : t('products.inventory.submit')}
           </Button>
         </form>
       </CardContent>

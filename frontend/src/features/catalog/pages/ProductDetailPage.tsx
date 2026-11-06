@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MinusIcon, PlusIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import * as cartApi from '@/features/cart/api/cart-api'
 import { cartQueryKeys } from '@/features/cart/hooks/cart-query-keys'
 import { clampCartQuantity } from '@/features/cart/lib/clamp-quantity'
 import { CART_MAX_QUANTITY } from '@/features/cart/types'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 import { ApiClientError } from '@/lib/api/api-error'
 import { safeInternalPath } from '@/lib/safe-redirect'
 
@@ -28,15 +30,18 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function ProductDetailPage() {
+  const { t } = useTranslation('catalog')
+  const { t: tc } = useTranslation('common')
   const { productId = '' } = useParams<{ productId: string }>()
   const idValid = UUID_RE.test(productId)
   const { status, user } = useAuth()
+  const { locale } = useAppLocale()
   const queryClient = useQueryClient()
   const [quantity, setQuantity] = useState(1)
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const productQuery = useQuery({
-    queryKey: catalogQueryKeys.productDetail(productId),
+    queryKey: catalogQueryKeys.productDetail(locale, productId),
     queryFn: ({ signal }) => getProduct(productId, signal),
     enabled: idValid,
     retry: false,
@@ -45,7 +50,7 @@ export function ProductDetailPage() {
   const addMutation = useMutation({
     mutationFn: () => cartApi.addCartItem({ productId, quantity }),
     onSuccess: (cart) => {
-      setFeedback('Added to cart.')
+      setFeedback(t('detail.added'))
       if (user?.id) {
         queryClient.setQueryData(cartQueryKeys.detail(user.id), cart)
       }
@@ -55,7 +60,7 @@ export function ProductDetailPage() {
         setFeedback(error.userMessage)
         return
       }
-      setFeedback('Could not add to cart.')
+      setFeedback(t('detail.addError'))
     },
   })
 
@@ -71,48 +76,48 @@ export function ProductDetailPage() {
 
   return (
     <section className="space-y-6">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+      <nav aria-label={t('detail.breadcrumbAria')} className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link to="/" className="font-medium text-primary hover:underline">
-              Home
+              {tc('nav.home')}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li>
             <Link to="/products" className="font-medium text-primary hover:underline">
-              Catalog
+              {tc('nav.catalog')}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li className="max-w-[min(100%,20rem)] truncate font-medium text-foreground">
-            {product?.name ?? 'Detail'}
+            {product?.name ?? tc('nav.detail')}
           </li>
         </ol>
       </nav>
 
       {!idValid ? (
         <UnavailableState
-          title="Invalid product link"
-          message="The product id in the URL is not a valid identifier."
+          title={t('detail.invalidLink')}
+          message={t('detail.invalidLinkMessage')}
         />
       ) : productQuery.isLoading ? (
         <ProductDetailSkeleton />
       ) : productQuery.isError ? (
         productQuery.error instanceof ApiClientError && productQuery.error.status === 404 ? (
           <UnavailableState
-            title="Product unavailable"
-            message="This product is missing, inactive, or belongs to an inactive category."
+            title={t('detail.unavailable')}
+            message={t('detail.unavailableMessage')}
           />
         ) : (
           <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             <p role="alert">
               {productQuery.error instanceof ApiClientError
                 ? productQuery.error.userMessage
-                : 'Unable to load this product.'}
+                : t('detail.loadError')}
             </p>
             <Button type="button" size="sm" onClick={() => void productQuery.refetch()}>
-              Retry
+              {tc('actions.retry')}
             </Button>
           </div>
         )
@@ -167,6 +172,8 @@ function ProductDetailContent({
   feedback,
   onAdd,
 }: ProductDetailContentProps) {
+  const { t } = useTranslation('catalog')
+  const { t: tc } = useTranslation('common')
   return (
     <article className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start">
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
@@ -206,13 +213,13 @@ function ProductDetailContent({
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           {product.sku ? (
             <>
-              <dt className="text-muted-foreground">SKU</dt>
+              <dt className="text-muted-foreground">{t('detail.sku')}</dt>
               <dd className="font-medium text-foreground">{product.sku}</dd>
             </>
           ) : null}
           {product.categoryName ? (
             <>
-              <dt className="text-muted-foreground">Category</dt>
+              <dt className="text-muted-foreground">{t('detail.category')}</dt>
               <dd className="font-medium text-foreground">{product.categoryName}</dd>
             </>
           ) : null}
@@ -223,7 +230,7 @@ function ProductDetailContent({
             {product.description}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">No description provided.</p>
+          <p className="text-sm text-muted-foreground">{t('detail.noDescription')}</p>
         )}
 
         <Separator />
@@ -232,13 +239,13 @@ function ProductDetailContent({
           <div className="space-y-3">
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="product-quantity">Quantity</Label>
+                <Label htmlFor="product-quantity">{t('detail.quantity')}</Label>
                 <div className="flex items-center gap-1">
                   <Button
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    aria-label="Decrease quantity"
+                    aria-label={t('detail.decreaseQty')}
                     disabled={qtyDisabled || quantity <= 1}
                     onClick={() => setQuantity(clampCartQuantity(quantity - 1))}
                   >
@@ -265,7 +272,7 @@ function ProductDetailContent({
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    aria-label="Increase quantity"
+                    aria-label={t('detail.increaseQty')}
                     disabled={qtyDisabled || quantity >= CART_MAX_QUANTITY}
                     onClick={() => setQuantity(clampCartQuantity(quantity + 1))}
                   >
@@ -275,21 +282,20 @@ function ProductDetailContent({
               </div>
 
               <Button type="button" size="lg" disabled={!canAdd} onClick={onAdd}>
-                {addPending ? 'Adding…' : 'Add to cart'}
+                {addPending ? t('detail.adding') : t('detail.addToCart')}
               </Button>
 
               <Button asChild variant="outline" size="lg">
-                <Link to="/cart">View cart</Link>
+                <Link to="/cart">{t('detail.viewCart')}</Link>
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Max {CART_MAX_QUANTITY} per line. Pricing and stock are server-authoritative; adding
-              to cart does not reserve inventory.
+              {t('detail.maxPerLine', { max: CART_MAX_QUANTITY })}
             </p>
           </div>
         ) : status === 'booting' ? (
           <p className="text-sm text-muted-foreground" role="status">
-            Checking session…
+            {tc('status.checkingSession')}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -297,9 +303,9 @@ function ProductDetailContent({
               className="font-medium text-primary underline-offset-4 hover:underline"
               to={`/login?next=${encodeURIComponent(safeInternalPath(`/products/${productId}`))}`}
             >
-              Sign in
+              {t('detail.signInLink')}
             </Link>{' '}
-            to add this product to your cart.
+            {t('detail.signInSuffix')}
           </p>
         )}
 
@@ -313,7 +319,7 @@ function ProductDetailContent({
         ) : null}
 
         <Button asChild variant="outline">
-          <Link to="/products">Back to catalog</Link>
+          <Link to="/products">{t('detail.backToCatalog')}</Link>
         </Button>
       </div>
     </article>
@@ -321,9 +327,10 @@ function ProductDetailContent({
 }
 
 function ProductDetailSkeleton() {
+  const { t } = useTranslation('catalog')
   return (
     <div className="grid gap-8 lg:grid-cols-2" role="status" aria-live="polite">
-      <p className="sr-only">Loading product…</p>
+      <p className="sr-only">{t('detail.loadingSr')}</p>
       <Skeleton className="aspect-[4/3] w-full rounded-2xl" />
       <div className="space-y-4">
         <Skeleton className="h-4 w-24" />
@@ -337,12 +344,13 @@ function ProductDetailSkeleton() {
 }
 
 function UnavailableState({ title, message }: { title: string; message: string }) {
+  const { t } = useTranslation('catalog')
   return (
     <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-10 text-center">
       <h1 className="text-xl font-semibold text-foreground">{title}</h1>
       <p className="mt-2 text-sm text-muted-foreground">{message}</p>
       <Button asChild variant="link" className="mt-4">
-        <Link to="/products">Back to catalog</Link>
+        <Link to="/products">{t('detail.backToCatalog')}</Link>
       </Button>
     </div>
   )

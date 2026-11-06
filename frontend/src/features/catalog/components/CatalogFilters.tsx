@@ -1,5 +1,6 @@
 import { FilterIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,14 +15,14 @@ import {
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { cn } from '@/lib/utils'
 
-import type { CatalogSearchState } from '../lib/catalog-search-params'
+import type { CatalogSearchState, PriceFilterErrorKey } from '../lib/catalog-search-params'
 import type { Category } from '../types'
 import { PRODUCT_SORT_OPTIONS } from '../types'
 
 type CatalogFiltersProps = {
   value: CatalogSearchState
   categories: Category[]
-  priceError: string | null
+  priceError: PriceFilterErrorKey | null
   onChange: (next: CatalogSearchState, options?: { resetPage?: boolean }) => void
   onClear: () => void
 }
@@ -40,6 +41,8 @@ function FilterFields({
   onClear,
   hasActiveFilters,
 }: CatalogFiltersProps & { hasActiveFilters: boolean }) {
+  const { t } = useTranslation('catalog')
+  const { t: tv } = useTranslation('validation')
   const patch = (partial: Partial<CatalogSearchState>) => {
     onChange({ ...value, ...partial }, { resetPage: true })
   }
@@ -47,35 +50,35 @@ function FilterFields({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 className="text-sm font-semibold text-card-foreground">Filters</h2>
+        <h2 className="text-sm font-semibold text-card-foreground">{t('filters.title')}</h2>
         {hasActiveFilters ? (
           <Button type="button" variant="link" className="h-auto p-0" onClick={onClear}>
-            Clear filters
+            {t('filters.clear')}
           </Button>
         ) : null}
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-search">Search</Label>
+          <Label htmlFor="catalog-search">{t('filters.search')}</Label>
           <Input
             id="catalog-search"
             type="search"
             value={value.q}
             onChange={(event) => patch({ q: event.target.value })}
-            placeholder="Name or description"
+            placeholder={t('filters.searchPlaceholder')}
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-category">Category</Label>
+          <Label htmlFor="catalog-category">{t('filters.category')}</Label>
           <select
             id="catalog-category"
             value={value.categoryId}
             onChange={(event) => patch({ categoryId: event.target.value })}
             className={selectClassName}
           >
-            <option value="">All categories</option>
+            <option value="">{t('filters.allCategories')}</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -85,7 +88,7 @@ function FilterFields({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-sort">Sort</Label>
+          <Label htmlFor="catalog-sort">{t('filters.sort')}</Label>
           <select
             id="catalog-sort"
             value={value.sort}
@@ -94,14 +97,14 @@ function FilterFields({
           >
             {PRODUCT_SORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {t(option.labelKey)}
               </option>
             ))}
           </select>
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-min-price">Min price (VND)</Label>
+          <Label htmlFor="catalog-min-price">{t('filters.minPrice')}</Label>
           <Input
             id="catalog-min-price"
             type="number"
@@ -113,7 +116,7 @@ function FilterFields({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-max-price">Max price (VND)</Label>
+          <Label htmlFor="catalog-max-price">{t('filters.maxPrice')}</Label>
           <Input
             id="catalog-max-price"
             type="number"
@@ -125,7 +128,7 @@ function FilterFields({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="catalog-availability">Availability</Label>
+          <Label htmlFor="catalog-availability">{t('filters.availability')}</Label>
           <select
             id="catalog-availability"
             value={value.inStock}
@@ -134,16 +137,16 @@ function FilterFields({
             }
             className={selectClassName}
           >
-            <option value="">Any</option>
-            <option value="true">In stock</option>
-            <option value="false">Out of stock</option>
+            <option value="">{t('filters.any')}</option>
+            <option value="true">{t('filters.inStock')}</option>
+            <option value="false">{t('filters.outOfStock')}</option>
           </select>
         </div>
       </div>
 
       {priceError ? (
         <p className="text-sm text-destructive" role="alert">
-          {priceError}
+          {tv(priceError)}
         </p>
       ) : null}
     </div>
@@ -151,6 +154,7 @@ function FilterFields({
 }
 
 export function CatalogFilters(props: CatalogFiltersProps) {
+  const { t } = useTranslation('catalog')
   const isDesktop = useMediaQuery('(min-width: 768px)', true)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -166,7 +170,7 @@ export function CatalogFilters(props: CatalogFiltersProps) {
     return (
       <section
         className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm"
-        aria-label="Catalog filters"
+        aria-label={t('filters.ariaLabel')}
       >
         <FilterFields {...props} hasActiveFilters={hasActiveFilters} />
       </section>
@@ -179,33 +183,33 @@ export function CatalogFilters(props: CatalogFiltersProps) {
         type="button"
         variant="outline"
         size="sm"
-        aria-label="Open catalog filters"
+        aria-label={t('filters.openAria')}
         onClick={() => setMobileOpen(true)}
       >
         <FilterIcon className="size-4" />
-        Filters
+        {t('filters.title')}
         {hasActiveFilters ? (
           <span className="rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-            On
+            {t('filters.activeBadge')}
           </span>
         ) : null}
       </Button>
       {hasActiveFilters ? (
         <Button type="button" variant="link" className="h-auto p-0" onClick={props.onClear}>
-          Clear filters
+          {t('filters.clear')}
         </Button>
       ) : null}
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-xl">
           <SheetHeader>
-            <SheetTitle>Catalog filters</SheetTitle>
-            <SheetDescription>Search, category, price, and sort</SheetDescription>
+            <SheetTitle>{t('filters.sheetTitle')}</SheetTitle>
+            <SheetDescription>{t('filters.sheetDescription')}</SheetDescription>
           </SheetHeader>
-          <div className="px-4 pb-6" aria-label="Catalog filters">
+          <div className="px-4 pb-6" aria-label={t('filters.ariaLabel')}>
             <FilterFields {...props} hasActiveFilters={hasActiveFilters} />
             <Button type="button" className="mt-4 w-full" onClick={() => setMobileOpen(false)}>
-              Show results
+              {t('filters.showResults')}
             </Button>
           </div>
         </SheetContent>

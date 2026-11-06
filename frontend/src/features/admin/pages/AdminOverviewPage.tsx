@@ -9,6 +9,7 @@ import {
   WarehouseIcon,
   type LucideIcon,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -37,18 +38,17 @@ const MODULE_ICONS: Record<string, LucideIcon> = {
  * Admin SaaS landing — module links only; no fabricated KPIs or analytics.
  */
 export function AdminOverviewPage() {
+  const { t } = useTranslation('admin')
   return (
     <section className={`mx-auto max-w-5xl ${adminPageSectionClass}`}>
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Scaffold</Badge>
-          <Badge variant="outline">Admin workspace</Badge>
+          <Badge variant="secondary">{t('overview.scaffold')}</Badge>
+          <Badge variant="outline">{t('overview.workspaceBadge')}</Badge>
         </div>
-        <h1 className={adminPageTitleClass}>Admin overview</h1>
+        <h1 className={adminPageTitleClass}>{t('overview.title')}</h1>
         <p className={`max-w-2xl ${adminPageLeadClass}`}>
-          Manage catalog, fulfillment, inventory, analytics, and promotion modules available in this
-          workspace. Open Analytics for live KPIs from the API — this page does not show fabricated
-          metrics.
+          {t('overview.lead')}
         </p>
       </div>
 
@@ -61,14 +61,15 @@ export function AdminOverviewPage() {
       </ul>
 
       <p className="text-xs text-muted-foreground">
-        Access is gated from trusted auth response roles. Backend admin APIs remain the security
-        boundary for data operations.
+        {t('overview.footnote')}
       </p>
     </section>
   )
 }
 
 function AdminModuleCard({ item }: { item: AdminNavItem }) {
+  const { t } = useTranslation('admin')
+  const label = t(`nav.${item.id}.label`)
   const Icon = MODULE_ICONS[item.id] ?? LayoutDashboardIcon
   const isCurrent = item.to === '/admin'
   const available = item.to != null
@@ -84,23 +85,23 @@ function AdminModuleCard({ item }: { item: AdminNavItem }) {
         </span>
         <div className="min-w-0 flex-1 space-y-1.5">
           <CardTitle>
-            <h2 className="text-base font-semibold text-foreground">{item.label}</h2>
+            <h2 className="text-base font-semibold text-foreground">{label}</h2>
           </CardTitle>
-          <CardDescription>{item.description}</CardDescription>
+          <CardDescription>{t(`nav.${item.id}.description`)}</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         {available ? (
           isCurrent ? (
-            <Badge variant="success">You are here</Badge>
+            <Badge variant="success">{t('overview.youAreHere')}</Badge>
           ) : (
             <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">
-              Open
+              {t('overview.open')}
               <ArrowRightIcon className="size-4" aria-hidden="true" />
             </span>
           )
         ) : (
-          <span className="text-sm text-muted-foreground">Soon</span>
+          <span className="text-sm text-muted-foreground">{t('overview.soon')}</span>
         )}
       </CardContent>
     </>
@@ -126,7 +127,7 @@ function AdminModuleCard({ item }: { item: AdminNavItem }) {
     <Link
       to={item.to!}
       className="block h-full rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      aria-label={`Open ${item.label}`}
+      aria-label={t('overview.openAria', { label })}
     >
       <Card className="h-full shadow-sm transition hover:border-primary/40 hover:shadow-md">
         {body}

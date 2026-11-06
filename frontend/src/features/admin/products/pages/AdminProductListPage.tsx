@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PackageIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { listAdminCategories } from '@/features/admin/categories/api/admin-categories-api'
@@ -31,9 +32,13 @@ import {
 
 import * as productsApi from '../api/admin-products-api'
 import { adminProductQueryKeys } from '../hooks/admin-product-query-keys'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 
 export function AdminProductListPage() {
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
+  const { locale } = useAppLocale()
   const [searchParams, setSearchParams] = useSearchParams()
   const [statusError, setStatusError] = useState<string | null>(null)
 
@@ -56,13 +61,13 @@ export function AdminProductListPage() {
   }
 
   const productsQuery = useQuery({
-    queryKey: adminProductQueryKeys.list(listParams),
+    queryKey: adminProductQueryKeys.list(locale, listParams),
     queryFn: ({ signal }) => productsApi.listAdminProducts(listParams, signal),
     retry: false,
   })
 
   const categoriesQuery = useQuery({
-    queryKey: adminCategoryQueryKeys.list(),
+    queryKey: adminCategoryQueryKeys.list(locale),
     queryFn: ({ signal }) => listAdminCategories(signal),
     retry: false,
   })
@@ -77,7 +82,7 @@ export function AdminProductListPage() {
     },
     onError: (error) => {
       setStatusError(
-        error instanceof ApiClientError ? error.userMessage : 'Status update failed.',
+        error instanceof ApiClientError ? error.userMessage : t('products.list.statusFailed'),
       )
     },
   })
@@ -89,15 +94,14 @@ export function AdminProductListPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <h1 className={adminPageTitleClass}>
-            Products
+            {t('products.list.title')}
           </h1>
           <p className={adminPageLeadClass}>
-            Admin list includes inactive products. Soft-disable via status — no hard delete.
-            Inventory cannot be changed here.
+            {t('products.list.lead')}
           </p>
         </div>
         <Button asChild>
-          <Link to="/admin/products/new">New product</Link>
+          <Link to="/admin/products/new">{t('products.list.newProduct')}</Link>
         </Button>
       </div>
 
@@ -120,29 +124,29 @@ export function AdminProductListPage() {
             }}
           >
             <div className="min-w-[12rem] flex-1 space-y-1.5">
-              <Label htmlFor="admin-product-q">Search</Label>
+              <Label htmlFor="admin-product-q">{t('products.list.search')}</Label>
               <Input
                 id="admin-product-q"
                 name="q"
                 defaultValue={q}
-                placeholder="Search name or SKU"
+                placeholder={t('products.list.searchPlaceholder')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="admin-product-active">Status filter</Label>
+              <Label htmlFor="admin-product-active">{t('products.list.statusFilter')}</Label>
               <select
                 id="admin-product-active"
                 name="active"
                 defaultValue={activeParam ?? ''}
                 className={adminNativeSelectClass}
               >
-                <option value="">All statuses</option>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="">{t('products.list.allStatuses')}</option>
+                <option value="true">{t('products.status.active')}</option>
+                <option value="false">{t('products.status.inactive')}</option>
               </select>
             </div>
             <Button type="submit" variant="outline">
-              Apply
+              {t('products.list.apply')}
             </Button>
           </form>
         </CardContent>
@@ -159,7 +163,7 @@ export function AdminProductListPage() {
 
       {productsQuery.isLoading ? (
         <div className="space-y-3" role="status" aria-live="polite">
-          <p className="sr-only">Loading products…</p>
+          <p className="sr-only">{t('products.list.loading')}</p>
           <Skeleton className="h-12 w-full rounded-xl" />
           <Skeleton className="h-48 w-full rounded-xl" />
         </div>
@@ -168,19 +172,19 @@ export function AdminProductListPage() {
           <p role="alert">
             {productsQuery.error instanceof ApiClientError
               ? productsQuery.error.userMessage
-              : 'Unable to load products.'}
+              : t('products.list.loadError')}
           </p>
           <Button type="button" size="sm" onClick={() => void productsQuery.refetch()}>
-            Retry
+            {tc('actions.retry')}
           </Button>
         </div>
       ) : data && data.items.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
             <PackageIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">No products match these filters.</p>
+            <p className="text-sm text-muted-foreground">{t('products.list.empty')}</p>
             <Button asChild variant="link">
-              <Link to="/admin/products/new">Create a product</Link>
+              <Link to="/admin/products/new">{t('products.list.createProduct')}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -188,19 +192,19 @@ export function AdminProductListPage() {
         <>
           {categoriesQuery.isSuccess ? (
             <p className="text-sm text-muted-foreground">
-              {categoriesQuery.data.length} categories loaded
+              {t('products.list.categoriesLoaded', { n: categoriesQuery.data.length })}
             </p>
           ) : null}
           <div className={adminTableWrapClass}>
             <table className={`${adminTableClass} min-w-[40rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className={adminThClass}>Name</th>
-                  <th className={adminThClass}>SKU</th>
-                  <th className={adminThClass}>Price</th>
-                  <th className={adminThClass}>Category</th>
-                  <th className={adminThClass}>Status</th>
-                  <th className={adminThClass}>Actions</th>
+                  <th className={adminThClass}>{t('products.list.columns.name')}</th>
+                  <th className={adminThClass}>{t('products.list.columns.sku')}</th>
+                  <th className={adminThClass}>{t('products.list.columns.price')}</th>
+                  <th className={adminThClass}>{t('products.list.columns.category')}</th>
+                  <th className={adminThClass}>{t('products.list.columns.status')}</th>
+                  <th className={adminThClass}>{t('products.list.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -217,13 +221,13 @@ export function AdminProductListPage() {
                       <td className={`${adminTdClass} text-muted-foreground`}>{product.categoryName}</td>
                       <td className={adminTdClass}>
                         <Badge variant={product.active ? 'success' : 'warning'}>
-                          {product.active ? 'Active' : 'Inactive'}
+                          {product.active ? t('products.status.active') : t('products.status.inactive')}
                         </Badge>
                       </td>
                       <td className={adminTdClass}>
                         <div className="flex flex-wrap gap-2">
                           <Button asChild variant="link" size="sm" className="h-auto px-0">
-                            <Link to={`/admin/products/${product.id}/edit`}>Edit</Link>
+                            <Link to={`/admin/products/${product.id}/edit`}>{t('products.list.edit')}</Link>
                           </Button>
                           <Button
                             type="button"
@@ -234,8 +238,8 @@ export function AdminProductListPage() {
                               const next = !product.active
                               const ok = window.confirm(
                                 next
-                                  ? `Activate “${product.name}”?`
-                                  : `Deactivate “${product.name}”? Soft-disable only — the product is not deleted.`,
+                                  ? t('products.list.confirmActivate', { name: product.name })
+                                  : t('products.list.confirmDeactivate', { name: product.name }),
                               )
                               if (!ok) return
                               setStatusError(null)
@@ -243,10 +247,10 @@ export function AdminProductListPage() {
                             }}
                           >
                             {pending
-                              ? 'Updating…'
+                              ? tc('status.updating')
                               : product.active
-                                ? 'Deactivate'
-                                : 'Activate'}
+                                ? t('products.list.deactivate')
+                                : t('products.list.activate')}
                           </Button>
                         </div>
                       </td>
@@ -261,7 +265,7 @@ export function AdminProductListPage() {
             totalPages={data.totalPages}
             totalElements={data.totalElements}
             pageSize={data.size}
-            itemLabel="products"
+            itemLabel={t('pagination.itemLabels.products')}
             disabled={productsQuery.isFetching}
             onPageChange={goToPage}
           />

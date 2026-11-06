@@ -22,12 +22,51 @@ public final class DemoPromotionCatalog {
 
 	public static final String HERO_TITLE = "Ưu đãi mua sắm tiết kiệm";
 	public static final String HERO_SUBTITLE = "Chọn thực phẩm tươi mỗi ngày — ưu đãi áp dụng khi thanh toán";
+	public static final String HERO_TITLE_EN = "Save on everyday groceries";
+	public static final String HERO_SUBTITLE_EN = "Pick fresh food daily — discounts apply at checkout";
+	public static final String HERO_CTA_VI = "Xem danh mục";
+	public static final String HERO_CTA_EN = "Browse catalog";
 
 	/** FoodMart SKUs / slugs used for eligibility fixtures. */
 	public static final String PRODUCT_SKU_APPLE = "FOOD-FRUIT-APPLE-001";
 	public static final String PRODUCT_SKU_BANANA = "FOOD-FRUIT-BANANA-001";
 	public static final String CATEGORY_SLUG_BEVERAGES = "food-beverages";
 	public static final String CATEGORY_SLUG_FRUITS = "food-fruits-vegetables";
+
+	/** Display name pairs: VI (canonical base) + EN translation. */
+	public record DisplayName(String vi, String en) {
+	}
+
+	public static DisplayName strategyName(StrategyCode code) {
+		return switch (code) {
+			case PCT_ORDER -> new DisplayName("Ưu đãi thành viên — giảm 10%", "Member offer — 10% off");
+			case FIXED_ORDER -> new DisplayName("Ưu đãi đơn hàng — giảm $0.60", "Order offer — $0.60 off");
+			case PRODUCT -> new DisplayName("Ưu đãi táo tươi — giảm 15%", "Fresh apple offer — 15% off");
+			case CATEGORY -> new DisplayName("Giảm 8% nhóm đồ uống", "8% off beverages");
+			case ORDER_OR -> new DisplayName("Ưu đãi linh hoạt — giảm 5%", "Flexible offer — 5% off");
+			case STACK_A -> new DisplayName("Ưu đãi kết hợp — giảm 5%", "Stackable offer — 5% off");
+			case STACK_B -> new DisplayName("Ưu đãi kết hợp — giảm $0.20", "Stackable offer — $0.20 off");
+			case BANNER -> new DisplayName("Banner trang chủ", "Homepage banner");
+			case LIFECYCLE -> new DisplayName("Chiến lược vòng đời cơ bản", "Basic lifecycle strategy");
+		};
+	}
+
+	public static DisplayName campaignName(CampaignSlug slug) {
+		return switch (slug) {
+			case PCT_ACTIVE -> new DisplayName("Ưu đãi thành viên — giảm 10%", "Member offer — 10% off");
+			case FIXED_ACTIVE -> new DisplayName("Ưu đãi đơn hàng — giảm $0.60", "Order offer — $0.60 off");
+			case PRODUCT_APPLE -> new DisplayName("Ưu đãi táo tươi — giảm 15%", "Fresh apple offer — 15% off");
+			case CATEGORY_BEVERAGES -> new DisplayName("Giảm 8% nhóm đồ uống", "8% off beverages");
+			case ORDER_OR -> new DisplayName("Ưu đãi linh hoạt — giảm 5%", "Flexible offer — 5% off");
+			case STACK_A -> new DisplayName("Ưu đãi kết hợp — giảm 5%", "Stackable offer — 5% off");
+			case STACK_B -> new DisplayName("Ưu đãi kết hợp — giảm $0.20", "Stackable offer — $0.20 off");
+			case HERO -> new DisplayName(HERO_TITLE, HERO_TITLE_EN);
+			case SCHEDULED -> new DisplayName("Ưu đãi sắp diễn ra", "Upcoming offer");
+			case PAUSED -> new DisplayName("Ưu đãi tạm dừng", "Paused offer");
+			case DRAFT -> new DisplayName("Ưu đãi nháp", "Draft offer");
+			case EXPIRED -> new DisplayName("Ưu đãi hết hạn", "Expired offer");
+		};
+	}
 
 	/**
 	 * Former Phase-8 codes (Demo/Smoke era). Purged on seed/reset so local DBs migrate without volume wipe.

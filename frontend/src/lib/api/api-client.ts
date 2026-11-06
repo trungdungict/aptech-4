@@ -1,4 +1,5 @@
 import { apiBaseUrl } from '@/lib/env'
+import { getActiveLocale } from '@/lib/i18n/locale-store'
 
 import { ApiClientError } from './api-error'
 
@@ -82,6 +83,7 @@ async function executeFetch(
 ): Promise<Response> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    'Accept-Language': getActiveLocale(),
     ...options.headers,
   }
 

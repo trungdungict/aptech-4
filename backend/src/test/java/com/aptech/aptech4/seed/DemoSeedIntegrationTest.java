@@ -156,6 +156,23 @@ class DemoSeedIntegrationTest {
 		assertThat(productRepository.findBySkuIgnoreCase("FOOD-FRUIT-APPLE-001")).isPresent();
 		assertThat(categoryRepository.findBySlug("food-dairy-eggs")).isPresent();
 
+		// Currency of record is USD; legacy DEMO-* catalog must not reappear after seed.
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where sku like 'FOOD-%' and currency = 'USD'",
+				Integer.class)).isEqualTo(expectedProducts);
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where sku like 'FOOD-%' and currency <> 'USD'",
+				Integer.class)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"select unit_price from products where sku = 'FOOD-FRUIT-APPLE-001'",
+				BigDecimal.class)).isEqualByComparingTo(new BigDecimal("1.80"));
+		assertThat(jdbcTemplate.queryForObject(
+				"select discount_amount from promotion_strategies where code = 'PROMO-ORDER-FIXED-15K'",
+				BigDecimal.class)).isEqualByComparingTo(new BigDecimal("0.60"));
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from products where sku in ('DEMO-ELEC-PHONE','DEMO-HOME-MUG','DEMO-BOOK-JAVA')",
+				Integer.class)).isZero();
+
 		Integer oosAvailable = jdbcTemplate.queryForObject(
 				"""
 						select (i.quantity_on_hand - i.quantity_reserved)
@@ -233,6 +250,72 @@ class DemoSeedIntegrationTest {
 				.isEqualTo(adminId);
 		assertThat(productRepository.findBySkuIgnoreCase("FOOD-FRUIT-BANANA-001").orElseThrow().getId()).isEqualTo(bananaId);
 		assertThat(categoryRepository.findBySlug("food-fruits-vegetables").orElseThrow().getId()).isEqualTo(fruitsId);
+
+		assertBilingualTranslationsStable(expectedCategories, expectedProducts);
+	}
+
+	private void assertBilingualTranslationsStable(int expectedCategories, int expectedProducts) {
+		assertThat(jdbcTemplate.queryForObject(
+				"select name from products where sku = 'FOOD-FRUIT-APPLE-001'",
+				String.class)).isEqualTo("Táo đỏ giòn (1 kg)");
+		assertThat(jdbcTemplate.queryForObject(
+				"""
+						select t.name from product_translations t
+						join products p on p.id = t.product_id
+						where p.sku = 'FOOD-FRUIT-APPLE-001' and t.locale = 'en'
+						""",
+				String.class)).isEqualTo("Crisp Red Apples (1 kg)");
+		assertThat(jdbcTemplate.queryForObject(
+				"""
+						select count(*) from product_translations t
+						join products p on p.id = t.product_id
+						where p.sku = ? and t.locale = 'en'
+						""",
+				Integer.class,
+				FoodMartCatalog.FALLBACK_MISSING_EN_SKU)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"""
+						select count(*) from product_translations t
+						join products p on p.id = t.product_id
+						where p.sku like 'FOOD-%' and t.locale = 'vi'
+						""",
+				Integer.class)).isEqualTo(expectedProducts);
+		assertThat(jdbcTemplate.queryForObject(
+				"""
+						select count(*) from product_translations t
+						join products p on p.id = t.product_id
+						where p.sku like 'FOOD-%' and t.locale = 'en'
+						""",
+				Integer.class)).isEqualTo(expectedProducts - 1);
+		assertThat(jdbcTemplate.queryForObject(
+				"""
+						select count(*) from category_translations t
+						join categories c on c.id = t.category_id
+						where c.slug like 'food-%' and t.locale = 'en'
+						""",
+				Integer.class)).isEqualTo(expectedCategories);
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from promotion_strategy_translations where locale = 'en'",
+				Integer.class)).isEqualTo(DemoPromotionCatalog.strategyCodes().size());
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from promotion_campaign_translations where locale = 'en'",
+				Integer.class)).isEqualTo(DemoPromotionCatalog.campaignSlugs().size());
+		assertThat(jdbcTemplate.queryForObject(
+				"""
+						select t.title from promotion_placement_translations t
+						join promotion_placements p on p.id = t.placement_id
+						join promotion_campaigns c on c.id = p.campaign_id
+						where c.slug = 'banner-trang-chu' and t.locale = 'en'
+						""",
+				String.class)).isEqualTo(DemoPromotionCatalog.HERO_TITLE_EN);
+		// Unique (parent, locale) — no duplicates after idempotent re-seed
+		assertThat(jdbcTemplate.queryForObject(
+				"""
+						select count(*) from (
+						  select product_id, locale, count(*) c from product_translations group by product_id, locale having count(*) > 1
+						) d
+						""",
+				Integer.class)).isZero();
 	}
 
 	private void insertRetiredLegacyCatalogRows() {

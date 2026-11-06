@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { DEFAULT_LIST_PAGE_SIZE, Pagination } from '@/components/pagination'
 
 type CatalogPaginationProps = {
@@ -18,13 +20,14 @@ export function CatalogPagination({
   disabled,
   onPageChange,
 }: CatalogPaginationProps) {
+  const { t } = useTranslation('catalog')
   return (
     <Pagination
       page={page}
       totalPages={totalPages}
       totalElements={totalElements}
       pageSize={pageSize}
-      itemLabel="products"
+      itemLabel={t('list.results')}
       disabled={disabled}
       onPageChange={onPageChange}
     />

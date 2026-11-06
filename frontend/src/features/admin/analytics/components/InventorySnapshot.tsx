@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ type InventorySnapshotProps = {
 }
 
 export function InventorySnapshot({ inventory }: InventorySnapshotProps) {
+  const { t } = useTranslation('admin')
   const total = Math.max(0, inventory.totalProducts)
   const inStock = Math.max(0, inventory.inStockCount)
   const low = Math.max(0, inventory.lowStockCount)
@@ -19,21 +21,24 @@ export function InventorySnapshot({ inventory }: InventorySnapshotProps) {
   const denom = Math.max(accounted, 1)
 
   const segments = [
-    { key: 'in', label: 'In stock', value: inStock, className: 'bg-emerald-600' },
-    { key: 'low', label: 'Low stock', value: low, className: 'bg-amber-500' },
-    { key: 'oos', label: 'Out of stock', value: oos, className: 'bg-rose-500' },
+    { key: 'in', label: t('analytics.inventory.inStock'), value: inStock, className: 'bg-emerald-600' },
+    { key: 'low', label: t('analytics.inventory.low'), value: low, className: 'bg-amber-500' },
+    { key: 'oos', label: t('analytics.inventory.out'), value: oos, className: 'bg-rose-500' },
   ] as const
 
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Threshold ≤ {inventory.lowStockThreshold} available · {inventory.availableDefinition}
+        {t('analytics.inventory.thresholdLine', {
+          threshold: inventory.lowStockThreshold,
+          definition: inventory.availableDefinition,
+        })}
       </p>
 
       <div
         className="flex h-3 overflow-hidden rounded-full bg-muted"
         role="img"
-        aria-label={`Inventory distribution: ${inStock} in stock, ${low} low, ${oos} out of stock of ${total} products`}
+        aria-label={t('analytics.inventory.distributionAria', { inStock, low, out: oos, total })}
       >
         {segments.map((segment) => {
           const width = (segment.value / denom) * 100
@@ -51,7 +56,7 @@ export function InventorySnapshot({ inventory }: InventorySnapshotProps) {
 
       <ul className="grid gap-2 sm:grid-cols-2">
         <li className="rounded-lg border border-border/80 px-3 py-2">
-          <p className="text-xs text-muted-foreground">Total products</p>
+          <p className="text-xs text-muted-foreground">{t('analytics.inventory.totalProducts')}</p>
           <p className="text-lg font-semibold tabular-nums text-foreground">{total}</p>
         </li>
         {segments.map((segment) => {
@@ -74,7 +79,7 @@ export function InventorySnapshot({ inventory }: InventorySnapshotProps) {
       </ul>
 
       <Button asChild variant="link" className="h-auto px-0">
-        <Link to="/admin/inventory">View inventory</Link>
+        <Link to="/admin/inventory">{t('analytics.inventory.viewInventory')}</Link>
       </Button>
     </div>
   )

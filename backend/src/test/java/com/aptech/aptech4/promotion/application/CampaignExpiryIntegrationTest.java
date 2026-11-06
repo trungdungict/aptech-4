@@ -191,14 +191,14 @@ class CampaignExpiryIntegrationTest {
 
 		// Seed entries directly so the assertion targets expiry→invalidate (R7), not @Cacheable PUT reliability.
 		String placementsKey = PromotionCacheKeys.placements(List.of());
-		homepageCache.put(PromotionCacheKeys.HOMEPAGE, HomepagePromotionsResponse.empty());
+		homepageCache.put(PromotionCacheKeys.homepage(), HomepagePromotionsResponse.empty());
 		placementsCache.put(placementsKey, List.of());
-		assertThat(homepageCache.get(PromotionCacheKeys.HOMEPAGE)).isNotNull();
+		assertThat(homepageCache.get(PromotionCacheKeys.homepage())).isNotNull();
 		assertThat(placementsCache.get(placementsKey)).isNotNull();
 
 		int expired = campaignService.expireDueCampaigns();
 		assertThat(expired).isGreaterThanOrEqualTo(1);
-		assertThat(homepageCache.get(PromotionCacheKeys.HOMEPAGE)).isNull();
+		assertThat(homepageCache.get(PromotionCacheKeys.homepage())).isNull();
 		assertThat(placementsCache.get(placementsKey)).isNull();
 	}
 

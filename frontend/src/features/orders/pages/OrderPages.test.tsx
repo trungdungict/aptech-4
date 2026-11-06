@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
+import { changeAppLocale, i18n } from '@/lib/i18n'
 import { demoCustomerSession, renderWithProviders } from '@/test/render-app'
 
 function jsonResponse(status: number, body: unknown) {
@@ -240,5 +241,26 @@ describe('Order pages', () => {
     await waitFor(() => {
       expect(screen.queryByText(orderId)).not.toBeInTheDocument()
     })
+  })
+
+  it('renders Vietnamese empty order history after switching locale', async () => {
+    await changeAppLocale('vi')
+    mockFetchRouter(() =>
+      jsonResponse(200, {
+        items: [],
+        page: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+        first: true,
+        last: true,
+      }),
+    )
+
+    renderWithProviders(<AppRouter />, { route: '/orders', session: demoCustomerSession })
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('orders:history.title') }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('orders:history.empty'))).toBeInTheDocument()
   })
 })

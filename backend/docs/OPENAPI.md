@@ -25,6 +25,20 @@ Refresh/logout take the refresh JWT in the **JSON body** (`refreshToken`), never
 
 Admin operations live under `/api/v1/admin/**` and require an access token with `ROLE_ADMIN` (e.g. `/api/v1/admin/categories`). Public catalog reads such as `GET /api/v1/categories` and `GET /api/v1/products` clear the bearer requirement. Customer private resources need ownership checks in addition to authentication (see `SECURITY.md`).
 
+### Locale contract (P34-T02 / P34-T04)
+
+| Item | Rule |
+|------|------|
+| Signal | `Accept-Language` (parsed once by `RequestLocaleFilter`) |
+| Supported | `vi`, `en` (regional tags normalize to primary subtag) |
+| Default / fallback | `vi` (missing, unsupported-only, or wildcard-only) |
+| Public JSON | **Same field names** as before (`name`, `description`, `title`, …); values are locale-resolved |
+| Missing EN row | Fall back to canonical VI base columns (never invent text; never blank required display names) |
+| Invariants | `id`, `sku`, `slug`, prices, inventory, campaign rules/status unchanged |
+| Order history | Snapshots stay frozen — not live-localized |
+| Errors | `ApiError.error` codes stay English-stable; `message` is localized via MessageSource (`i18n/messages*.properties`) |
+| Cache | Public catalog/promo Redis keys include locale (`…\|vi` / `…\|en`); mutation clears locale regions |
+
 ### Categories (P05-T01)
 
 | Method | Path | Auth |
@@ -35,6 +49,7 @@ Admin operations live under `/api/v1/admin/**` and require an access token with 
 | POST | `/api/v1/admin/categories` | ADMIN |
 | PUT | `/api/v1/admin/categories/{id}` | ADMIN |
 | PATCH | `/api/v1/admin/categories/{id}/status` | ADMIN (soft activate/deactivate; no hard delete) |
+| GET/PUT | `/api/v1/admin/categories/{id}/translations` | ADMIN (VI+EN map; see Admin translations) |
 
 ### Products (P05-T02) — public discovery
 
@@ -68,6 +83,7 @@ Admin operations live under `/api/v1/admin/**` and require an access token with 
 | POST | `/api/v1/admin/products` | ADMIN |
 | PUT | `/api/v1/admin/products/{id}` | ADMIN |
 | PATCH | `/api/v1/admin/products/{id}/status` | ADMIN (soft activate/deactivate) |
+| GET/PUT | `/api/v1/admin/products/{id}/translations` | ADMIN (VI+EN map; see Admin translations) |
 | GET | `/api/v1/admin/products/{id}/inventory` | ADMIN |
 | PUT | `/api/v1/admin/products/{id}/inventory` | ADMIN (set absolute `quantityOnHand`) |
 
@@ -184,18 +200,63 @@ Public reads: anonymous `GET` allowed. Checkout discount application is **P22** 
 | GET/POST | `/api/v1/admin/promotions/strategies` | ADMIN |
 | GET/PUT | `/api/v1/admin/promotions/strategies/{id}` | ADMIN |
 | PATCH | `/api/v1/admin/promotions/strategies/{id}/status` | ADMIN |
+| GET/PUT | `/api/v1/admin/promotions/strategies/{id}/translations` | ADMIN |
 | GET/POST | `/api/v1/admin/promotions/campaigns` | ADMIN |
 | GET/PUT/DELETE | `/api/v1/admin/promotions/campaigns/{id}` | ADMIN |
+| GET/PUT | `/api/v1/admin/promotions/campaigns/{id}/translations` | ADMIN |
 | PUT | `/api/v1/admin/promotions/campaigns/{id}/eligibility` | ADMIN |
 | POST | `/api/v1/admin/promotions/campaigns/{id}/activate\|pause\|schedule\|preview` | ADMIN |
 | GET/POST | `/api/v1/admin/promotions/campaigns/{id}/placements` | ADMIN |
 | GET/PUT/DELETE | `/api/v1/admin/promotions/placements/{id}` | ADMIN |
+| GET/PUT | `/api/v1/admin/promotions/placements/{id}/translations` | ADMIN |
 | GET | `/api/v1/promotions/homepage` | Public |
 | GET | `/api/v1/promotions/placements?keys=` | Public |
 
 **Campaign response fields:** `status`, `effectiveStatus`, `pricingEffective`, `placementEffective` (UTC inclusive window; manual activation only).  
 **Public homepage shape:** `{ hero: PublicPlacement[], promoTop, promoBottom }` — promo slots are single objects or `null`.  
-**Cache (R7):** Redis short TTL (`aptech.cache.promotions.*`, default 30s) + invalidate on strategy/campaign/placement create/update/activate/pause/schedule/delete.
+**Cache (R7):** Redis short TTL (`aptech.cache.promotions.*`, default 30s) + invalidate on strategy/campaign/placement create/update/activate/pause/schedule/delete. Keys include locale.
+
+### Admin translations (P34-T04) — frozen contract
+
+Separate `…/translations` endpoints (keeps existing Admin create/update bodies invariant-safe).  
+`ROLE_ADMIN` only. Locale keys must be `vi` or `en`. `translations.vi` required; `en` optional.
+
+**Product / category** — `GET|PUT /api/v1/admin/{products\|categories}/{id}/translations`
+
+```json
+{
+  "id": "…",
+  "translations": {
+    "vi": { "name": "Tên VI", "description": "…" },
+    "en": { "name": "Name EN", "description": "…" }
+  }
+}
+```
+
+Missing EN on GET returns `"en": { "name": null, "description": null }`.  
+PUT updates canonical VI base columns + translation rows in one transaction. Does not accept SKU/slug/price/inventory.
+
+**Strategy / campaign (name only)** — `GET|PUT …/strategies|campaigns/{id}/translations`
+
+```json
+{ "id": "…", "translations": { "vi": "Tên VI", "en": "Name EN" } }
+```
+
+Campaign `notes` stay non-localized on the base resource.
+
+**Placement** — `GET|PUT …/placements/{id}/translations`
+
+```json
+{
+  "id": "…",
+  "translations": {
+    "vi": { "title": "…", "subtitle": "…", "ctaLabel": "…" },
+    "en": { "title": "…", "subtitle": "…", "ctaLabel": "…" }
+  }
+}
+```
+
+Does not accept `placementKey`, CTA targets, images, or schedule.
 
 Promotion image upload: `POST /api/v1/admin/uploads/images?purpose=PROMOTION` → `/uploads/promotions/{uuid}.ext` (P18).
 

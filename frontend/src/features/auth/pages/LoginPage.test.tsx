@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
+import { changeAppLocale, i18n } from '@/lib/i18n'
 import { renderWithProviders } from '@/test/render-app'
 
 function jsonResponse(status: number, body: unknown) {
@@ -164,5 +165,20 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
     })
+  })
+
+  it('shows Vietnamese copy and validation after switching locale', async () => {
+    await changeAppLocale('vi')
+    const user = userEvent.setup()
+    renderWithProviders(<AppRouter />, { route: '/login' })
+
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('auth:login.title') }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: i18n.t('auth:login.submit') }))
+
+    expect(await screen.findByText(i18n.t('validation:emailRequired'))).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('validation:passwordRequired'))).toBeInTheDocument()
+    expect(i18n.t('auth:login.title')).not.toBe('Sign in')
   })
 })

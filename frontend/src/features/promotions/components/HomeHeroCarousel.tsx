@@ -1,5 +1,6 @@
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,7 @@ type HomeHeroCarouselProps = {
  * falls back to title-only gradient when the image fails to load.
  */
 export function HomeHeroCarousel({ slides, className }: HomeHeroCarouselProps) {
+  const { t } = useTranslation('promotions')
   const preferMobile = useMediaQuery('(max-width: 767px)', false)
   const usable = slides.filter((slide) =>
     Boolean(resolvePromotionImageUrl(slide.desktopImageUrl, slide.mobileImageUrl, preferMobile)),
@@ -74,14 +76,14 @@ export function HomeHeroCarousel({ slides, className }: HomeHeroCarouselProps) {
         )}
         role="status"
       >
-        No hero creatives available.
+        {t('carousel.empty')}
       </div>
     )
   }
 
   const nav = resolvePromotionCta(active)
-  const label = promotionCtaLabel(active)
-  const title = active.title?.trim() || 'Featured'
+  const label = promotionCtaLabel(active, t('cta.shopNow'))
+  const title = active.title?.trim() || t('carousel.featured')
   const subtitle = active.subtitle?.trim()
 
   const media = (
@@ -123,7 +125,7 @@ export function HomeHeroCarousel({ slides, className }: HomeHeroCarouselProps) {
     <div
       className={cn('relative overflow-hidden rounded-xl border border-border/70', className)}
       aria-roledescription="carousel"
-      aria-label="Homepage promotions"
+      aria-label={t('carousel.ariaLabel')}
     >
       {nav.kind === 'internal' ? (
         <Link to={nav.to} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
@@ -145,7 +147,7 @@ export function HomeHeroCarousel({ slides, className }: HomeHeroCarouselProps) {
               size="icon-sm"
               variant="secondary"
               className="pointer-events-auto bg-white/90 shadow"
-              aria-label="Previous slide"
+              aria-label={t('carousel.previous')}
               onClick={() => go(-1)}
             >
               <ChevronLeftIcon className="size-4" />
@@ -157,20 +159,20 @@ export function HomeHeroCarousel({ slides, className }: HomeHeroCarouselProps) {
               size="icon-sm"
               variant="secondary"
               className="pointer-events-auto bg-white/90 shadow"
-              aria-label="Next slide"
+              aria-label={t('carousel.next')}
               onClick={() => go(1)}
             >
               <ChevronRightIcon className="size-4" />
             </Button>
           </div>
-          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5" role="tablist" aria-label="Hero slides">
+          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5" role="tablist" aria-label={t('carousel.slidesAria')}>
             {usable.map((slide, i) => (
               <button
                 key={slide.id}
                 type="button"
                 role="tab"
                 aria-selected={i === safeIndex}
-                aria-label={`Slide ${i + 1}`}
+                aria-label={t('carousel.slideAria', { n: i + 1 })}
                 className={cn(
                   'size-2 rounded-full transition',
                   i === safeIndex ? 'bg-white' : 'bg-white/50 hover:bg-white/80',

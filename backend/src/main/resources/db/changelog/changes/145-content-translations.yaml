@@ -1,0 +1,369 @@
+databaseChangeLog:
+  # P34-T03 — Entity-specific translation tables (vi|en). Base name columns remain the
+  # canonical fallback; API resolution lands in T04; VI catalog dictionary + promo EN in T06.
+
+  - changeSet:
+      id: 145-product-translations
+      author: aptech4
+      comment: Per-locale product name/description (P34)
+      changes:
+        - createTable:
+            tableName: product_translations
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: locale
+                  type: VARCHAR(5)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+        - addForeignKeyConstraint:
+            baseTableName: product_translations
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_product_translations_product
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: product_translations
+            columnNames: product_id, locale
+            constraintName: uq_product_translations_product_locale
+        - createIndex:
+            indexName: idx_product_translations_locale
+            tableName: product_translations
+            columns:
+              - column:
+                  name: locale
+        - sql:
+            sql: >
+              ALTER TABLE product_translations
+              ADD CONSTRAINT chk_product_translations_locale
+              CHECK (locale IN ('vi', 'en'));
+      rollback:
+        - dropTable:
+            tableName: product_translations
+
+  - changeSet:
+      id: 145-category-translations
+      author: aptech4
+      comment: Per-locale category name/description (P34)
+      changes:
+        - createTable:
+            tableName: category_translations
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: category_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: locale
+                  type: VARCHAR(5)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+        - addForeignKeyConstraint:
+            baseTableName: category_translations
+            baseColumnNames: category_id
+            referencedTableName: categories
+            referencedColumnNames: id
+            constraintName: fk_category_translations_category
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: category_translations
+            columnNames: category_id, locale
+            constraintName: uq_category_translations_category_locale
+        - createIndex:
+            indexName: idx_category_translations_locale
+            tableName: category_translations
+            columns:
+              - column:
+                  name: locale
+        - sql:
+            sql: >
+              ALTER TABLE category_translations
+              ADD CONSTRAINT chk_category_translations_locale
+              CHECK (locale IN ('vi', 'en'));
+      rollback:
+        - dropTable:
+            tableName: category_translations
+
+  - changeSet:
+      id: 145-promotion-strategy-translations
+      author: aptech4
+      comment: Per-locale promotion strategy display name (P34)
+      changes:
+        - createTable:
+            tableName: promotion_strategy_translations
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: strategy_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: locale
+                  type: VARCHAR(5)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: promotion_strategy_translations
+            baseColumnNames: strategy_id
+            referencedTableName: promotion_strategies
+            referencedColumnNames: id
+            constraintName: fk_promo_strategy_translations_strategy
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: promotion_strategy_translations
+            columnNames: strategy_id, locale
+            constraintName: uq_promo_strategy_translations_strategy_locale
+        - createIndex:
+            indexName: idx_promo_strategy_translations_locale
+            tableName: promotion_strategy_translations
+            columns:
+              - column:
+                  name: locale
+        - sql:
+            sql: >
+              ALTER TABLE promotion_strategy_translations
+              ADD CONSTRAINT chk_promo_strategy_translations_locale
+              CHECK (locale IN ('vi', 'en'));
+      rollback:
+        - dropTable:
+            tableName: promotion_strategy_translations
+
+  - changeSet:
+      id: 145-promotion-campaign-translations
+      author: aptech4
+      comment: Per-locale promotion campaign display name; notes stay on base table (P34)
+      changes:
+        - createTable:
+            tableName: promotion_campaign_translations
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: campaign_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: locale
+                  type: VARCHAR(5)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(160)
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: promotion_campaign_translations
+            baseColumnNames: campaign_id
+            referencedTableName: promotion_campaigns
+            referencedColumnNames: id
+            constraintName: fk_promo_campaign_translations_campaign
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: promotion_campaign_translations
+            columnNames: campaign_id, locale
+            constraintName: uq_promo_campaign_translations_campaign_locale
+        - createIndex:
+            indexName: idx_promo_campaign_translations_locale
+            tableName: promotion_campaign_translations
+            columns:
+              - column:
+                  name: locale
+        - sql:
+            sql: >
+              ALTER TABLE promotion_campaign_translations
+              ADD CONSTRAINT chk_promo_campaign_translations_locale
+              CHECK (locale IN ('vi', 'en'));
+      rollback:
+        - dropTable:
+            tableName: promotion_campaign_translations
+
+  - changeSet:
+      id: 145-promotion-placement-translations
+      author: aptech4
+      comment: Per-locale placement title/subtitle/cta_label (P34)
+      changes:
+        - createTable:
+            tableName: promotion_placement_translations
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: placement_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: locale
+                  type: VARCHAR(5)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: title
+                  type: VARCHAR(160)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: subtitle
+                  type: VARCHAR(255)
+              - column:
+                  name: cta_label
+                  type: VARCHAR(80)
+        - addForeignKeyConstraint:
+            baseTableName: promotion_placement_translations
+            baseColumnNames: placement_id
+            referencedTableName: promotion_placements
+            referencedColumnNames: id
+            constraintName: fk_promo_placement_translations_placement
+            onDelete: CASCADE
+        - addUniqueConstraint:
+            tableName: promotion_placement_translations
+            columnNames: placement_id, locale
+            constraintName: uq_promo_placement_translations_placement_locale
+        - createIndex:
+            indexName: idx_promo_placement_translations_locale
+            tableName: promotion_placement_translations
+            columns:
+              - column:
+                  name: locale
+        - sql:
+            sql: >
+              ALTER TABLE promotion_placement_translations
+              ADD CONSTRAINT chk_promo_placement_translations_locale
+              CHECK (locale IN ('vi', 'en'));
+      rollback:
+        - dropTable:
+            tableName: promotion_placement_translations
+
+  # --- Safe backfill (set-based; no volume wipe) ---
+  # Catalog seed is currently English → copy into locale='en'.
+  # Promo seed display strings are currently Vietnamese → copy into locale='vi'.
+  # VI catalog copy + promo EN copy land in T06 with the bilingual dictionary.
+
+  - changeSet:
+      id: 145-backfill-catalog-en-translations
+      author: aptech4
+      comment: Backfill en translations from current catalog base columns (English FoodMart)
+      changes:
+        - sql:
+            sql: >
+              INSERT INTO category_translations (id, category_id, locale, name, description)
+              SELECT gen_random_uuid(), c.id, 'en', c.name, c.description
+              FROM categories c
+              WHERE NOT EXISTS (
+                SELECT 1 FROM category_translations t
+                WHERE t.category_id = c.id AND t.locale = 'en'
+              );
+        - sql:
+            sql: >
+              INSERT INTO product_translations (id, product_id, locale, name, description)
+              SELECT gen_random_uuid(), p.id, 'en', p.name, p.description
+              FROM products p
+              WHERE NOT EXISTS (
+                SELECT 1 FROM product_translations t
+                WHERE t.product_id = p.id AND t.locale = 'en'
+              );
+      rollback:
+        - sql:
+            sql: DELETE FROM product_translations WHERE locale = 'en';
+        - sql:
+            sql: DELETE FROM category_translations WHERE locale = 'en';
+
+  - changeSet:
+      id: 145-backfill-promotion-vi-translations
+      author: aptech4
+      comment: Backfill vi translations from current promotion base columns (Vietnamese demo copy)
+      changes:
+        - sql:
+            sql: >
+              INSERT INTO promotion_strategy_translations (id, strategy_id, locale, name)
+              SELECT gen_random_uuid(), s.id, 'vi', s.name
+              FROM promotion_strategies s
+              WHERE NOT EXISTS (
+                SELECT 1 FROM promotion_strategy_translations t
+                WHERE t.strategy_id = s.id AND t.locale = 'vi'
+              );
+        - sql:
+            sql: >
+              INSERT INTO promotion_campaign_translations (id, campaign_id, locale, name)
+              SELECT gen_random_uuid(), c.id, 'vi', c.name
+              FROM promotion_campaigns c
+              WHERE NOT EXISTS (
+                SELECT 1 FROM promotion_campaign_translations t
+                WHERE t.campaign_id = c.id AND t.locale = 'vi'
+              );
+        - sql:
+            sql: >
+              INSERT INTO promotion_placement_translations (id, placement_id, locale, title, subtitle, cta_label)
+              SELECT gen_random_uuid(), p.id, 'vi', p.title, p.subtitle, p.cta_label
+              FROM promotion_placements p
+              WHERE NOT EXISTS (
+                SELECT 1 FROM promotion_placement_translations t
+                WHERE t.placement_id = p.id AND t.locale = 'vi'
+              );
+      rollback:
+        - sql:
+            sql: DELETE FROM promotion_placement_translations WHERE locale = 'vi';
+        - sql:
+            sql: DELETE FROM promotion_campaign_translations WHERE locale = 'vi';
+        - sql:
+            sql: DELETE FROM promotion_strategy_translations WHERE locale = 'vi';

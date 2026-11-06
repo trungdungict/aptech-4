@@ -37,17 +37,18 @@ export type AdminInventoryListParams = {
 
 export const ADMIN_INVENTORY_DEFAULT_SORT = 'name,asc'
 
-export const ADMIN_INVENTORY_SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: 'name,asc', label: 'Name (A–Z)' },
-  { value: 'name,desc', label: 'Name (Z–A)' },
-  { value: 'sku,asc', label: 'SKU (A–Z)' },
-  { value: 'sku,desc', label: 'SKU (Z–A)' },
-  { value: 'quantityOnHand,asc', label: 'On hand (low → high)' },
-  { value: 'quantityOnHand,desc', label: 'On hand (high → low)' },
-  { value: 'quantityReserved,desc', label: 'Reserved (high → low)' },
-  { value: 'updatedAt,desc', label: 'Updated (newest)' },
-  { value: 'active,desc', label: 'Active first' },
-]
+/** `value` is the API sort token (never translated); `labelKey` is an `admin` i18n key. */
+export const ADMIN_INVENTORY_SORT_OPTIONS = [
+  { value: 'name,asc', labelKey: 'inventory.sort.nameAsc' },
+  { value: 'name,desc', labelKey: 'inventory.sort.nameDesc' },
+  { value: 'sku,asc', labelKey: 'inventory.sort.skuAsc' },
+  { value: 'sku,desc', labelKey: 'inventory.sort.skuDesc' },
+  { value: 'quantityOnHand,asc', labelKey: 'inventory.sort.onHandAsc' },
+  { value: 'quantityOnHand,desc', labelKey: 'inventory.sort.onHandDesc' },
+  { value: 'quantityReserved,desc', labelKey: 'inventory.sort.reservedDesc' },
+  { value: 'updatedAt,desc', labelKey: 'inventory.sort.updatedDesc' },
+  { value: 'active,desc', labelKey: 'inventory.sort.activeFirst' },
+] as const
 
 export function isAllowedAdminInventorySort(sort: string): boolean {
   return ADMIN_INVENTORY_SORT_OPTIONS.some((option) => option.value === sort)

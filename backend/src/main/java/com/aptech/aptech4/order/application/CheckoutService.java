@@ -179,7 +179,7 @@ public class CheckoutService {
 		);
 
 		BigDecimal subtotal = ZERO;
-		String currency = "VND";
+		String currency = "USD";
 		ShopOrder order = ShopOrder.createPending(user, address);
 		List<PricingCartLine> pricingLines = new ArrayList<>();
 

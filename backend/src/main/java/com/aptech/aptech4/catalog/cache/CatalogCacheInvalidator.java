@@ -25,12 +25,8 @@ public class CatalogCacheInvalidator {
 
 	public void onProductMutation(UUID productId) {
 		clear(CatalogCacheNames.PRODUCTS_LIST);
-		if (productId != null) {
-			evict(CatalogCacheNames.PRODUCTS_DETAIL, CatalogCacheKeys.productDetail(productId));
-		}
-		else {
-			clear(CatalogCacheNames.PRODUCTS_DETAIL);
-		}
+		// Locale-suffixed detail keys (id|vi, id|en) → clear the whole region.
+		clear(CatalogCacheNames.PRODUCTS_DETAIL);
 		log.debug("Catalog product cache invalidated productId={}", productId);
 	}
 
@@ -43,12 +39,8 @@ public class CatalogCacheInvalidator {
 
 	public void onCategoryMutation(UUID categoryId) {
 		clear(CatalogCacheNames.CATEGORIES_LIST);
-		if (categoryId != null) {
-			evict(CatalogCacheNames.CATEGORIES_DETAIL, CatalogCacheKeys.categoryDetail(categoryId));
-		}
-		else {
-			clear(CatalogCacheNames.CATEGORIES_DETAIL);
-		}
+		// Locale-suffixed detail/list keys → clear whole regions.
+		clear(CatalogCacheNames.CATEGORIES_DETAIL);
 		// Public product payloads embed category name; listings filter by active category.
 		clear(CatalogCacheNames.PRODUCTS_LIST);
 		clear(CatalogCacheNames.PRODUCTS_DETAIL);
@@ -59,13 +51,6 @@ public class CatalogCacheInvalidator {
 		Cache cache = cacheManager.getCache(cacheName);
 		if (cache != null) {
 			cache.clear();
-		}
-	}
-
-	private void evict(String cacheName, Object key) {
-		Cache cache = cacheManager.getCache(cacheName);
-		if (cache != null) {
-			cache.evict(key);
 		}
 	}
 }

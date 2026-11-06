@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -26,11 +28,12 @@ export function Pagination({
   totalPages,
   totalElements,
   pageSize = DEFAULT_LIST_PAGE_SIZE,
-  itemLabel = 'results',
+  itemLabel,
   disabled = false,
   onPageChange,
   className,
 }: PaginationProps) {
+  const { t } = useTranslation('common')
   if (totalElements <= 0 || totalPages <= 1 || totalElements <= pageSize) {
     return null
   }
@@ -49,10 +52,15 @@ export function Pagination({
         'pr-[max(0px,var(--chat-launcher-clearance-inline,0px))]',
         className,
       )}
-      aria-label="Pagination"
+      aria-label={t('pagination.aria')}
     >
       <p className="text-sm text-muted-foreground" aria-live="polite">
-        Page {safePage + 1} of {totalPages} · {totalElements} {itemLabel}
+        {t('pagination.summary', {
+          page: safePage + 1,
+          totalPages,
+          total: totalElements,
+          itemLabel: itemLabel ?? t('pagination.results'),
+        })}
       </p>
       <div className="flex flex-wrap items-center gap-1.5">
         <Button
@@ -60,20 +68,20 @@ export function Pagination({
           variant="outline"
           size="sm"
           disabled={disabled || isFirst}
-          aria-label="First page"
+          aria-label={t('pagination.firstAria')}
           onClick={() => onPageChange(0)}
         >
-          First
+          {t('pagination.first')}
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
           disabled={disabled || isFirst}
-          aria-label="Previous page"
+          aria-label={t('pagination.previousAria')}
           onClick={() => onPageChange(safePage - 1)}
         >
-          Previous
+          {t('pagination.previous')}
         </Button>
         {items.map((item, index) =>
           item === 'ellipsis' ? (
@@ -91,7 +99,7 @@ export function Pagination({
               variant={item === safePage ? 'default' : 'outline'}
               size="sm"
               disabled={disabled}
-              aria-label={`Page ${item + 1}`}
+              aria-label={t('pagination.pageAria', { page: item + 1 })}
               aria-current={item === safePage ? 'page' : undefined}
               onClick={() => onPageChange(item)}
             >
@@ -104,20 +112,20 @@ export function Pagination({
           variant="outline"
           size="sm"
           disabled={disabled || isLast}
-          aria-label="Next page"
+          aria-label={t('pagination.nextAria')}
           onClick={() => onPageChange(safePage + 1)}
         >
-          Next
+          {t('pagination.next')}
         </Button>
         <Button
           type="button"
           variant="outline"
           size="sm"
           disabled={disabled || isLast}
-          aria-label="Last page"
+          aria-label={t('pagination.lastAria')}
           onClick={() => onPageChange(totalPages - 1)}
         >
-          Last
+          {t('pagination.last')}
         </Button>
       </div>
     </nav>

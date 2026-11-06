@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,7 +23,7 @@ import { adminAlertErrorClass, adminAlertSuccessClass } from '../../lib/admin-ui
 import * as productsApi from '../../products/api/admin-products-api'
 import { adminProductQueryKeys } from '../../products/hooks/admin-product-query-keys'
 import {
-  adminInventoryFormSchema,
+  createAdminInventoryFormSchema,
   type AdminInventoryFormInput,
   type AdminInventoryFormValues,
 } from '../../products/schemas'
@@ -36,6 +37,8 @@ type Props = {
 }
 
 export function AdjustInventorySheet({ item, open, onOpenChange }: Props) {
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
   const queryClient = useQueryClient()
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -48,8 +51,9 @@ export function AdjustInventorySheet({ item, open, onOpenChange }: Props) {
     retry: false,
   })
 
+  const resolver = useMemo(() => zodResolver(createAdminInventoryFormSchema(t)), [t])
   const form = useForm<AdminInventoryFormInput, unknown, AdminInventoryFormValues>({
-    resolver: zodResolver(adminInventoryFormSchema),
+    resolver,
     defaultValues: { quantityOnHand: '0' },
   })
 
@@ -83,7 +87,7 @@ export function AdjustInventorySheet({ item, open, onOpenChange }: Props) {
     onError: (error) => {
       setSuccessMessage(null)
       setFormError(
-        error instanceof ApiClientError ? error.userMessage : 'Unable to update inventory.',
+        error instanceof ApiClientError ? error.userMessage : t('inventory.adjust.updateError'),
       )
     },
   })
@@ -98,18 +102,18 @@ export function AdjustInventorySheet({ item, open, onOpenChange }: Props) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
         <SheetHeader className="border-b border-border p-4 text-left">
-          <SheetTitle>Set on-hand quantity</SheetTitle>
+          <SheetTitle>{t('inventory.adjust.title')}</SheetTitle>
           <SheetDescription>
             {item
-              ? `${item.name} (${item.sku}). Absolute on-hand only — reserved units cannot be edited.`
-              : 'Absolute on-hand stock update.'}
+              ? t('inventory.adjust.descriptionItem', { name: item.name, sku: item.sku })
+              : t('inventory.adjust.descriptionNone')}
           </SheetDescription>
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
           {inventoryQuery.isLoading ? (
             <div role="status" aria-live="polite" className="space-y-3">
-              <p className="sr-only">Loading inventory…</p>
+              <p className="sr-only">{t('inventory.adjust.loading')}</p>
               <Skeleton className="h-20 w-full" />
               <Skeleton className="h-24 w-full" />
             </div>
@@ -118,33 +122,32 @@ export function AdjustInventorySheet({ item, open, onOpenChange }: Props) {
               <p role="alert">
                 {inventoryQuery.error instanceof ApiClientError
                   ? inventoryQuery.error.userMessage
-                  : 'Unable to load current inventory.'}
+                  : t('inventory.adjust.loadError')}
               </p>
               <Button type="button" size="sm" onClick={() => void inventoryQuery.refetch()}>
-                Retry
+                {tc('actions.retry')}
               </Button>
             </div>
           ) : (
             <>
               <dl className="grid gap-3 rounded-xl border border-border bg-muted/30 p-3 text-sm sm:grid-cols-3">
                 <div>
-                  <dt className="text-muted-foreground">On hand</dt>
+                  <dt className="text-muted-foreground">{t('inventory.adjust.onHand')}</dt>
                   <dd className="font-medium tabular-nums">{onHand}</dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Reserved</dt>
+                  <dt className="text-muted-foreground">{t('inventory.adjust.reserved')}</dt>
                   <dd className="font-medium tabular-nums" data-testid="adjust-reserved-display">
                     {reserved}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-muted-foreground">Available</dt>
+                  <dt className="text-muted-foreground">{t('inventory.adjust.available')}</dt>
                   <dd className="font-medium tabular-nums">{available}</dd>
                 </div>
               </dl>
               <p className="text-xs text-muted-foreground">
-                On-hand must be greater than or equal to reserved ({reserved}). Available = on hand −
-                reserved.
+                {t('inventory.adjust.hint', { reserved })}
               </p>
 
               <form
@@ -159,7 +162,7 @@ export function AdjustInventorySheet({ item, open, onOpenChange }: Props) {
                 })}
               >
                 <div className="space-y-1.5 text-sm">
-                  <Label htmlFor="adjust-quantity-on-hand">Quantity on hand</Label>
+                  <Label htmlFor="adjust-quantity-on-hand">{t('inventory.adjust.quantity')}</Label>
                   <Input
                     id="adjust-quantity-on-hand"
                     inputMode="numeric"
@@ -191,14 +194,14 @@ export function AdjustInventorySheet({ item, open, onOpenChange }: Props) {
 
         <SheetFooter className="border-t border-border">
           <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>
-            Close
+            {tc('actions.close')}
           </Button>
           <Button
             type="submit"
             form="adjust-inventory-form"
             disabled={busy || inventoryQuery.isLoading || inventoryQuery.isError}
           >
-            {busy ? 'Saving…' : 'Update on hand'}
+            {busy ? t('inventory.adjust.saving') : t('inventory.adjust.submit')}
           </Button>
         </SheetFooter>
       </SheetContent>

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
+import { changeAppLocale, i18n } from '@/lib/i18n'
 import { renderWithProviders } from '@/test/render-app'
 
 function jsonResponse(status: number, body: unknown) {
@@ -141,6 +142,20 @@ describe('RegisterPage', () => {
     })
     expect(screen.getAllByText(/ada lovelace/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /sign out/i })).toBeInTheDocument()
+  })
+
+  it('shows Vietnamese copy and password validation after switching locale', async () => {
+    await changeAppLocale('vi')
+    const user = userEvent.setup()
+    renderWithProviders(<AppRouter />, { route: '/register' })
+
+    await user.type(await screen.findByLabelText(i18n.t('auth:register.fullName')), 'Ada')
+    await user.type(screen.getByLabelText(i18n.t('auth:register.email')), 'ada@example.com')
+    await user.type(screen.getByLabelText(i18n.t('auth:register.password')), 'short')
+    await user.click(screen.getByRole('button', { name: i18n.t('auth:register.submit') }))
+
+    expect(await screen.findByText(i18n.t('validation:passwordMin'))).toBeInTheDocument()
+    expect(i18n.t('validation:passwordMin')).not.toMatch(/at least 8/i)
   })
 })
 

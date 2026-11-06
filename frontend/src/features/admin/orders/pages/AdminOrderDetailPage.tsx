@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ImageIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import { formatProductPrice } from '@/features/catalog/lib/format-price'
 import { OrderPriceSummary } from '@/features/orders/components/OrderPriceSummary'
 import { OrderStatusBadge } from '@/features/orders/components/OrderStatusBadge'
 import { ApiClientError } from '@/lib/api/api-error'
+import { formatDateTime } from '@/lib/i18n'
 
 import {
   adminAlertErrorClass,
@@ -22,22 +24,19 @@ import {
 import * as ordersApi from '../api/admin-orders-api'
 import { adminOrderQueryKeys } from '../hooks/admin-order-query-keys'
 import { allowedAdminTransitions } from '../lib/admin-order-transitions'
+import { useOrderStatusLabel } from '../lib/use-order-status-label'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function formatPlacedAt(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('vi-VN', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
+  return formatDateTime(iso, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 export function AdminOrderDetailPage() {
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
+  const statusLabel = useOrderStatusLabel()
   const { orderId = '' } = useParams<{ orderId: string }>()
   const idValid = UUID_RE.test(orderId)
   const queryClient = useQueryClient()
@@ -55,7 +54,7 @@ export function AdminOrderDetailPage() {
     mutationFn: (status: string) => ordersApi.updateAdminOrderStatus(orderId, { status }),
     onSuccess: async (order) => {
       setActionError(null)
-      setSuccessMessage(`Status updated to ${order.status}.`)
+      setSuccessMessage(t('orders.detail.statusUpdated', { status: statusLabel(order.status) }))
       queryClient.setQueryData(adminOrderQueryKeys.detail(orderId), order)
       await queryClient.invalidateQueries({ queryKey: adminOrderQueryKeys.lists() })
       await queryClient.invalidateQueries({ queryKey: ['notifications'] })
@@ -63,21 +62,25 @@ export function AdminOrderDetailPage() {
     onError: (error) => {
       setSuccessMessage(null)
       setActionError(
-        error instanceof ApiClientError ? error.userMessage : 'Status update failed.',
+        error instanceof ApiClientError ? error.userMessage : t('orders.detail.statusFailed'),
       )
     },
   })
 
   if (!idValid) {
     return (
-      <Unavailable title="Invalid order link" message="The order id in the URL is not valid." />
+      <Unavailable
+        title={t('orders.detail.invalidLinkTitle')}
+        message={t('orders.detail.invalidLinkMessage')}
+        backLabel={t('orders.detail.backToOrders')}
+      />
     )
   }
 
   if (orderQuery.isLoading) {
     return (
       <div className="space-y-4" role="status" aria-live="polite">
-        <p className="sr-only">Loading order…</p>
+        <p className="sr-only">{t('orders.detail.loading')}</p>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-4 w-72" />
         <div className="grid gap-4 lg:grid-cols-2">
@@ -92,8 +95,9 @@ export function AdminOrderDetailPage() {
     if (orderQuery.error instanceof ApiClientError && orderQuery.error.status === 404) {
       return (
         <Unavailable
-          title="Order unavailable"
-          message="This order was not found or is not accessible."
+          title={t('orders.detail.unavailableTitle')}
+          message={t('orders.detail.unavailableMessage')}
+          backLabel={t('orders.detail.backToOrders')}
         />
       )
     }
@@ -102,10 +106,10 @@ export function AdminOrderDetailPage() {
         <p role="alert">
           {orderQuery.error instanceof ApiClientError
             ? orderQuery.error.userMessage
-            : 'Unable to load order.'}
+            : t('orders.detail.loadError')}
         </p>
         <Button type="button" size="sm" onClick={() => void orderQuery.refetch()}>
-          Retry
+          {tc('actions.retry')}
         </Button>
       </div>
     )
@@ -120,31 +124,34 @@ export function AdminOrderDetailPage() {
 
   return (
     <section className={adminPageSectionClass}>
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+      <nav aria-label={t('shell.breadcrumb')} className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link to="/admin/orders" className="font-medium text-primary hover:underline">
-              Orders
+              {t('orders.detail.breadcrumbOrders')}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li className="font-medium text-foreground">Detail</li>
+          <li className="font-medium text-foreground">{t('orders.detail.breadcrumbDetail')}</li>
         </ol>
       </nav>
 
       <header className="space-y-3">
         <h1 className={adminPageTitleClass}>
-          Order detail
+          {t('orders.detail.title')}
         </h1>
         <p className="break-all font-mono text-xs text-muted-foreground">{order.id}</p>
         <div className="flex flex-wrap items-center gap-3">
           <OrderStatusBadge status={order.status} />
           <p className="text-sm text-muted-foreground">
-            Placed {formatPlacedAt(order.placedAt)} · Updated {formatPlacedAt(order.updatedAt)}
+            {t('orders.detail.placedUpdated', {
+              placed: formatPlacedAt(order.placedAt),
+              updated: formatPlacedAt(order.updatedAt),
+            })}
           </p>
         </div>
         <p className="text-sm text-muted-foreground">
-          Customer userId:{' '}
+          {t('orders.detail.customerUserId')}{' '}
           <span className="font-mono text-xs text-foreground">{order.userId}</span>
         </p>
       </header>
@@ -154,10 +161,10 @@ export function AdminOrderDetailPage() {
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>
-                <h2 className="text-base font-semibold">Items (price snapshots)</h2>
+                <h2 className="text-base font-semibold">{t('orders.detail.itemsTitle')}</h2>
               </CardTitle>
               <CardDescription>
-                Names and prices captured at checkout — not live catalog values.
+                {t('orders.detail.itemsDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -181,7 +188,10 @@ export function AdminOrderDetailPage() {
                         </span>
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {formatProductPrice(item.unitPrice, order.currency)} each × {item.quantity}
+                        {t('orders.detail.eachTimes', {
+                          price: formatProductPrice(item.unitPrice, order.currency),
+                          quantity: item.quantity,
+                        })}
                       </p>
                     </div>
                     <ProductPrice
@@ -198,7 +208,7 @@ export function AdminOrderDetailPage() {
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>
-                <h2 className="text-base font-semibold">Shipping snapshot</h2>
+                <h2 className="text-base font-semibold">{t('orders.detail.shippingTitle')}</h2>
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
@@ -230,25 +240,30 @@ export function AdminOrderDetailPage() {
             <Card className="shadow-sm">
               <CardHeader>
                 <CardTitle>
-                  <h2 className="text-base font-semibold">Payment (mock)</h2>
+                  <h2 className="text-base font-semibold">{t('orders.detail.paymentTitle')}</h2>
                 </CardTitle>
-                <CardDescription>As returned by the admin orders API.</CardDescription>
+                <CardDescription>{t('orders.detail.paymentDescription')}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 text-sm text-muted-foreground">
                 <p>
-                  Provider {order.payment.provider} · Status {order.payment.status}
+                  {t('orders.detail.paymentProviderStatus', {
+                    provider: order.payment.provider,
+                    status: order.payment.status,
+                  })}
                   {order.payment.providerReference
-                    ? ` · Ref ${order.payment.providerReference}`
+                    ? t('orders.detail.paymentRef', { ref: order.payment.providerReference })
                     : ''}
                 </p>
                 <p>
-                  Amount {formatProductPrice(order.payment.amount, order.payment.currency)}
+                  {t('orders.detail.paymentAmount', {
+                    amount: formatProductPrice(order.payment.amount, order.payment.currency),
+                  })}
                 </p>
                 {order.payment.failureReason ? (
-                  <p>Failure: {order.payment.failureReason}</p>
+                  <p>{t('orders.detail.paymentFailure', { reason: order.payment.failureReason })}</p>
                 ) : null}
                 <p className="text-xs">
-                  Admins cannot set PAID or FAILED via this UI — those statuses are checkout-owned.
+                  {t('orders.detail.paymentNote')}
                 </p>
               </CardContent>
             </Card>
@@ -259,7 +274,7 @@ export function AdminOrderDetailPage() {
           <Card className="sticky top-20 shadow-sm">
             <CardHeader>
               <CardTitle>
-                <h2 className="text-base font-semibold">Order summary</h2>
+                <h2 className="text-base font-semibold">{t('orders.detail.summaryTitle')}</h2>
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -277,17 +292,16 @@ export function AdminOrderDetailPage() {
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle>
-                <h2 className="text-base font-semibold">Fulfillment actions</h2>
+                <h2 className="text-base font-semibold">{t('orders.detail.fulfillmentTitle')}</h2>
               </CardTitle>
               <CardDescription>
-                Only whitelist transitions from the current status are shown. Invalid transitions
-                are rejected by the server (409).
+                {t('orders.detail.fulfillmentDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {transitions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No admin transitions available from this status.
+                  {t('orders.detail.noTransitions')}
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
@@ -299,7 +313,10 @@ export function AdminOrderDetailPage() {
                       disabled={statusMutation.isPending}
                       onClick={() => {
                         const ok = window.confirm(
-                          `Change order status from ${order.status} to ${nextStatus}?`,
+                          t('orders.detail.confirmChange', {
+                            from: statusLabel(order.status),
+                            to: statusLabel(nextStatus),
+                          }),
                         )
                         if (!ok) return
                         setActionError(null)
@@ -308,8 +325,8 @@ export function AdminOrderDetailPage() {
                       }}
                     >
                       {statusMutation.isPending && statusMutation.variables === nextStatus
-                        ? 'Updating…'
-                        : `Set ${nextStatus}`}
+                        ? tc('status.updating')
+                        : t('orders.detail.setStatus', { status: statusLabel(nextStatus) })}
                     </Button>
                   ))}
                 </div>
@@ -334,7 +351,7 @@ export function AdminOrderDetailPage() {
           </Card>
 
           <Button asChild variant="outline" className="w-full sm:w-auto">
-            <Link to="/admin/orders">Back to orders</Link>
+            <Link to="/admin/orders">{t('orders.detail.backToOrders')}</Link>
           </Button>
         </div>
       </div>
@@ -342,14 +359,22 @@ export function AdminOrderDetailPage() {
   )
 }
 
-function Unavailable({ title, message }: { title: string; message: string }) {
+function Unavailable({
+  title,
+  message,
+  backLabel,
+}: {
+  title: string
+  message: string
+  backLabel: string
+}) {
   return (
     <Card className="border-dashed shadow-none">
       <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground">{message}</p>
         <Button asChild variant="link">
-          <Link to="/admin/orders">Back to orders</Link>
+          <Link to="/admin/orders">{backLabel}</Link>
         </Button>
       </CardContent>
     </Card>

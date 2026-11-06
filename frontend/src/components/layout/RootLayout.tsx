@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { MenuIcon, SearchIcon, ShoppingCartIcon } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,9 @@ import { listCategories } from '@/features/catalog/api/catalog-api'
 import { catalogQueryKeys } from '@/features/catalog/hooks/catalog-query-keys'
 import { resolveCategoryIcon } from '@/features/catalog/lib/resolve-product-image'
 import { LazyChatPanel } from '@/features/chat/components/LazyChatPanel'
+import { CurrencySwitcher } from '@/features/i18n/components/CurrencySwitcher'
+import { LanguageSwitcher } from '@/features/i18n/components/LanguageSwitcher'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { navLinkClass } from '@/lib/nav-link-class'
@@ -28,6 +32,8 @@ const LOGO_SRC = '/assets/foodmart/images/misc/logo.png'
 
 export function RootLayout() {
   const { status, user, logout } = useAuth()
+  const { locale } = useAppLocale()
+  const { t } = useTranslation('common')
   const navigate = useNavigate()
   const isDesktop = useMediaQuery('(min-width: 768px)', true)
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -35,7 +41,7 @@ export function RootLayout() {
   const authenticated = status === 'authenticated' && user != null
 
   const categoriesQuery = useQuery({
-    queryKey: catalogQueryKeys.categories(),
+    queryKey: catalogQueryKeys.categories(locale),
     queryFn: ({ signal }) => listCategories(signal),
     staleTime: 60_000,
   })
@@ -65,7 +71,7 @@ export function RootLayout() {
       onSubmit={onSearch}
       className="flex w-full max-w-xl items-center gap-2"
       role="search"
-      aria-label="Product search"
+      aria-label={t('search.formAria')}
     >
       <div className="relative min-w-0 flex-1">
         <SearchIcon
@@ -75,13 +81,13 @@ export function RootLayout() {
         <Input
           value={searchQ}
           onChange={(event) => setSearchQ(event.target.value)}
-          placeholder="Search groceries…"
+          placeholder={t('search.placeholder')}
           className="h-10 border-border bg-background pl-9"
-          aria-label="Search products"
+          aria-label={t('search.inputAria')}
         />
       </div>
       <Button type="submit" size="default" className="shrink-0">
-        Search
+        {t('search.submit')}
       </Button>
     </form>
   )
@@ -92,7 +98,7 @@ export function RootLayout() {
       className={({ isActive }) => navLinkClass(isActive)}
       onClick={closeMobile}
     >
-      Catalog
+      {t('nav.catalog')}
     </NavLink>
   )
 
@@ -103,10 +109,10 @@ export function RootLayout() {
         `${navLinkClass(isActive)} inline-flex items-center gap-1.5`
       }
       onClick={closeMobile}
-      aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : 'Cart'}
+      aria-label={cartCount > 0 ? t('nav.cartWithCount', { count: cartCount }) : t('nav.cart')}
     >
       <ShoppingCartIcon className="size-4" aria-hidden="true" />
-      <span>Cart</span>
+      <span>{t('nav.cart')}</span>
       {authenticated && cartCount > 0 ? (
         <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums">
           {cartCount > 99 ? '99+' : cartCount}
@@ -117,7 +123,7 @@ export function RootLayout() {
 
   const authLinks = status === 'booting' ? (
     <span className="px-3 py-2 text-sm text-muted-foreground" role="status">
-      Loading…
+      {t('nav.loading')}
     </span>
   ) : authenticated ? (
     <>
@@ -127,7 +133,7 @@ export function RootLayout() {
         className={({ isActive }) => navLinkClass(isActive)}
         onClick={closeMobile}
       >
-        Orders
+        {t('nav.orders')}
       </NavLink>
     </>
   ) : (
@@ -137,11 +143,11 @@ export function RootLayout() {
         className={({ isActive }) => navLinkClass(isActive)}
         onClick={closeMobile}
       >
-        Sign in
+        {t('nav.signIn')}
       </NavLink>
       <Button asChild size="sm">
         <Link to="/register" onClick={closeMobile}>
-          Register
+          {t('nav.register')}
         </Link>
       </Button>
     </>
@@ -153,8 +159,8 @@ export function RootLayout() {
     <div className="flex min-h-screen flex-col bg-background">
       <div className="border-b border-border/70 bg-[#1d2b2a] text-[11px] text-white/85 sm:text-xs">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 sm:px-6">
-          <p>Aptech-4 grocery storefront · Live catalog from the API</p>
-          <p className="text-white/70">Demo checkout only — not a live payment gateway</p>
+          <p>{t('banner.tagline')}</p>
+          <p className="text-white/70">{t('banner.demoOnly')}</p>
         </div>
       </div>
 
@@ -168,19 +174,19 @@ export function RootLayout() {
                     type="button"
                     variant="outline"
                     size="icon"
-                    aria-label="Open menu"
+                    aria-label={t('nav.openMenu')}
                     onClick={() => setMobileOpen(true)}
                   >
                     <MenuIcon className="size-4" />
                   </Button>
                   <SheetContent side="left" className="w-[min(100%,20rem)] p-0 sm:max-w-xs">
                     <SheetHeader className="border-b border-border p-4 text-left">
-                      <SheetTitle>Menu</SheetTitle>
-                      <SheetDescription>Grocery storefront navigation</SheetDescription>
+                      <SheetTitle>{t('nav.menu')}</SheetTitle>
+                      <SheetDescription>{t('nav.menuDescription')}</SheetDescription>
                     </SheetHeader>
                     <div className="space-y-3 p-3">
                       {searchForm}
-                      <nav className="flex flex-col gap-1" aria-label="Storefront menu">
+                      <nav className="flex flex-col gap-1" aria-label={t('nav.storefrontMenu')}>
                         {catalogLink}
                         {authLinks}
                         {authenticated ? (
@@ -198,7 +204,7 @@ export function RootLayout() {
                                 void logout()
                               }}
                             >
-                              Sign out
+                              {t('nav.signOut')}
                             </Button>
                           </>
                         ) : null}
@@ -206,7 +212,7 @@ export function RootLayout() {
                       {categories.length > 0 ? (
                         <div className="space-y-1 border-t border-border pt-3">
                           <p className="px-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-                            Categories
+                            {t('nav.categories')}
                           </p>
                           <ul className="flex flex-col gap-0.5">
                             {categories.map((category) => (
@@ -242,7 +248,7 @@ export function RootLayout() {
                   width={241}
                   height={54}
                 />
-                <span className="sr-only">Aptech-4 home</span>
+                <span className="sr-only">{t('nav.homeSr')}</span>
               </Link>
             </div>
 
@@ -251,7 +257,9 @@ export function RootLayout() {
             ) : null}
 
             {isDesktop ? (
-              <nav className="flex shrink-0 items-center gap-1" aria-label="Storefront">
+              <nav className="flex shrink-0 items-center gap-1" aria-label={t('nav.storefront')}>
+                <LanguageSwitcher />
+                <CurrencySwitcher />
                 {catalogLink}
                 {authLinks}
                 {authenticated ? (
@@ -268,20 +276,22 @@ export function RootLayout() {
                         void logout()
                       }}
                     >
-                      Sign out
+                      {t('nav.signOut')}
                     </Button>
                   </>
                 ) : null}
               </nav>
             ) : (
               <div className="flex shrink-0 items-center gap-2">
+                <LanguageSwitcher />
+                <CurrencySwitcher />
                 {authenticated ? (
                   <>
                     <NotificationBell key={user.id} />
                     <Link
                       to="/cart"
                       className="relative inline-flex size-9 items-center justify-center rounded-md border border-border bg-card"
-                      aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : 'Cart'}
+                      aria-label={cartCount > 0 ? t('nav.cartWithCount', { count: cartCount }) : t('nav.cart')}
                     >
                       <ShoppingCartIcon className="size-4" />
                       {cartCount > 0 ? (
@@ -294,7 +304,7 @@ export function RootLayout() {
                 ) : null}
                 {!authenticated && status !== 'booting' ? (
                   <Button asChild size="sm" variant="default">
-                    <Link to="/register">Register</Link>
+                    <Link to="/register">{t('nav.register')}</Link>
                   </Button>
                 ) : null}
               </div>
@@ -307,7 +317,7 @@ export function RootLayout() {
         {categories.length > 0 ? (
           <nav
             className="hidden border-t border-border/70 bg-[#f7faf8] md:block"
-            aria-label="Product categories"
+            aria-label={t('nav.productCategories')}
           >
             <ul className="mx-auto flex w-full max-w-7xl gap-1 overflow-x-auto px-4 py-2 sm:px-6">
               {categories.map((category) => (
@@ -346,41 +356,40 @@ export function RootLayout() {
               height={54}
             />
             <p className="max-w-sm text-sm text-white/70">
-              Aptech-4 customer storefront with a FoodMart-inspired grocery look. Catalog, cart, and
-              orders use the live API; payment remains demo-only.
+              {t('footer.blurb')}
             </p>
           </div>
           <div className="space-y-2 text-sm">
-            <p className="font-semibold text-white">Shop</p>
+            <p className="font-semibold text-white">{t('footer.shop')}</p>
             <ul className="space-y-1.5 text-white/75">
               <li>
                 <Link className="hover:text-white" to="/products">
-                  Catalog
+                  {t('nav.catalog')}
                 </Link>
               </li>
               <li>
                 <Link className="hover:text-white" to="/cart">
-                  Cart
+                  {t('nav.cart')}
                 </Link>
               </li>
               <li>
                 <Link className="hover:text-white" to="/orders">
-                  Orders
+                  {t('nav.orders')}
                 </Link>
               </li>
             </ul>
           </div>
           <div className="space-y-2 text-sm">
-            <p className="font-semibold text-white">Account</p>
+            <p className="font-semibold text-white">{t('footer.account')}</p>
             <ul className="space-y-1.5 text-white/75">
               <li>
                 <Link className="hover:text-white" to="/login">
-                  Sign in
+                  {t('nav.signIn')}
                 </Link>
               </li>
               <li>
                 <Link className="hover:text-white" to="/register">
-                  Register
+                  {t('nav.register')}
                 </Link>
               </li>
             </ul>
@@ -388,9 +397,9 @@ export function RootLayout() {
         </div>
         <div className="border-t border-white/10">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 py-4 text-center text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left">
-            <p>Customer cart, mock checkout, and orders — payment is demo-only.</p>
+            <p>{t('footer.paymentNote')}</p>
             <p>
-              Free HTML Template by{' '}
+              {t('footer.templateBy')}{' '}
               <a
                 className="underline underline-offset-2 hover:text-white"
                 href="https://templatesjungle.com/"
@@ -399,7 +408,7 @@ export function RootLayout() {
               >
                 TemplatesJungle
               </a>{' '}
-              Distributed by{' '}
+              {t('footer.distributedBy')}{' '}
               <a
                 className="underline underline-offset-2 hover:text-white"
                 href="https://themewagon.com/themes/foodmart/"

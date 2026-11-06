@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ApiClientError } from '@/lib/api/api-error'
+import { NameTranslationsEditor } from '@/features/admin/translations'
 
 import {
   adminAlertErrorClass,
@@ -22,11 +24,14 @@ import {
 import * as api from '../api/admin-promotions-api'
 import { adminPromotionQueryKeys } from '../hooks/admin-promotion-query-keys'
 import {
-  adminStrategyFormSchema,
+  createAdminStrategyFormSchema,
   type AdminStrategyFormInput,
   type AdminStrategyFormValues,
 } from '../schemas'
 import { STRATEGY_TYPES } from '../types'
+
+/** Admin base PUT writes the canonical VI column, so edit forms always read VI text. */
+const CANONICAL_LOCALE = 'vi' as const
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -39,18 +44,21 @@ export function AdminStrategyFormPage({ mode }: { mode: Mode }) {
   const idValid = !isEdit || UUID_RE.test(strategyId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation('admin')
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const strategyQuery = useQuery({
-    queryKey: adminPromotionQueryKeys.strategy(strategyId),
-    queryFn: ({ signal }) => api.getAdminStrategy(strategyId, signal),
+    queryKey: adminPromotionQueryKeys.strategy(CANONICAL_LOCALE, strategyId),
+    queryFn: ({ signal }) => api.getAdminStrategy(strategyId, signal, CANONICAL_LOCALE),
     enabled: isEdit && idValid,
     retry: false,
   })
 
+  const resolver = useMemo(() => zodResolver(createAdminStrategyFormSchema(t)), [t])
+
   const form = useForm<AdminStrategyFormInput, unknown, AdminStrategyFormValues>({
-    resolver: zodResolver(adminStrategyFormSchema),
+    resolver,
     defaultValues: {
       name: '',
       code: '',
@@ -107,17 +115,17 @@ export function AdminStrategyFormPage({ mode }: { mode: Mode }) {
     },
     onSuccess: async (saved) => {
       setFormError(null)
-      setSuccessMessage(isEdit ? 'Strategy updated.' : 'Strategy created.')
+      setSuccessMessage(isEdit ? t('promotions.strategies.form.updated') : t('promotions.strategies.form.created'))
       await queryClient.invalidateQueries({ queryKey: adminPromotionQueryKeys.all })
       void navigate(`/admin/promotions/strategies/${saved.id}/edit`, { replace: true })
     },
     onError: (error) => {
-      setFormError(error instanceof ApiClientError ? error.userMessage : 'Unable to save strategy.')
+      setFormError(error instanceof ApiClientError ? error.userMessage : t('promotions.strategies.form.saveError'))
     },
   })
 
   if (isEdit && !idValid) {
-    return <p className={adminAlertErrorClass}>Invalid strategy id.</p>
+    return <p className={adminAlertErrorClass}>{t('promotions.strategies.form.invalidId')}</p>
   }
 
   if (isEdit && strategyQuery.isLoading) {
@@ -134,7 +142,7 @@ export function AdminStrategyFormPage({ mode }: { mode: Mode }) {
       <p className={adminAlertErrorClass} role="alert">
         {strategyQuery.error instanceof ApiClientError
           ? strategyQuery.error.userMessage
-          : 'Strategy not found.'}
+          : t('promotions.strategies.form.notFound')}
       </p>
     )
   }
@@ -144,16 +152,16 @@ export function AdminStrategyFormPage({ mode }: { mode: Mode }) {
   return (
     <section className={`mx-auto max-w-2xl ${adminPageSectionClass}`}>
       <div className="space-y-2">
-        <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+        <nav aria-label={t('shell.breadcrumb')} className="text-sm text-muted-foreground">
           <Link to="/admin/promotions/strategies" className="font-medium text-primary hover:underline">
-            Strategies
+            {t('promotions.breadcrumb.strategies')}
           </Link>
           <span aria-hidden="true"> / </span>
-          <span className="text-foreground">{isEdit ? 'Edit' : 'New'}</span>
+          <span className="text-foreground">{isEdit ? t('promotions.breadcrumb.edit') : t('promotions.breadcrumb.new')}</span>
         </nav>
-        <h1 className={adminPageTitleClass}>{isEdit ? 'Edit strategy' : 'Create strategy'}</h1>
+        <h1 className={adminPageTitleClass}>{isEdit ? t('promotions.strategies.form.editTitle') : t('promotions.strategies.form.createTitle')}</h1>
         <p className={adminPageLeadClass}>
-          Server validates discount fields by type. Backend remains authoritative.
+          {t('promotions.strategies.form.lead')}
         </p>
       </div>
 
@@ -166,7 +174,7 @@ export function AdminStrategyFormPage({ mode }: { mode: Mode }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Strategy configuration</CardTitle>
+          <CardTitle className="text-base">{t('promotions.strategies.form.configTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -174,13 +182,18 @@ export function AdminStrategyFormPage({ mode }: { mode: Mode }) {
             onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
             noValidate
           >
-            <Field id="strategy-name" label="Name" error={form.formState.errors.name?.message}>
+            <Field id="strategy-name" label={t('promotions.strategies.form.name')} error={form.formState.errors.name?.message}>
               <Input id="strategy-name" {...form.register('name')} />
             </Field>
-            <Field id="strategy-code" label="Code (optional)" error={form.formState.errors.code?.message}>
+            <p className="-mt-2 text-xs text-muted-foreground" data-testid="strategy-canonical-note">
+              {isEdit
+                ? t('promotions.strategies.form.canonicalNote')
+                : t('promotions.strategies.form.createHint')}
+            </p>
+            <Field id="strategy-code" label={t('promotions.strategies.form.code')} error={form.formState.errors.code?.message}>
               <Input id="strategy-code" {...form.register('code')} />
             </Field>
-            <Field id="strategy-type" label="Type" error={form.formState.errors.type?.message}>
+            <Field id="strategy-type" label={t('promotions.strategies.form.type')} error={form.formState.errors.type?.message}>
               <select id="strategy-type" className={adminNativeSelectClass} {...form.register('type')}>
                 {STRATEGY_TYPES.map((item) => (
                   <option key={item} value={item}>
@@ -191,51 +204,53 @@ export function AdminStrategyFormPage({ mode }: { mode: Mode }) {
             </Field>
             {type !== 'BANNER_ONLY' ? (
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field id="discount-percent" label="Discount %" error={form.formState.errors.discountPercent?.message}>
+                <Field id="discount-percent" label={t('promotions.strategies.form.discountPercent')} error={form.formState.errors.discountPercent?.message}>
                   <Input id="discount-percent" type="number" step="0.01" {...form.register('discountPercent')} />
                 </Field>
-                <Field id="discount-amount" label="Discount amount" error={form.formState.errors.discountAmount?.message}>
+                <Field id="discount-amount" label={t('promotions.strategies.form.discountAmount')} error={form.formState.errors.discountAmount?.message}>
                   <Input id="discount-amount" type="number" step="0.01" {...form.register('discountAmount')} />
                 </Field>
-                <Field id="max-discount" label="Max discount" error={form.formState.errors.maxDiscountAmount?.message}>
+                <Field id="max-discount" label={t('promotions.strategies.form.maxDiscount')} error={form.formState.errors.maxDiscountAmount?.message}>
                   <Input id="max-discount" type="number" step="0.01" {...form.register('maxDiscountAmount')} />
                 </Field>
-                <Field id="min-order" label="Min order amount" error={form.formState.errors.minOrderAmount?.message}>
+                <Field id="min-order" label={t('promotions.strategies.form.minOrder')} error={form.formState.errors.minOrderAmount?.message}>
                   <Input id="min-order" type="number" step="0.01" {...form.register('minOrderAmount')} />
                 </Field>
-                <Field id="min-qty" label="Min quantity" error={form.formState.errors.minQuantity?.message}>
+                <Field id="min-qty" label={t('promotions.strategies.form.minQuantity')} error={form.formState.errors.minQuantity?.message}>
                   <Input id="min-qty" type="number" step="1" {...form.register('minQuantity')} />
                 </Field>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                BANNER_ONLY strategies never affect checkout totals (placements only).
+                {t('promotions.strategies.form.bannerNote')}
               </p>
             )}
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field id="strategy-priority" label="Priority" error={form.formState.errors.priority?.message}>
+              <Field id="strategy-priority" label={t('promotions.strategies.form.priority')} error={form.formState.errors.priority?.message}>
                 <Input id="strategy-priority" type="number" {...form.register('priority')} />
               </Field>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" {...form.register('stackable')} />
-                Stackable (default for new campaigns)
+                {t('promotions.strategies.form.stackable')}
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" {...form.register('active')} />
-                Active
+                {t('promotions.strategies.form.active')}
               </label>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? 'Saving…' : 'Save strategy'}
+                {saveMutation.isPending ? t('promotions.strategies.form.saving') : t('promotions.strategies.form.save')}
               </Button>
               <Button asChild type="button" variant="outline">
-                <Link to="/admin/promotions/strategies">Cancel</Link>
+                <Link to="/admin/promotions/strategies">{t('promotions.strategies.form.cancel')}</Link>
               </Button>
             </div>
           </form>
         </CardContent>
       </Card>
+
+      {isEdit ? <NameTranslationsEditor kind="strategy" entityId={strategyId} /> : null}
     </section>
   )
 }

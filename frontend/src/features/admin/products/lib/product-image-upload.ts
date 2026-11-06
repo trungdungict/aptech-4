@@ -1,4 +1,5 @@
 import { productImageAllowedTypes, productImageMaxSizeBytes } from '@/lib/env'
+import { i18n } from '@/lib/i18n'
 
 export type ProductImageClientValidation =
 	| { ok: true }
@@ -10,19 +11,25 @@ export type ProductImageClientValidation =
  */
 export function validateProductImageFile(file: File): ProductImageClientValidation {
 	if (!file || file.size <= 0) {
-		return { ok: false, message: 'Choose a non-empty image file.' }
+		return { ok: false, message: i18n.t('products.image.errors.empty', { ns: 'admin' }) }
 	}
 	if (file.size >= productImageMaxSizeBytes) {
 		return {
 			ok: false,
-			message: `Image must be smaller than ${formatBytes(productImageMaxSizeBytes)}.`,
+			message: i18n.t('products.image.errors.tooLarge', {
+				ns: 'admin',
+				max: formatBytes(productImageMaxSizeBytes),
+			}),
 		}
 	}
 	const type = (file.type || '').toLowerCase()
 	if (!productImageAllowedTypes.includes(type)) {
 		return {
 			ok: false,
-			message: `Unsupported format. Allowed: ${productImageAllowedTypes.join(', ')}.`,
+			message: i18n.t('products.image.errors.unsupported', {
+				ns: 'admin',
+				types: productImageAllowedTypes.join(', '),
+			}),
 		}
 	}
 	return { ok: true }

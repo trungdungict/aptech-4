@@ -1,13 +1,16 @@
 import type { InventoryStockBucket } from '../types'
 
-export function stockBucketLabel(bucket: InventoryStockBucket): string {
+/** `admin` i18n key for the localized stock badge label (bucket enum itself is never translated). */
+export function stockBucketLabelKey(
+  bucket: InventoryStockBucket,
+): 'inventory.stock.inStock' | 'inventory.stock.low' | 'inventory.stock.out' {
   switch (bucket) {
     case 'IN_STOCK':
-      return 'In stock'
+      return 'inventory.stock.inStock'
     case 'LOW':
-      return 'Low stock'
+      return 'inventory.stock.low'
     case 'OUT':
-      return 'Out of stock'
+      return 'inventory.stock.out'
   }
 }
 

@@ -4,6 +4,8 @@ import { expect, test, type Page } from '@playwright/test'
  * Headed/headless browser coverage for Admin Inventory + Analytics.
  * Requires: running stack on WEB_PORT (make deploy-local / up-all), seeded demo,
  * DEMO_ADMIN_EMAIL/PASSWORD and DEMO_CUSTOMER_EMAIL/PASSWORD in the environment.
+ *
+ * Pins `aptech4.locale=en` so assertions stay stable after P34-T08 (app default is `vi`).
  */
 
 function requireEnv(name: string): string {
@@ -12,6 +14,13 @@ function requireEnv(name: string): string {
     throw new Error(`${name} is required for e2e (source repo .env via make e2e-inventory-analytics)`)
   }
   return value
+}
+
+/** Force English UI chrome for deterministic Playwright matchers (bilingual-safe alternative: data-testid). */
+async function pinEnglishLocale(page: Page) {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('aptech4.locale', 'en')
+  })
 }
 
 async function loginAs(page: Page, email: string, password: string) {
@@ -27,6 +36,10 @@ test.describe('Admin inventory + analytics browser E2E', () => {
   const adminPassword = requireEnv('DEMO_ADMIN_PASSWORD')
   const customerEmail = requireEnv('DEMO_CUSTOMER_EMAIL')
   const customerPassword = requireEnv('DEMO_CUSTOMER_PASSWORD')
+
+  test.beforeEach(async ({ page }) => {
+    await pinEnglishLocale(page)
+  })
 
   test('customer is denied admin inventory', async ({ page }) => {
     await loginAs(page, customerEmail, customerPassword)

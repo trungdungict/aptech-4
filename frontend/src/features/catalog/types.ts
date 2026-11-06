@@ -52,13 +52,22 @@ export const PRODUCT_DEFAULT_PAGE_SIZE = 10
 export const PRODUCT_MAX_PAGE_SIZE = 100
 export const PRODUCT_DEFAULT_SORT = 'name,asc'
 
-export const PRODUCT_SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: 'name,asc', label: 'Name (A–Z)' },
-  { value: 'name,desc', label: 'Name (Z–A)' },
-  { value: 'price,asc', label: 'Price (low → high)' },
-  { value: 'price,desc', label: 'Price (high → low)' },
-  { value: 'createdAt,desc', label: 'Newest' },
-  { value: 'createdAt,asc', label: 'Oldest' },
+/** i18n key inside the `catalog` namespace (`catalog:sort.*`). */
+export type ProductSortLabelKey =
+  | 'sort.nameAsc'
+  | 'sort.nameDesc'
+  | 'sort.priceAsc'
+  | 'sort.priceDesc'
+  | 'sort.newest'
+  | 'sort.oldest'
+
+export const PRODUCT_SORT_OPTIONS: { value: string; labelKey: ProductSortLabelKey }[] = [
+  { value: 'name,asc', labelKey: 'sort.nameAsc' },
+  { value: 'name,desc', labelKey: 'sort.nameDesc' },
+  { value: 'price,asc', labelKey: 'sort.priceAsc' },
+  { value: 'price,desc', labelKey: 'sort.priceDesc' },
+  { value: 'createdAt,desc', labelKey: 'sort.newest' },
+  { value: 'createdAt,asc', labelKey: 'sort.oldest' },
 ]
 
 export function isAllowedProductSort(sort: string): boolean {

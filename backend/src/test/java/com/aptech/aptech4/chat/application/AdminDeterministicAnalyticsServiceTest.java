@@ -87,7 +87,7 @@ class AdminDeterministicAnalyticsServiceTest {
 		Map<String, Object> summary = new LinkedHashMap<>();
 		summary.put("from", "2026-09-29T00:00:00Z");
 		summary.put("to", "2026-10-29T00:00:00Z");
-		summary.put("currency", "VND");
+		summary.put("currency", "USD");
 		summary.put("orderCount", 56L);
 		summary.put("revenueTotal", new BigDecimal("219737000.00"));
 		summary.put("revenueStatuses", List.of("PAID", "PROCESSING", "SHIPPED", "COMPLETED"));
@@ -101,7 +101,7 @@ class AdminDeterministicAnalyticsServiceTest {
 
 		assertThat(answer.reply()).contains("56");
 		assertThat(answer.reply()).contains("219737000");
-		assertThat(answer.reply()).contains("VND");
+		assertThat(answer.reply()).contains("USD");
 		assertThat(answer.reply()).doesNotContain("getSalesSummary");
 		assertThat(answer.timing().path()).isEqualTo("deterministic_sales");
 	}

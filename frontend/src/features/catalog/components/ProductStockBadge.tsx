@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { Badge } from '@/components/ui/badge'
 
 type ProductStockBadgeProps = {
@@ -5,11 +7,12 @@ type ProductStockBadgeProps = {
 }
 
 export function ProductStockBadge({ inStock }: ProductStockBadgeProps) {
+  const { t } = useTranslation('catalog')
   if (inStock === true) {
-    return <Badge variant="success">In stock</Badge>
+    return <Badge variant="success">{t('stock.inStock')}</Badge>
   }
   if (inStock === false) {
-    return <Badge variant="destructive">Out of stock</Badge>
+    return <Badge variant="destructive">{t('stock.outOfStock')}</Badge>
   }
-  return <Badge variant="secondary">Stock unknown</Badge>
+  return <Badge variant="secondary">{t('stock.unknown')}</Badge>
 }

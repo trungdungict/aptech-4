@@ -230,13 +230,13 @@ public class DemoJourneySeedService {
 			order.addItem(item);
 			subtotal = subtotal.add(item.getLineTotal());
 		}
-		order.setCurrency("VND");
+		order.setCurrency("USD");
 		order.setSubtotalAmount(subtotal);
 		order.setShippingAmount(BigDecimal.ZERO);
 		order.setTotalAmount(subtotal);
 		order.setStatus(orderStatus);
 
-		Payment payment = Payment.mockPending(order, subtotal, "VND");
+		Payment payment = Payment.mockPending(order, subtotal, "USD");
 		payment.setStatus(paymentStatus);
 		if (paymentStatus == PaymentStatus.SUCCEEDED) {
 			payment.setProviderReference("SEED-" + orderStatus.name() + "-" + user.getId().toString().substring(0, 8));

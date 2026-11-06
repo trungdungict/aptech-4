@@ -27,19 +27,22 @@ public class PromotionPlacementService {
 	private final ProductRepository productRepository;
 	private final CategoryRepository categoryRepository;
 	private final PromotionCacheInvalidator promotionCacheInvalidator;
+	private final PromotionLocalizationService promotionLocalizationService;
 
 	public PromotionPlacementService(
 			PromotionPlacementRepository placementRepository,
 			PromotionCampaignRepository campaignRepository,
 			ProductRepository productRepository,
 			CategoryRepository categoryRepository,
-			PromotionCacheInvalidator promotionCacheInvalidator
+			PromotionCacheInvalidator promotionCacheInvalidator,
+			PromotionLocalizationService promotionLocalizationService
 	) {
 		this.placementRepository = placementRepository;
 		this.campaignRepository = campaignRepository;
 		this.productRepository = productRepository;
 		this.categoryRepository = categoryRepository;
 		this.promotionCacheInvalidator = promotionCacheInvalidator;
+		this.promotionLocalizationService = promotionLocalizationService;
 	}
 
 	@Transactional(readOnly = true)
@@ -78,6 +81,7 @@ public class PromotionPlacementService {
 				request.enabled() == null || request.enabled()
 		);
 		placement = placementRepository.saveAndFlush(placement);
+		promotionLocalizationService.syncCanonicalViPlacement(placement);
 		promotionCacheInvalidator.onPromotionMutation();
 		return PromotionPlacementResponse.from(placement);
 	}
@@ -104,6 +108,7 @@ public class PromotionPlacementService {
 				request.enabled() == null ? placement.isEnabled() : request.enabled()
 		);
 		placement = placementRepository.saveAndFlush(placement);
+		promotionLocalizationService.syncCanonicalViPlacement(placement);
 		promotionCacheInvalidator.onPromotionMutation();
 		return PromotionPlacementResponse.from(placement);
 	}
@@ -111,7 +116,7 @@ public class PromotionPlacementService {
 	@Transactional
 	public void delete(UUID id) {
 		if (!placementRepository.existsById(id)) {
-			throw new ApiException(HttpStatus.NOT_FOUND, "Not Found", "Promotion placement not found");
+			throw ApiException.keyed(HttpStatus.NOT_FOUND, "Not Found", "api.error.not_found.placement");
 		}
 		placementRepository.deleteById(id);
 		placementRepository.flush();
@@ -155,13 +160,13 @@ public class PromotionPlacementService {
 
 	private PromotionPlacement require(UUID id) {
 		return placementRepository.findById(id).orElseThrow(() ->
-				new ApiException(HttpStatus.NOT_FOUND, "Not Found", "Promotion placement not found")
+				ApiException.keyed(HttpStatus.NOT_FOUND, "Not Found", "api.error.not_found.placement")
 		);
 	}
 
 	private PromotionCampaign requireCampaign(UUID id) {
 		return campaignRepository.findByIdWithStrategy(id).orElseThrow(() ->
-				new ApiException(HttpStatus.NOT_FOUND, "Not Found", "Promotion campaign not found")
+				ApiException.keyed(HttpStatus.NOT_FOUND, "Not Found", "api.error.not_found.campaign")
 		);
 	}
 }

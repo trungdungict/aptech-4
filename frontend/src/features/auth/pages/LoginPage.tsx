@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -10,21 +11,25 @@ import { safeInternalPath } from '@/lib/safe-redirect'
 
 import { AuthFormField } from '../components/AuthFormField'
 import { useAuth } from '../hooks/useAuth'
-import { loginSchema, type LoginFormValues } from '../schemas'
+import { createLoginSchema, type LoginFormValues } from '../schemas'
 
 export function LoginPage() {
+  const { t } = useTranslation('auth')
+  const { t: tv } = useTranslation('validation')
   const { login } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [formError, setFormError] = useState<string | null>(null)
   const nextPath = safeInternalPath(searchParams.get('next'), '/')
 
+  const resolver = useMemo(() => zodResolver(createLoginSchema(tv)), [tv])
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+    resolver,
     defaultValues: { email: '', password: '' },
   })
 
@@ -39,7 +44,7 @@ export function LoginPage() {
         setFormError(error.userMessage)
       }
       else {
-        setFormError('Unable to sign in. Please try again.')
+        setFormError(t('login.unknownError'))
       }
     }
   })
@@ -47,9 +52,9 @@ export function LoginPage() {
   return (
     <section className="mx-auto w-full max-w-md space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Sign in</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('login.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Use your Aptech-4 customer account. Demo credentials come from seed, not this form.
+          {t('login.subtitle')}
         </p>
       </div>
 
@@ -58,7 +63,7 @@ export function LoginPage() {
           <form className="space-y-4" onSubmit={onSubmit} noValidate>
             <AuthFormField
               id="login-email"
-              label="Email"
+              label={t('login.email')}
               type="email"
               autoComplete="email"
               disabled={isSubmitting}
@@ -67,7 +72,7 @@ export function LoginPage() {
             />
             <AuthFormField
               id="login-password"
-              label="Password"
+              label={t('login.password')}
               type="password"
               autoComplete="current-password"
               disabled={isSubmitting}
@@ -82,16 +87,16 @@ export function LoginPage() {
             ) : null}
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Signing in…' : 'Sign in'}
+              {isSubmitting ? t('login.submitting') : t('login.submit')}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       <p className="text-center text-sm text-muted-foreground">
-        No account yet?{' '}
+        {t('login.noAccount')}{' '}
         <Link className="font-medium text-primary underline-offset-4 hover:underline" to="/register">
-          Create one
+          {t('login.createOne')}
         </Link>
       </p>
     </section>

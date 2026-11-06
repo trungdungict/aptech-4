@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
+import { changeAppLocale, i18n } from '@/lib/i18n'
 import { demoCustomerSession, renderWithProviders } from '@/test/render-app'
 
 function jsonResponse(status: number, body: unknown) {
@@ -168,5 +169,24 @@ describe('CartPage', () => {
     expect(vi.mocked(fetch).mock.calls.some(([input, init]) => {
       return String(input).includes('/cart/items/bbbbbbbb') && init?.method === 'DELETE'
     })).toBe(true)
+  })
+
+  it('renders Vietnamese cart chrome after switching locale', async () => {
+    await changeAppLocale('vi')
+    mockFetchRouter((url) => {
+      if (url.endsWith('/cart') || url.includes('/api/v1/cart')) {
+        return jsonResponse(200, cartFixture)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, { route: '/cart', session: demoCustomerSession })
+
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('cart:title') }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText(/demo smartphone x/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: i18n.t('cart:checkout') })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: i18n.t('cart:clearCart') })).toBeInTheDocument()
   })
 })

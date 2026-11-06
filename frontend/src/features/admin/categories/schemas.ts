@@ -1,14 +1,26 @@
 import { z } from 'zod'
 
-/** Aligns with backend CategoryCreateRequest / CategoryUpdateRequest (slug is server-generated). */
-export const adminCategoryFormSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long'),
-  description: z.string().max(4000, 'Description is too long').optional().or(z.literal('')),
-  parentId: z
-    .string()
-    .uuid('Invalid parent category')
-    .or(z.literal(''))
-    .optional(),
-})
+import type { AdminT } from '../lib/admin-i18n'
 
-export type AdminCategoryFormValues = z.infer<typeof adminCategoryFormSchema>
+/** Aligns with backend CategoryCreateRequest / CategoryUpdateRequest (slug is server-generated). */
+export function createAdminCategoryFormSchema(t: AdminT) {
+  return z.object({
+    name: z
+      .string()
+      .trim()
+      .min(1, t('validation.nameRequired'))
+      .max(120, t('validation.nameTooLong')),
+    description: z
+      .string()
+      .max(4000, t('validation.descriptionTooLong'))
+      .optional()
+      .or(z.literal('')),
+    parentId: z
+      .string()
+      .uuid(t('validation.invalidParentCategory'))
+      .or(z.literal(''))
+      .optional(),
+  })
+}
+
+export type AdminCategoryFormValues = z.infer<ReturnType<typeof createAdminCategoryFormSchema>>

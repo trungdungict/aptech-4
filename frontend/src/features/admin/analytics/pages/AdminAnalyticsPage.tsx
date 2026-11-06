@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { RefreshCwIcon } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { ApiClientError } from '@/lib/api/api-error'
+import { formatDateTime } from '@/lib/i18n'
 
 import {
   adminAlertErrorClass,
@@ -50,18 +52,11 @@ function parseLimitParam(raw: string | null): number {
 
 function formatUpdatedAt(epochMs: number): string | null {
   if (!epochMs) return null
-  try {
-    return new Intl.DateTimeFormat('en-GB', {
-      dateStyle: 'medium',
-      timeStyle: 'medium',
-      timeZone: 'UTC',
-    }).format(new Date(epochMs))
-  } catch {
-    return new Date(epochMs).toISOString()
-  }
+  return formatDateTime(epochMs, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' })
 }
 
 export function AdminAnalyticsPage() {
+  const { t } = useTranslation('admin')
   const [searchParams, setSearchParams] = useSearchParams()
   const [rangeError, setRangeError] = useState<string | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -130,7 +125,7 @@ export function AdminAnalyticsPage() {
 
   const appliedFromDay = fromParam ? instantToUtcDateInput(fromParam) : ''
   const appliedToInclusive = toParam ? inclusiveEndFromExclusiveTo(toParam) : ''
-  const currency = overviewQuery.data?.currency ?? 'VND'
+  const currency = overviewQuery.data?.currency ?? 'USD'
 
   const lastUpdatedLabel = useMemo(() => {
     const stamps = [
@@ -214,7 +209,7 @@ export function AdminAnalyticsPage() {
             ? firstFailed.error.userMessage
             : firstFailed.error instanceof Error
               ? firstFailed.error.message
-              : 'Refresh failed.'
+              : t('analytics.refreshFailed')
         setRefreshError(message)
       }
     } catch (error) {
@@ -223,7 +218,7 @@ export function AdminAnalyticsPage() {
           ? error.userMessage
           : error instanceof Error
             ? error.message
-            : 'Refresh failed.',
+            : t('analytics.refreshFailed'),
       )
     } finally {
       setIsRefreshing(false)
@@ -238,13 +233,13 @@ export function AdminAnalyticsPage() {
     revenue: item.revenue,
     meta: (
       <span>
-        {item.unitsSold} units
-        {item.productId == null ? ' · Catalog unlinked' : ''}
+        {t('analytics.top.units', { n: item.unitsSold })}
+        {item.productId == null ? ` · ${t('analytics.top.catalogUnlinked')}` : ''}
       </span>
     ),
     action: item.productId ? (
       <Button asChild variant="link" className="h-auto px-0 text-xs">
-        <Link to={`/admin/products/${item.productId}/edit`}>Edit</Link>
+        <Link to={`/admin/products/${item.productId}/edit`}>{t('analytics.top.edit')}</Link>
       </Button>
     ) : undefined,
   }))
@@ -256,7 +251,7 @@ export function AdminAnalyticsPage() {
     revenue: item.revenue,
     meta: (
       <span>
-        {item.unitsSold} units · {item.orderLineCount} lines
+        {t('analytics.category.unitsLines', { units: item.unitsSold, lines: item.orderLineCount })}
       </span>
     ),
   }))
@@ -266,16 +261,17 @@ export function AdminAnalyticsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className={adminPageTitleClass}>Analytics</h1>
-            <Badge variant="outline">UTC</Badge>
+            <h1 className={adminPageTitleClass}>{t('analytics.title')}</h1>
+            <Badge variant="outline">{t('analytics.utc')}</Badge>
           </div>
           <p className={`max-w-xl ${adminPageLeadClass}`}>
-            Revenue statuses: PAID / PROCESSING / SHIPPED / COMPLETED. Window uses exclusive{' '}
-            <code className="text-foreground">to</code>.
+            {t('analytics.leadBefore')}{' '}
+            <code className="text-foreground">to</code>
+            {t('analytics.leadAfter')}
           </p>
           {lastUpdatedLabel ? (
             <p className="text-xs text-muted-foreground">
-              Last updated:{' '}
+              {t('analytics.lastUpdated')}{' '}
               <time dateTime={new Date(Math.max(
                 overviewQuery.dataUpdatedAt,
                 statusQuery.dataUpdatedAt,
@@ -300,7 +296,7 @@ export function AdminAnalyticsPage() {
             className={`size-4 ${isRefreshing ? 'animate-spin' : ''}`}
             aria-hidden="true"
           />
-          {isRefreshing ? 'Refreshing…' : 'Refresh'}
+          {isRefreshing ? t('analytics.refreshing') : t('analytics.refresh')}
         </Button>
       </div>
 
@@ -319,17 +315,17 @@ export function AdminAnalyticsPage() {
           >
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => onPreset(7)}>
-                Last 7 days
+                {t('analytics.presets.last7')}
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => onPreset(30)}>
-                Last 30 days
+                {t('analytics.presets.last30')}
               </Button>
               <Button type="button" variant="outline" size="sm" onClick={() => onPreset(90)}>
-                Last 90 days
+                {t('analytics.presets.last90')}
               </Button>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="analytics-from-day">From (UTC day)</Label>
+              <Label htmlFor="analytics-from-day">{t('analytics.fromDay')}</Label>
               <Input
                 id="analytics-from-day"
                 name="fromDay"
@@ -339,7 +335,7 @@ export function AdminAnalyticsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="analytics-to-day">Through (UTC day, inclusive)</Label>
+              <Label htmlFor="analytics-to-day">{t('analytics.toDay')}</Label>
               <Input
                 id="analytics-to-day"
                 name="toInclusiveDay"
@@ -348,9 +344,9 @@ export function AdminAnalyticsPage() {
                 required
               />
             </div>
-            <Button type="submit">Apply</Button>
+            <Button type="submit">{t('analytics.apply')}</Button>
             <div className="space-y-1.5">
-              <Label htmlFor="analytics-limit">Top / category limit</Label>
+              <Label htmlFor="analytics-limit">{t('analytics.limit')}</Label>
               <select
                 id="analytics-limit"
                 className={adminNativeSelectClass}
@@ -377,7 +373,7 @@ export function AdminAnalyticsPage() {
           ) : null}
           {overviewQuery.data ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              Active window:{' '}
+              {t('analytics.activeWindow')}{' '}
               <span className="font-mono text-foreground">{overviewQuery.data.from}</span>
               {' → '}
               <span className="font-mono text-foreground">{overviewQuery.data.to}</span>{' '}
@@ -388,7 +384,7 @@ export function AdminAnalyticsPage() {
       </Card>
 
       <AnalyticsSectionShell
-        title="Overview"
+        title={t('analytics.overview.title')}
         description={overviewQuery.data?.revenueDefinition}
         isLoading={overviewQuery.isLoading}
         isFetching={overviewQuery.isFetching}
@@ -401,50 +397,55 @@ export function AdminAnalyticsPage() {
           <div className="space-y-4">
             {overviewQuery.data.empty ? (
               <p className="rounded-lg border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">
-                No orders in this range. KPI values are zero — nothing was fabricated.
+                {t('analytics.overview.empty')}
               </p>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <KpiCard label="Revenue">
+              <KpiCard label={t('analytics.overview.revenue')}>
                 <ProductPrice
                   unitPrice={overviewQuery.data.revenueTotal}
                   currency={overviewQuery.data.currency}
                   className="text-xl font-semibold tracking-tight text-foreground"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {overviewQuery.data.revenueOrderCount} revenue orders
+                  {t('analytics.overview.revenueOrders', { n: overviewQuery.data.revenueOrderCount })}
                 </p>
               </KpiCard>
-              <KpiCard label="Placed orders">
+              <KpiCard label={t('analytics.overview.placedOrders')}>
                 <p className="text-xl font-semibold tabular-nums tracking-tight text-foreground">
                   {overviewQuery.data.placedOrderCount}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">All statuses in window</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t('analytics.overview.allStatuses')}</p>
               </KpiCard>
-              <KpiCard label="Average order value">
+              <KpiCard label={t('analytics.overview.averageOrderValue')}>
                 <ProductPrice
                   unitPrice={overviewQuery.data.averageOrderValue}
                   currency={overviewQuery.data.currency}
                   className="text-xl font-semibold tracking-tight text-foreground"
                 />
               </KpiCard>
-              <KpiCard label="Cancellation rate">
+              <KpiCard label={t('analytics.overview.cancellationRate')}>
                 <p className="text-xl font-semibold tabular-nums tracking-tight text-foreground">
                   {(overviewQuery.data.cancellationRate * 100).toFixed(1)}%
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {overviewQuery.data.cancellationCount} cancelled /{' '}
-                  {overviewQuery.data.placedOrderCount} placed
+                  {t('analytics.overview.cancelledOfPlaced', {
+                    cancelled: overviewQuery.data.cancellationCount,
+                    placed: overviewQuery.data.placedOrderCount,
+                  })}
                 </p>
               </KpiCard>
             </div>
             <p className="text-xs text-muted-foreground">
-              Attention (all dates):{' '}
+              {t('analytics.overview.attentionLabel')}{' '}
               <span className="font-medium text-foreground tabular-nums">
                 {overviewQuery.data.attention.totalMatching}
               </span>
-              {' · '}Paid {overviewQuery.data.attention.paid} · Processing{' '}
-              {overviewQuery.data.attention.processing}
+              {' · '}
+              {t('analytics.overview.attentionTail', {
+                paid: overviewQuery.data.attention.paid,
+                processing: overviewQuery.data.attention.processing,
+              })}
             </p>
           </div>
         ) : null}
@@ -452,8 +453,8 @@ export function AdminAnalyticsPage() {
 
       <div className="grid gap-4 xl:grid-cols-12">
         <AnalyticsSectionShell
-          title="Orders & revenue over time"
-          description="Daily placed-order count and revenue (UTC, zero-filled)."
+          title={t('analytics.timeseries.title')}
+          description={t('analytics.timeseries.description')}
           isLoading={timeseriesQuery.isLoading}
           isFetching={timeseriesQuery.isFetching}
           isError={timeseriesQuery.isError}
@@ -473,8 +474,8 @@ export function AdminAnalyticsPage() {
 
         <div className="flex flex-col gap-4 xl:col-span-5">
           <AnalyticsSectionShell
-            title="Order status"
-            description="Share of total placed orders in the window."
+            title={t('analytics.status.title')}
+            description={t('analytics.status.description')}
             isLoading={statusQuery.isLoading}
             isFetching={statusQuery.isFetching}
             isError={statusQuery.isError}
@@ -491,8 +492,8 @@ export function AdminAnalyticsPage() {
           </AnalyticsSectionShell>
 
           <AnalyticsSectionShell
-            title="Inventory snapshot"
-            description="Embedded from analytics overview (same inventory threshold)."
+            title={t('analytics.inventory.title')}
+            description={t('analytics.inventory.description')}
             isLoading={overviewQuery.isLoading}
             isFetching={overviewQuery.isFetching}
             isError={overviewQuery.isError}
@@ -508,7 +509,7 @@ export function AdminAnalyticsPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <AnalyticsSectionShell
-          title="Top products"
+          title={t('analytics.top.title')}
           description={topQuery.data?.note}
           isLoading={topQuery.isLoading}
           isFetching={topQuery.isFetching}
@@ -522,23 +523,23 @@ export function AdminAnalyticsPage() {
                 items={topRanking}
                 currency={currency}
                 empty={topQuery.data.empty}
-                emptyMessage="No product sales in this range for revenue statuses."
-                ariaLabel="Top products by revenue"
+                emptyMessage={t('analytics.top.empty')}
+                ariaLabel={t('analytics.top.aria')}
               />
               {!topQuery.data.empty ? (
                 <details className="rounded-lg border border-border/80">
                   <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-                    Exact product table
+                    {t('analytics.top.exactTable')}
                   </summary>
                   <div className={`${adminTableWrapClass} border-0 shadow-none`}>
                     <table className={`${adminTableClass} min-w-[28rem]`}>
                       <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                         <tr>
-                          <th className={adminThClass}>#</th>
-                          <th className={adminThClass}>Product</th>
-                          <th className={adminThClass}>SKU</th>
-                          <th className={adminThClass}>Units</th>
-                          <th className={adminThClass}>Revenue</th>
+                          <th className={adminThClass}>{t('analytics.top.columns.rank')}</th>
+                          <th className={adminThClass}>{t('analytics.top.columns.product')}</th>
+                          <th className={adminThClass}>{t('analytics.top.columns.sku')}</th>
+                          <th className={adminThClass}>{t('analytics.top.columns.units')}</th>
+                          <th className={adminThClass}>{t('analytics.top.columns.revenue')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -549,7 +550,7 @@ export function AdminAnalyticsPage() {
                               {item.productName}
                               {item.productId == null ? (
                                 <Badge variant="warning" className="ml-2">
-                                  Catalog unlinked
+                                  {t('analytics.top.catalogUnlinked')}
                                 </Badge>
                               ) : null}
                             </td>
@@ -574,8 +575,8 @@ export function AdminAnalyticsPage() {
         </AnalyticsSectionShell>
 
         <AnalyticsSectionShell
-          title="Category sales"
-          description="Live product category attribution — historical category is not preserved."
+          title={t('analytics.category.title')}
+          description={t('analytics.category.description')}
           isLoading={categoryQuery.isLoading}
           isFetching={categoryQuery.isFetching}
           isError={categoryQuery.isError}
@@ -589,8 +590,8 @@ export function AdminAnalyticsPage() {
                 items={categoryRanking}
                 currency={currency}
                 empty={categoryQuery.data.empty}
-                emptyMessage="No category sales in this range."
-                ariaLabel="Category sales by revenue"
+                emptyMessage={t('analytics.category.empty')}
+                ariaLabel={t('analytics.category.aria')}
               />
             </div>
           ) : null}
@@ -598,8 +599,8 @@ export function AdminAnalyticsPage() {
       </div>
 
       <AnalyticsSectionShell
-        title="Promotions"
-        description="Discount totals from revenue-status orders; breakdown uses order promotion snapshots."
+        title={t('analytics.promotions.title')}
+        description={t('analytics.promotions.description')}
         isLoading={promotionsQuery.isLoading}
         isFetching={promotionsQuery.isFetching}
         isError={promotionsQuery.isError}
@@ -609,19 +610,19 @@ export function AdminAnalyticsPage() {
         {promotionsQuery.data ? (
           <div className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-3">
-              <KpiCard label="Discount total">
+              <KpiCard label={t('analytics.promotions.discountTotal')}>
                 <ProductPrice
                   unitPrice={promotionsQuery.data.discountTotal}
                   currency={promotionsQuery.data.currency}
                   className="text-xl font-semibold text-foreground"
                 />
               </KpiCard>
-              <KpiCard label="Orders with promotion">
+              <KpiCard label={t('analytics.promotions.ordersWithPromotion')}>
                 <p className="text-xl font-semibold tabular-nums text-foreground">
                   {promotionsQuery.data.ordersWithPromotionCount}
                 </p>
               </KpiCard>
-              <KpiCard label="Revenue orders">
+              <KpiCard label={t('analytics.promotions.revenueOrders')}>
                 <p className="text-xl font-semibold tabular-nums text-foreground">
                   {promotionsQuery.data.revenueOrderCount}
                 </p>
@@ -629,19 +630,19 @@ export function AdminAnalyticsPage() {
             </div>
             {promotionsQuery.data.empty ? (
               <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                No promotion usage in this range.
+                {t('analytics.promotions.empty')}
               </p>
             ) : (
               <div className={adminTableWrapClass}>
                 <table className={`${adminTableClass} min-w-[48rem]`}>
                   <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                     <tr>
-                      <th className={adminThClass}>Campaign</th>
-                      <th className={adminThClass}>Strategy</th>
-                      <th className={adminThClass}>Code</th>
-                      <th className={adminThClass}>Type</th>
-                      <th className={adminThClass}>Discount</th>
-                      <th className={adminThClass}>Orders</th>
+                      <th className={adminThClass}>{t('analytics.promotions.columns.campaign')}</th>
+                      <th className={adminThClass}>{t('analytics.promotions.columns.strategy')}</th>
+                      <th className={adminThClass}>{t('analytics.promotions.columns.code')}</th>
+                      <th className={adminThClass}>{t('analytics.promotions.columns.type')}</th>
+                      <th className={adminThClass}>{t('analytics.promotions.columns.discount')}</th>
+                      <th className={adminThClass}>{t('analytics.promotions.columns.orders')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">

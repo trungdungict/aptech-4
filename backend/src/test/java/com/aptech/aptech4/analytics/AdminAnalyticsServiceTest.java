@@ -59,7 +59,7 @@ class AdminAnalyticsServiceTest {
 
 		assertThat(summary.get("orderCount")).isEqualTo(3L);
 		assertThat(summary.get("revenueTotal")).isEqualTo(new BigDecimal("150.00"));
-		assertThat(summary.get("currency")).isEqualTo("VND");
+		assertThat(summary.get("currency")).isEqualTo("USD");
 		assertThat(summary.get("empty")).isEqualTo(false);
 		assertThat(summary.get("timezone")).isEqualTo(AnalyticsMetrics.TIMEZONE);
 		assertThat(summary.get("revenueStatuses")).asList().contains(OrderStatus.PAID.name());

@@ -1,3 +1,5 @@
+import { formatDateTime, getActiveLocale, i18n, toIntlLocale } from '@/lib/i18n'
+
 export function formatNotificationTime(iso: string): string {
   try {
     const date = new Date(iso)
@@ -8,16 +10,14 @@ export function formatNotificationTime(iso: string): string {
       date.getDate() === now.getDate()
 
     if (sameDay) {
-      return `Today at ${new Intl.DateTimeFormat(undefined, {
+      const time = new Intl.DateTimeFormat(toIntlLocale(getActiveLocale()), {
         hour: 'numeric',
         minute: '2-digit',
-      }).format(date)}`
+      }).format(date)
+      return i18n.t('notifications:today', { time })
     }
 
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(date)
+    return formatDateTime(date)
   } catch {
     return iso
   }

@@ -20,6 +20,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.aptech.aptech4.catalog.config.InventoryProperties;
+import com.aptech.aptech4.common.locale.RequestLocaleFilter;
 import com.aptech.aptech4.identity.security.CorsProperties;
 import com.aptech.aptech4.order.payment.MockPaymentProperties;
 import com.aptech.aptech4.identity.security.JwtAuthenticationFilter;
@@ -57,6 +58,7 @@ public class SecurityConfig {
 	@Bean
 	SecurityFilterChain securityFilterChain(
 			HttpSecurity http,
+			RequestLocaleFilter requestLocaleFilter,
 			JwtAuthenticationFilter jwtAuthenticationFilter,
 			RestAuthenticationEntryPoint authenticationEntryPoint,
 			RestAccessDeniedHandler accessDeniedHandler,
@@ -106,6 +108,9 @@ public class SecurityConfig {
 			)
 			.httpBasic(AbstractHttpConfigurer::disable)
 			.formLogin(AbstractHttpConfigurer::disable)
+			// Both before UsernamePasswordAuthenticationFilter: last registered sits closest to it,
+			// so locale runs first, then JWT (shared by permitAll + authenticated paths).
+			.addFilterBefore(requestLocaleFilter, UsernamePasswordAuthenticationFilter.class)
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 		return http.build();
 	}
@@ -115,7 +120,13 @@ public class SecurityConfig {
 		CorsConfiguration config = new CorsConfiguration();
 		config.setAllowedOrigins(corsProperties.originList());
 		config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-		config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin"));
+		config.setAllowedHeaders(List.of(
+				"Authorization",
+				"Content-Type",
+				"Accept",
+				"Accept-Language",
+				"Origin"
+		));
 		config.setExposedHeaders(List.of("Authorization"));
 		config.setAllowCredentials(corsProperties.isAllowCredentials());
 		config.setMaxAge(3600L);

@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 
 import { getHomepagePromotions } from '../api/promotions-api'
 import { promotionQueryKeys } from '../hooks/promotion-query-keys'
 import {
-  FOODMART_HOMEPAGE_FALLBACK,
+  foodmartHomepageFallbackFor,
   withFoodmartHomepageFallback,
 } from '../lib/foodmart-fallback'
 import { HomeHeroCarousel } from './HomeHeroCarousel'
@@ -16,19 +18,23 @@ import { HomePromoStack } from './HomePromoStack'
  * Empty/error/malformed API → static FoodMart artwork (ADR-020 R3).
  */
 export function HomePromotionShowcase() {
+  const { t } = useTranslation('promotions')
+  const { locale } = useAppLocale()
   const query = useQuery({
-    queryKey: promotionQueryKeys.homepage(),
+    queryKey: promotionQueryKeys.homepage(locale),
     queryFn: ({ signal }) => getHomepagePromotions(signal),
     staleTime: 30_000,
     retry: false,
   })
+
+  const fallback = foodmartHomepageFallbackFor(locale)
 
   if (query.isLoading) {
     return (
       <section
         className="grid gap-4 lg:grid-cols-[1.55fr_1fr] lg:gap-5"
         aria-busy="true"
-        aria-label="Loading promotions"
+        aria-label={t('showcase.loadingAria')}
       >
         <Skeleton className="min-h-[16rem] w-full rounded-xl lg:min-h-[22rem]" />
         <div className="grid gap-4">
@@ -40,8 +46,8 @@ export function HomePromotionShowcase() {
   }
 
   const data = query.isError
-    ? FOODMART_HOMEPAGE_FALLBACK
-    : withFoodmartHomepageFallback(query.data)
+    ? fallback
+    : withFoodmartHomepageFallback(query.data, locale)
 
   return (
     <section
@@ -52,12 +58,12 @@ export function HomePromotionShowcase() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 id="home-placements-heading" className="text-2xl font-semibold text-foreground">
-              Featured offers
+              {t('showcase.title')}
             </h2>
             <p className="text-sm text-muted-foreground">
               {query.isError
-                ? 'Showing FoodMart artwork while promotions are unavailable.'
-                : 'Live placements from the store API — FoodMart artwork when a slot is empty.'}
+                ? t('showcase.unavailable')
+                : t('showcase.live')}
             </p>
           </div>
         </div>

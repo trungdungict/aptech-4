@@ -11,12 +11,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * Loads classpath {@code db/demo/foodmart-catalog.json} — backend source of truth for FoodMart
- * grocery fixtures (SKU / slug / inventory). Frontend keeps only SKU→image presentation maps.
+ * grocery fixtures (SKU / slug / inventory / bilingual display). Frontend keeps only SKU→image
+ * presentation maps plus a bilingual mirror JSON.
  */
 public final class FoodMartCatalog {
 
 	private static final String RESOURCE = "/db/demo/foodmart-catalog.json";
 	private static final ObjectMapper MAPPER = new ObjectMapper();
+
+	/** Deterministic SKU with intentional missing EN translation (API fallback fixture). */
+	public static final String FALLBACK_MISSING_EN_SKU = "FOOD-FROZEN-PEAS-001";
 
 	private static volatile Document cached;
 
@@ -36,6 +40,13 @@ public final class FoodMartCatalog {
 		}
 	}
 
+	/** Visible for tests that rewrite classpath expectations after mutating static cache. */
+	static void clearCacheForTests() {
+		synchronized (FoodMartCatalog.class) {
+			cached = null;
+		}
+	}
+
 	public static List<DemoSeedCatalog.CategoryFixture> categories() {
 		List<DemoSeedCatalog.CategoryFixture> list = new ArrayList<>();
 		for (CategoryRow row : load().categories()) {
@@ -44,6 +55,8 @@ public final class FoodMartCatalog {
 					row.name(),
 					row.slug(),
 					row.description(),
+					row.nameEn(),
+					row.descriptionEn(),
 					row.active()
 			));
 		}
@@ -59,9 +72,12 @@ public final class FoodMartCatalog {
 					row.sku(),
 					row.name(),
 					row.description(),
+					row.nameEn(),
+					row.descriptionEn(),
 					new BigDecimal(row.unitPrice()),
 					row.active(),
-					row.onHand()
+					row.onHand(),
+					Boolean.TRUE.equals(row.omitEnglishTranslation())
 			));
 		}
 		return List.copyOf(list);
@@ -82,6 +98,14 @@ public final class FoodMartCatalog {
 								+ (doc.products() == null ? 0 : doc.products().size())
 				);
 			}
+			boolean hasFallback = doc.products().stream()
+					.anyMatch(p -> FALLBACK_MISSING_EN_SKU.equals(p.sku())
+							&& Boolean.TRUE.equals(p.omitEnglishTranslation()));
+			if (!hasFallback) {
+				throw new IllegalStateException(
+						"FoodMart catalog must mark " + FALLBACK_MISSING_EN_SKU + " with omitEnglishTranslation=true"
+				);
+			}
 			return doc;
 		}
 		catch (IOException ex) {
@@ -94,7 +118,15 @@ public final class FoodMartCatalog {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	public record CategoryRow(String key, String name, String slug, String description, boolean active) {
+	public record CategoryRow(
+			String key,
+			String name,
+			String slug,
+			String description,
+			String nameEn,
+			String descriptionEn,
+			boolean active
+	) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
@@ -104,9 +136,12 @@ public final class FoodMartCatalog {
 			String sku,
 			String name,
 			String description,
+			String nameEn,
+			String descriptionEn,
 			String unitPrice,
 			boolean active,
-			int onHand
+			int onHand,
+			Boolean omitEnglishTranslation
 	) {
 	}
 }

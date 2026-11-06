@@ -14,7 +14,7 @@ public record ProductResponse(
 		@Schema(description = "Display name") String name,
 		@Schema(description = "Description; may be null") String description,
 		@Schema(description = "Unit price", type = "number", format = "decimal") BigDecimal unitPrice,
-		@Schema(description = "ISO-4217 currency code", example = "VND") String currency,
+		@Schema(description = "ISO-4217 currency code", example = "USD") String currency,
 		@Schema(description = "Parent category id") UUID categoryId,
 		@Schema(description = "Parent category name") String categoryName,
 		@Schema(description = "Whether the product is active") boolean active,

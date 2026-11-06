@@ -1,4 +1,5 @@
 import { ArrowRightIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ export function PromoBannerCard({
   className,
   priority = false,
 }: PromoBannerCardProps) {
+  const { t } = useTranslation('promotions')
   const preferMobile = useMediaQuery('(max-width: 767px)', false)
   const imageSrc = resolvePromotionImageUrl(
     placement.desktopImageUrl,
@@ -32,8 +34,8 @@ export function PromoBannerCard({
     preferMobile,
   )
   const nav = resolvePromotionCta(placement)
-  const label = promotionCtaLabel(placement)
-  const title = placement.title?.trim() || 'Promotion'
+  const label = promotionCtaLabel(placement, t('cta.shopNow'))
+  const title = placement.title?.trim() || t('banner.fallbackTitle')
   const subtitle = placement.subtitle?.trim()
 
   const body = (

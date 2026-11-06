@@ -26,6 +26,8 @@ Deliver a verifiable Aptech semester 4 e-commerce system with persistent Cursor 
 | P15 | EC2 SSH Nginx HTTP | `07-ec2-deployment.md` | P14 |
 | P16 | CI + E2E smoke + docs | `08-integration-final-qa.md` | P14 |
 | P17 | Final acceptance + demo prep | `08-integration-final-qa.md` | P16 |
+| P25–P33 | Inventory Admin + Analytics (+ UX verify) | `10-inventory-analytics.md` | P10, catalog/orders/promos |
+| P34 | Bilingual VI/EN | `11-bilingual-vi-en.md` | P33 (recommended before P17 if demo is bilingual) |
 
 ## Execution policy
 

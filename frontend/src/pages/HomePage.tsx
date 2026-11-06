@@ -7,6 +7,7 @@ import {
   ShoppingBasketIcon,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -18,6 +19,7 @@ import { ProductGrid } from '@/features/catalog/components/ProductGrid'
 import { catalogQueryKeys } from '@/features/catalog/hooks/catalog-query-keys'
 import { resolveCategoryIcon } from '@/features/catalog/lib/resolve-product-image'
 import type { Product } from '@/features/catalog/types'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 import { HomePromotionShowcase } from '@/features/promotions/components/HomePromotionShowcase'
 
 const AD_3 = '/assets/foodmart/images/banners/ad-image-3.png'
@@ -30,30 +32,33 @@ const PATTERN = '/assets/foodmart/images/misc/bg-leaves-img-pattern.png'
  * Grocery-style landing — live catalog APIs only; no fabricated ratings, discounts, or brands.
  */
 export function HomePage() {
+  const { t } = useTranslation('home')
+  const { t: tc } = useTranslation('common')
   const { status, user } = useAuth()
+  const { locale } = useAppLocale()
 
   const categoriesQuery = useQuery({
-    queryKey: catalogQueryKeys.categories(),
+    queryKey: catalogQueryKeys.categories(locale),
     queryFn: ({ signal }) => listCategories(signal),
     staleTime: 60_000,
   })
 
   const trendingQuery = useQuery({
-    queryKey: catalogQueryKeys.productList({ page: 0, size: 8, sort: 'name,asc' }),
+    queryKey: catalogQueryKeys.productList(locale, { page: 0, size: 8, sort: 'name,asc' }),
     queryFn: ({ signal }) => listProducts({ page: 0, size: 8, sort: 'name,asc' }, signal),
     staleTime: 60_000,
     retry: false,
   })
 
   const featuredQuery = useQuery({
-    queryKey: catalogQueryKeys.productList({ page: 0, size: 8, sort: 'price,asc' }),
+    queryKey: catalogQueryKeys.productList(locale, { page: 0, size: 8, sort: 'price,asc' }),
     queryFn: ({ signal }) => listProducts({ page: 0, size: 8, sort: 'price,asc' }, signal),
     staleTime: 60_000,
     retry: false,
   })
 
   const justArrivedQuery = useQuery({
-    queryKey: catalogQueryKeys.productList({ page: 0, size: 8, sort: 'createdAt,desc' }),
+    queryKey: catalogQueryKeys.productList(locale, { page: 0, size: 8, sort: 'createdAt,desc' }),
     queryFn: ({ signal }) => listProducts({ page: 0, size: 8, sort: 'createdAt,desc' }, signal),
     staleTime: 60_000,
     retry: false,
@@ -78,35 +83,34 @@ export function HomePage() {
         />
         <div className="relative space-y-5 p-6 sm:p-8 lg:max-w-3xl lg:p-10">
           <p className="text-sm font-semibold tracking-wide text-primary uppercase">
-            Fresh grocery shopping
+            {t('hero.eyebrow')}
           </p>
           <h1 className="max-w-xl text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl">
-            Stock your kitchen from the live Aptech-4 catalog
+            {t('hero.title')}
           </h1>
           <p className="max-w-prose text-base text-muted-foreground md:text-lg">
-            Browse categories, check real prices and stock, then sign in to cart and complete the
-            demo checkout.
+            {t('hero.body')}
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild size="lg">
               <Link to="/products">
-                Browse catalog
+                {t('hero.browse')}
                 <ArrowRightIcon className="size-4" />
               </Link>
             </Button>
             {status === 'anonymous' ? (
               <>
                 <Button asChild variant="outline" size="lg">
-                  <Link to="/login">Sign in</Link>
+                  <Link to="/login">{tc('nav.signIn')}</Link>
                 </Button>
                 <Button asChild variant="secondary" size="lg">
-                  <Link to="/register">Register</Link>
+                  <Link to="/register">{tc('nav.register')}</Link>
                 </Button>
               </>
             ) : null}
             {status === 'authenticated' && user ? (
               <p className="self-center text-sm text-muted-foreground">
-                Signed in as{' '}
+                {t('hero.signedInAs')}{' '}
                 <span className="font-medium text-foreground">{user.fullName}</span>
                 {hasAdminRole(user.roles) ? (
                   <>
@@ -115,7 +119,7 @@ export function HomePage() {
                       className="font-medium text-primary underline-offset-4 hover:underline"
                       to="/admin"
                     >
-                      Admin
+                      {tc('nav.admin')}
                     </Link>
                   </>
                 ) : null}
@@ -123,7 +127,7 @@ export function HomePage() {
             ) : null}
             {status === 'booting' ? (
               <p className="self-center text-sm text-muted-foreground" role="status">
-                Restoring session…
+                {t('hero.restoring')}
               </p>
             ) : null}
           </div>
@@ -136,12 +140,12 @@ export function HomePage() {
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 id="home-categories-heading" className="text-2xl font-semibold text-foreground">
-              Grocery categories
+              {t('categories.title')}
             </h2>
-            <p className="text-sm text-muted-foreground">Active categories from the public API.</p>
+            <p className="text-sm text-muted-foreground">{t('categories.subtitle')}</p>
           </div>
           <Button asChild variant="outline" size="sm">
-            <Link to="/products">View all products</Link>
+            <Link to="/products">{t('categories.viewAll')}</Link>
           </Button>
         </div>
 
@@ -153,10 +157,10 @@ export function HomePage() {
           </div>
         ) : categoriesQuery.isError ? (
           <p className="text-sm text-muted-foreground" role="status">
-            Categories could not be loaded. You can still browse the full catalog.
+            {t('categories.loadError')}
           </p>
         ) : categories.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No active categories are available yet.</p>
+          <p className="text-sm text-muted-foreground">{t('categories.empty')}</p>
         ) : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {categories.map((category) => (
@@ -181,8 +185,8 @@ export function HomePage() {
 
       <ProductSection
         headingId="home-trending-heading"
-        title="Trending products"
-        subtitle="Live catalog · sorted by name"
+        title={t('sections.trending')}
+        subtitle={t('sections.trendingSub')}
         products={trending}
         query={trendingQuery}
         viewAllTo="/products?sort=name,asc"
@@ -190,8 +194,8 @@ export function HomePage() {
 
       <ProductSection
         headingId="home-best-heading"
-        title="Best-selling products"
-        subtitle="Live catalog · sorted by price (sales rankings are not available yet)"
+        title={t('sections.bestSelling')}
+        subtitle={t('sections.bestSellingSub')}
         products={featured}
         query={featuredQuery}
         viewAllTo="/products?sort=price,asc"
@@ -200,18 +204,18 @@ export function HomePage() {
       <section className="space-y-4" aria-labelledby="home-promo-heading">
         <div>
           <h2 id="home-promo-heading" className="text-2xl font-semibold text-foreground">
-            Seasonal inspiration
+            {t('sections.seasonal')}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Decorative FoodMart gallery — separate from Admin homepage placements above.
+            {t('sections.seasonalSub')}
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { src: AD_3, label: 'Bakery & sweets' },
-            { src: AD_4, label: 'Dairy & drinks' },
-            { src: SLIDE_1, label: 'Weekly grocery haul' },
-            { src: SLIDE_2, label: 'Kitchen essentials' },
+            { src: AD_3, label: t('gallery.bakery') },
+            { src: AD_4, label: t('gallery.dairy') },
+            { src: SLIDE_1, label: t('gallery.weekly') },
+            { src: SLIDE_2, label: t('gallery.kitchen') },
           ].map((item) => (
             <Link
               key={item.src}
@@ -234,8 +238,8 @@ export function HomePage() {
 
       <ProductSection
         headingId="home-arrived-heading"
-        title="Just arrived"
-        subtitle="Newest active products from the API"
+        title={t('sections.justArrived')}
+        subtitle={t('sections.justArrivedSub')}
         products={justArrived}
         query={justArrivedQuery}
         viewAllTo="/products?sort=createdAt,desc"
@@ -246,31 +250,31 @@ export function HomePage() {
         aria-labelledby="home-benefits-heading"
       >
         <h2 id="home-benefits-heading" className="text-2xl font-semibold text-foreground">
-          Why shop here
+          {t('benefits.title')}
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Storefront capabilities backed by the Aptech-4 APIs — no invented delivery promises.
+          {t('benefits.subtitle')}
         </p>
         <ul className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <Benefit
             icon={<LeafIcon className="size-5 text-primary" aria-hidden="true" />}
-            title="Grocery-focused catalog"
-            body="Categories and products served from the live public API."
+            title={t('benefits.catalogTitle')}
+            body={t('benefits.catalogBody')}
           />
           <Benefit
             icon={<ShoppingBasketIcon className="size-5 text-primary" aria-hidden="true" />}
-            title="Cart when you sign in"
-            body="Add lines, adjust quantities, and review subtotals before checkout."
+            title={t('benefits.cartTitle')}
+            body={t('benefits.cartBody')}
           />
           <Benefit
             icon={<CreditCardIcon className="size-5 text-primary" aria-hidden="true" />}
-            title="Demo checkout"
-            body="Mock payment flow for learning — not a live payment gateway."
+            title={t('benefits.checkoutTitle')}
+            body={t('benefits.checkoutBody')}
           />
           <Benefit
             icon={<PackageIcon className="size-5 text-primary" aria-hidden="true" />}
-            title="Order history"
-            body="Track your own orders after a successful demo purchase."
+            title={t('benefits.ordersTitle')}
+            body={t('benefits.ordersBody')}
           />
         </ul>
       </section>
@@ -293,6 +297,7 @@ function ProductSection({
   query: { isLoading: boolean; isError: boolean }
   viewAllTo: string
 }) {
+  const { t } = useTranslation('home')
   return (
     <section className="space-y-4" aria-labelledby={headingId}>
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -304,7 +309,7 @@ function ProductSection({
         </div>
         <Button asChild variant="link" className="h-auto p-0">
           <Link to={viewAllTo}>
-            View all
+            {t('sections.viewAll')}
             <ArrowRightIcon className="size-4" />
           </Link>
         </Button>
@@ -312,7 +317,7 @@ function ProductSection({
 
       {query.isLoading ? (
         <div role="status" aria-live="polite">
-          <p className="sr-only">Loading products…</p>
+          <p className="sr-only">{t('sections.loading')}</p>
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 4 }, (_, i) => (
               <Skeleton key={i} className="aspect-[4/3] w-full rounded-xl" />
@@ -321,10 +326,10 @@ function ProductSection({
         </div>
       ) : query.isError ? (
         <p className="text-sm text-muted-foreground" role="status">
-          Products could not be loaded. Open the catalog to browse everything.
+          {t('sections.loadError')}
         </p>
       ) : products.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No products are available in the catalog yet.</p>
+        <p className="text-sm text-muted-foreground">{t('sections.empty')}</p>
       ) : (
         <ProductGrid products={products} />
       )}

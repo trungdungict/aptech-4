@@ -1,3 +1,5 @@
+import { i18n } from '@/lib/i18n'
+
 import type { PublicPlacement } from '../types'
 
 export type PromotionNavTarget =
@@ -28,7 +30,14 @@ export function resolvePromotionCta(placement: Pick<PublicPlacement, 'cta'>): Pr
   return { kind: 'none' }
 }
 
-export function promotionCtaLabel(placement: Pick<PublicPlacement, 'ctaLabel'>, fallback = 'Shop now'): string {
+/**
+ * Server `ctaLabel` wins; otherwise `fallback` (callers pass a translated string) or the
+ * active-locale `promotions:cta.shopNow`.
+ */
+export function promotionCtaLabel(
+  placement: Pick<PublicPlacement, 'ctaLabel'>,
+  fallback?: string,
+): string {
   const label = placement.ctaLabel?.trim()
-  return label && label.length > 0 ? label : fallback
+  return label && label.length > 0 ? label : (fallback ?? i18n.t('promotions:cta.shopNow'))
 }

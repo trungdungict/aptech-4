@@ -41,15 +41,18 @@ public class ProductService {
 	private final ProductRepository productRepository;
 	private final CategoryRepository categoryRepository;
 	private final CatalogCacheInvalidator catalogCacheInvalidator;
+	private final CatalogLocalizationService catalogLocalizationService;
 
 	public ProductService(
 			ProductRepository productRepository,
 			CategoryRepository categoryRepository,
-			CatalogCacheInvalidator catalogCacheInvalidator
+			CatalogCacheInvalidator catalogCacheInvalidator,
+			CatalogLocalizationService catalogLocalizationService
 	) {
 		this.productRepository = productRepository;
 		this.categoryRepository = categoryRepository;
 		this.catalogCacheInvalidator = catalogCacheInvalidator;
+		this.catalogLocalizationService = catalogLocalizationService;
 	}
 
 	@Transactional(readOnly = true)
@@ -121,6 +124,7 @@ public class ProductService {
 		product.setImageUrl(com.aptech.aptech4.catalog.upload.ProductImagePathRules.normalizeOrNull(request.imageUrl()));
 		try {
 			Product saved = productRepository.saveAndFlush(product);
+			catalogLocalizationService.syncCanonicalViProduct(saved);
 			ProductResponse response = toResponse(productRepository.findAdminById(saved.getId()).orElse(saved));
 			catalogCacheInvalidator.onProductMutation(saved.getId());
 			return response;
@@ -146,6 +150,7 @@ public class ProductService {
 		product.touch();
 		try {
 			productRepository.saveAndFlush(product);
+			catalogLocalizationService.syncCanonicalViProduct(product);
 			ProductResponse response = toResponse(productRepository.findAdminById(id).orElse(product));
 			catalogCacheInvalidator.onProductMutation(id);
 			return response;
@@ -274,7 +279,7 @@ public class ProductService {
 
 	private static String normalizeCurrency(String currency) {
 		if (currency == null || currency.isBlank()) {
-			return "VND";
+			return "USD";
 		}
 		return currency.trim().toUpperCase(Locale.ROOT);
 	}
@@ -294,15 +299,17 @@ public class ProductService {
 			// available = on_hand - reserved (ADR-006)
 			inStock = inventory.getAvailable() > 0;
 		}
+		var productText = catalogLocalizationService.productText(product);
+		var categoryText = catalogLocalizationService.categoryText(product.getCategory());
 		return new ProductResponse(
 				product.getId(),
 				product.getSku(),
-				product.getName(),
-				product.getDescription(),
+				productText.name(),
+				productText.description(),
 				product.getUnitPrice(),
 				product.getCurrency(),
 				product.getCategory().getId(),
-				product.getCategory().getName(),
+				categoryText.name(),
 				product.isActive(),
 				product.getImageUrl(),
 				inStock
@@ -310,10 +317,10 @@ public class ProductService {
 	}
 
 	private ApiException notFound() {
-		return new ApiException(HttpStatus.NOT_FOUND, "Not Found", "Product not found");
+		return ApiException.keyed(HttpStatus.NOT_FOUND, "Not Found", "api.error.not_found.product");
 	}
 
 	private ApiException skuConflict() {
-		return new ApiException(HttpStatus.CONFLICT, "Conflict", "Product SKU already exists");
+		return ApiException.keyed(HttpStatus.CONFLICT, "Conflict", "api.error.conflict.product_sku");
 	}
 }

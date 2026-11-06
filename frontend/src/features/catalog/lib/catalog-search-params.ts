@@ -78,20 +78,23 @@ export function catalogStateToListParams(state: CatalogSearchState): ProductList
   }
 }
 
+/** Keys in the `validation` namespace. */
+export type PriceFilterErrorKey = 'minPriceNumber' | 'maxPriceNumber' | 'priceRange'
+
 export function validatePriceFilters(
   minPrice: string,
   maxPrice: string,
-): string | null {
+): PriceFilterErrorKey | null {
   const min = minPrice === '' ? null : Number(minPrice)
   const max = maxPrice === '' ? null : Number(maxPrice)
   if (min !== null && (!Number.isFinite(min) || min < 0)) {
-    return 'Minimum price must be a number ≥ 0'
+    return 'minPriceNumber'
   }
   if (max !== null && (!Number.isFinite(max) || max < 0)) {
-    return 'Maximum price must be a number ≥ 0'
+    return 'maxPriceNumber'
   }
   if (min !== null && max !== null && min > max) {
-    return 'Minimum price cannot exceed maximum price'
+    return 'priceRange'
   }
   return null
 }

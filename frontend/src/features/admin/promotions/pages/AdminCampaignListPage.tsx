@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { MegaphoneIcon } from 'lucide-react'
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { DEFAULT_LIST_PAGE_SIZE, Pagination, useClientListPagination } from '@/components/pagination'
@@ -23,16 +24,26 @@ import {
 import * as api from '../api/admin-promotions-api'
 import { adminPromotionQueryKeys } from '../hooks/admin-promotion-query-keys'
 import { formatUtcInstant } from '../lib/format-utc'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 
 /** Client-side page size — admin campaigns API returns a full list (no server page contract). */
 export const CAMPAIGN_LIST_PAGE_SIZE = DEFAULT_LIST_PAGE_SIZE
 
+const STATUS_KEYS = ['DRAFT', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'EXPIRED'] as const
+
 export function AdminCampaignListPage() {
   const queryClient = useQueryClient()
+  const { locale } = useAppLocale()
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
+  const statusLabel = (status: string) =>
+    (STATUS_KEYS as readonly string[]).includes(status)
+      ? t(`promotions.campaignStatus.${status as (typeof STATUS_KEYS)[number]}`)
+      : status
   const [actionError, setActionError] = useState<string | null>(null)
 
   const campaignsQuery = useQuery({
-    queryKey: adminPromotionQueryKeys.campaigns(),
+    queryKey: adminPromotionQueryKeys.campaigns(locale),
     queryFn: ({ signal }) => api.listAdminCampaigns(signal),
     retry: false,
   })
@@ -44,7 +55,7 @@ export function AdminCampaignListPage() {
       await queryClient.invalidateQueries({ queryKey: adminPromotionQueryKeys.all })
     },
     onError: (error) => {
-      setActionError(error instanceof ApiClientError ? error.userMessage : 'Delete failed.')
+      setActionError(error instanceof ApiClientError ? error.userMessage : t('promotions.campaigns.list.deleteFailed'))
     },
   })
 
@@ -58,21 +69,24 @@ export function AdminCampaignListPage() {
     <section className={adminPageSectionClass}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+          <nav aria-label={t('shell.breadcrumb')} className="text-sm text-muted-foreground">
             <Link to="/admin/promotions" className="font-medium text-primary hover:underline">
-              Promotions
+              {t('promotions.breadcrumb.promotions')}
             </Link>
             <span aria-hidden="true"> / </span>
-            <span className="text-foreground">Campaigns</span>
+            <span className="text-foreground">{t('promotions.breadcrumb.campaigns')}</span>
           </nav>
-          <h1 className={adminPageTitleClass}>Promotion campaigns</h1>
+          <h1 className={adminPageTitleClass}>{t('promotions.campaigns.list.title')}</h1>
           <p className={adminPageLeadClass}>
-            Schedules are stored and evaluated in <strong>UTC</strong>. Status is manual; effective
-            flags combine status ∧ inclusive window ∧ strategy active.
+            <Trans
+              i18nKey="promotions.campaigns.list.lead"
+              ns="admin"
+              components={{ strong: <strong /> }}
+            />
           </p>
         </div>
         <Button asChild>
-          <Link to="/admin/promotions/campaigns/new">New campaign</Link>
+          <Link to="/admin/promotions/campaigns/new">{t('promotions.campaigns.list.newCampaign')}</Link>
         </Button>
       </div>
 
@@ -92,19 +106,19 @@ export function AdminCampaignListPage() {
           <p role="alert">
             {campaignsQuery.error instanceof ApiClientError
               ? campaignsQuery.error.userMessage
-              : 'Unable to load campaigns.'}
+              : t('promotions.campaigns.list.loadError')}
           </p>
           <Button type="button" size="sm" onClick={() => void campaignsQuery.refetch()}>
-            Retry
+            {tc('actions.retry')}
           </Button>
         </div>
       ) : campaigns && campaigns.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
             <MegaphoneIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">No campaigns yet.</p>
+            <p className="text-sm text-muted-foreground">{t('promotions.campaigns.list.empty')}</p>
             <Button asChild variant="link">
-              <Link to="/admin/promotions/campaigns/new">Create a campaign</Link>
+              <Link to="/admin/promotions/campaigns/new">{t('promotions.campaigns.list.createCampaign')}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -114,12 +128,12 @@ export function AdminCampaignListPage() {
             <table className={`${adminTableClass} min-w-[56rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className={adminThClass}>Campaign</th>
-                  <th className={adminThClass}>Strategy</th>
-                  <th className={adminThClass}>Status</th>
-                  <th className={adminThClass}>UTC window</th>
-                  <th className={adminThClass}>Effective</th>
-                  <th className={adminThClass}>Actions</th>
+                  <th className={adminThClass}>{t('promotions.campaigns.list.columns.campaign')}</th>
+                  <th className={adminThClass}>{t('promotions.campaigns.list.columns.strategy')}</th>
+                  <th className={adminThClass}>{t('promotions.campaigns.list.columns.status')}</th>
+                  <th className={adminThClass}>{t('promotions.campaigns.list.columns.window')}</th>
+                  <th className={adminThClass}>{t('promotions.campaigns.list.columns.effective')}</th>
+                  <th className={adminThClass}>{t('promotions.campaigns.list.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -136,9 +150,11 @@ export function AdminCampaignListPage() {
                       </Badge>
                     </td>
                     <td className={adminTdClass}>
-                      <Badge>{campaign.status}</Badge>
+                      <Badge>{statusLabel(campaign.status)}</Badge>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        effective: {campaign.effectiveStatus}
+                        {t('promotions.campaigns.list.effectiveStatus', {
+                          status: statusLabel(campaign.effectiveStatus),
+                        })}
                       </div>
                     </td>
                     <td className={`${adminTdClass} font-mono text-xs`}>
@@ -147,18 +163,22 @@ export function AdminCampaignListPage() {
                     </td>
                     <td className={adminTdClass}>
                       <div className="text-xs">
-                        pricing: {campaign.pricingEffective ? 'yes' : 'no'}
+                        {t('promotions.campaigns.list.pricing', {
+                          value: campaign.pricingEffective ? t('promotions.flag.yes') : t('promotions.flag.no'),
+                        })}
                       </div>
                       <div className="text-xs">
-                        placement: {campaign.placementEffective ? 'yes' : 'no'}
+                        {t('promotions.campaigns.list.placement', {
+                          value: campaign.placementEffective ? t('promotions.flag.yes') : t('promotions.flag.no'),
+                        })}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        placements: {campaign.placementCount}
+                        {t('promotions.campaigns.list.placements', { n: campaign.placementCount })}
                       </div>
                     </td>
                     <td className={`${adminTdClass} space-x-2 whitespace-nowrap`}>
                       <Button asChild variant="link" className="h-auto p-0">
-                        <Link to={`/admin/promotions/campaigns/${campaign.id}`}>Manage</Link>
+                        <Link to={`/admin/promotions/campaigns/${campaign.id}`}>{t('promotions.campaigns.list.manage')}</Link>
                       </Button>
                       <Button
                         type="button"
@@ -167,7 +187,7 @@ export function AdminCampaignListPage() {
                         disabled={deleteMutation.isPending}
                         onClick={() => {
                           const ok = window.confirm(
-                            `Delete campaign “${campaign.name}”? Placements and eligibility rows will be removed. Historical order snapshots are unaffected.`,
+                            t('promotions.campaigns.list.confirmDelete', { name: campaign.name }),
                           )
                           if (!ok) {
                             return
@@ -175,7 +195,7 @@ export function AdminCampaignListPage() {
                           deleteMutation.mutate(campaign.id)
                         }}
                       >
-                        Delete
+                        {t('promotions.campaigns.list.delete')}
                       </Button>
                     </td>
                   </tr>
@@ -188,7 +208,7 @@ export function AdminCampaignListPage() {
             totalPages={totalPages}
             totalElements={totalElements}
             pageSize={CAMPAIGN_LIST_PAGE_SIZE}
-            itemLabel="campaigns"
+            itemLabel={t('pagination.itemLabels.campaigns')}
             onPageChange={goToPage}
           />
         </>

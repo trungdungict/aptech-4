@@ -33,9 +33,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.aptech.aptech4.catalog.domain.Category;
 import com.aptech.aptech4.catalog.domain.Inventory;
 import com.aptech.aptech4.catalog.domain.Product;
+import com.aptech.aptech4.catalog.domain.ProductTranslation;
 import com.aptech.aptech4.catalog.persistence.CategoryRepository;
 import com.aptech.aptech4.catalog.persistence.InventoryRepository;
 import com.aptech.aptech4.catalog.persistence.ProductRepository;
+import com.aptech.aptech4.catalog.persistence.ProductTranslationRepository;
 import com.aptech.aptech4.identity.domain.Address;
 import com.aptech.aptech4.identity.domain.UserAccount;
 import com.aptech.aptech4.identity.persistence.AddressRepository;
@@ -96,6 +98,9 @@ class OrderLifecycleIntegrationTest {
 
 	@Autowired
 	InventoryRepository inventoryRepository;
+
+	@Autowired
+	ProductTranslationRepository productTranslationRepository;
 
 	@Autowired
 	AddressRepository addressRepository;
@@ -360,6 +365,51 @@ class OrderLifecycleIntegrationTest {
 		return null;
 	}
 
+	@Test
+	void orderItemProductNameIgnoresAcceptLanguageEn() throws Exception {
+		String suffix = UUID.randomUUID().toString().substring(0, 8);
+		String token = register("ord.loc." + suffix + "@example.com", "Order Locale");
+		UUID userId = jwtService.parseAccessToken(token).userId();
+		UUID addressId = seedAddress(userId, "Loc-" + suffix);
+		String viName = "Sản phẩm đơn " + suffix;
+		String enName = "Order Product EN " + suffix;
+		UUID productId = seedProductWithEn("ORD-LOC-" + suffix, viName, enName, new BigDecimal("55.00"), 5);
+		String admin = jwtService.createAccessToken(UUID.randomUUID(), "admin.ord.loc@example.com", List.of("ADMIN"));
+
+		addToCart(token, productId, 1);
+		// Cart under EN should show live EN name (preview), while order snapshot stays VI.
+		mockMvc.perform(get("/api/v1/cart")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+				.header(HttpHeaders.ACCEPT_LANGUAGE, "en"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[0].productName").value(enName));
+
+		MvcResult checkout = mockMvc.perform(post("/api/v1/checkout")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+				.header(HttpHeaders.ACCEPT_LANGUAGE, "en")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "idempotencyKey": "ord-loc-%s", "addressId": "%s" }
+						""".formatted(suffix, addressId)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.orderStatus").value("PAID"))
+			.andExpect(jsonPath("$.items[0].productName").value(viName))
+			.andReturn();
+		String orderId = objectMapper.readTree(checkout.getResponse().getContentAsString()).get("orderId").asText();
+
+		mockMvc.perform(get("/api/v1/orders/" + orderId)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+				.header(HttpHeaders.ACCEPT_LANGUAGE, "en"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[0].productName").value(viName));
+
+		mockMvc.perform(get("/api/v1/admin/orders/" + orderId)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + admin)
+				.header(HttpHeaders.ACCEPT_LANGUAGE, "en"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[0].productName").value(viName));
+	}
+
 	private void addToCart(String token, UUID productId, int qty) throws Exception {
 		mockMvc.perform(post("/api/v1/cart/items")
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
@@ -380,6 +430,26 @@ class OrderLifecycleIntegrationTest {
 					category, sku, "Product " + sku, null, price, "VND", true
 			));
 			inventoryRepository.saveAndFlush(Inventory.forProduct(product, onHand));
+			return product.getId();
+		});
+	}
+
+	private UUID seedProductWithEn(String sku, String viName, String enName, BigDecimal price, int onHand) {
+		String slug = "ord-cat-" + sku.toLowerCase().replaceAll("[^a-z0-9]+", "-");
+		return transactionTemplate.execute(status -> {
+			Category category = categoryRepository.saveAndFlush(Category.createNew(
+					"Ord Loc Cat " + sku, slug, null, null
+			));
+			Product product = productRepository.saveAndFlush(Product.createNew(
+					category, sku, viName, null, price, "VND", true
+			));
+			inventoryRepository.saveAndFlush(Inventory.forProduct(product, onHand));
+			productTranslationRepository.saveAndFlush(ProductTranslation.createNew(
+					product, "vi", viName, null
+			));
+			productTranslationRepository.saveAndFlush(ProductTranslation.createNew(
+					product, "en", enName, null
+			));
 			return product.getId();
 		});
 	}

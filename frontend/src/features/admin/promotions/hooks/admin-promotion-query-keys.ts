@@ -1,10 +1,18 @@
+import type { AppLocale } from '@/lib/i18n'
+
+/** Strategy/campaign/placement display names follow Accept-Language. */
 export const adminPromotionQueryKeys = {
   all: ['admin', 'promotions'] as const,
-  strategies: () => [...adminPromotionQueryKeys.all, 'strategies'] as const,
-  strategy: (id: string) => [...adminPromotionQueryKeys.strategies(), id] as const,
-  campaigns: () => [...adminPromotionQueryKeys.all, 'campaigns'] as const,
-  campaign: (id: string) => [...adminPromotionQueryKeys.campaigns(), id] as const,
-  placements: (campaignId: string) =>
-    [...adminPromotionQueryKeys.campaign(campaignId), 'placements'] as const,
-  placement: (id: string) => [...adminPromotionQueryKeys.all, 'placement', id] as const,
+  strategies: (locale: AppLocale) =>
+    [...adminPromotionQueryKeys.all, 'strategies', locale] as const,
+  strategy: (locale: AppLocale, id: string) =>
+    [...adminPromotionQueryKeys.strategies(locale), id] as const,
+  campaigns: (locale: AppLocale) =>
+    [...adminPromotionQueryKeys.all, 'campaigns', locale] as const,
+  campaign: (locale: AppLocale, id: string) =>
+    [...adminPromotionQueryKeys.campaigns(locale), id] as const,
+  placements: (locale: AppLocale, campaignId: string) =>
+    [...adminPromotionQueryKeys.campaign(locale, campaignId), 'placements'] as const,
+  placement: (locale: AppLocale, id: string) =>
+    [...adminPromotionQueryKeys.all, 'placement', locale, id] as const,
 }

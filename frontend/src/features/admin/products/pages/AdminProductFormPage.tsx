@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { listAdminCategories } from '@/features/admin/categories/api/admin-categories-api'
@@ -15,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { catalogQueryKeys } from '@/features/catalog/hooks/catalog-query-keys'
 import { ApiClientError } from '@/lib/api/api-error'
+import { EntityTranslationsEditor } from '@/features/admin/translations'
 
 import {
   adminAlertErrorClass,
@@ -28,9 +30,10 @@ import {
 import * as productsApi from '../api/admin-products-api'
 import { ProductImageUploadField } from '../components/ProductImageUploadField'
 import { ProductInventoryForm } from '../components/ProductInventoryForm'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 import { adminProductQueryKeys } from '../hooks/admin-product-query-keys'
 import {
-  adminProductFormSchema,
+  createAdminProductFormSchema,
   type AdminProductFormInput,
   type AdminProductFormValues,
 } from '../schemas'
@@ -40,30 +43,37 @@ const UUID_RE =
 
 type Mode = 'create' | 'edit'
 
+const CANONICAL_LOCALE = 'vi' as const
+
 export function AdminProductFormPage({ mode }: { mode: Mode }) {
+  const { t } = useTranslation('admin')
   const { productId = '' } = useParams<{ productId: string }>()
   const isEdit = mode === 'edit'
   const idValid = !isEdit || UUID_RE.test(productId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { locale } = useAppLocale()
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
+  // Base form always edits canonical Vietnamese text (PUT writes VI base columns), so read it with
+  // Accept-Language: vi regardless of UI locale. English lives in the translations editor.
   const productQuery = useQuery({
-    queryKey: adminProductQueryKeys.detail(productId),
-    queryFn: ({ signal }) => productsApi.getAdminProduct(productId, signal),
+    queryKey: adminProductQueryKeys.detail(CANONICAL_LOCALE, productId),
+    queryFn: ({ signal }) => productsApi.getAdminProduct(productId, signal, CANONICAL_LOCALE),
     enabled: isEdit && idValid,
     retry: false,
   })
 
   const categoriesQuery = useQuery({
-    queryKey: adminCategoryQueryKeys.list(),
+    queryKey: adminCategoryQueryKeys.list(locale),
     queryFn: ({ signal }) => listAdminCategories(signal),
     retry: false,
   })
 
+  const resolver = useMemo(() => zodResolver(createAdminProductFormSchema(t)), [t])
   const form = useForm<AdminProductFormInput, unknown, AdminProductFormValues>({
-    resolver: zodResolver(adminProductFormSchema),
+    resolver,
     defaultValues: {
       sku: '',
       name: '',
@@ -108,10 +118,12 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
     },
     onSuccess: async (saved) => {
       setFormError(null)
-      setSuccessMessage(isEdit ? 'Product updated.' : 'Product created.')
+      setSuccessMessage(isEdit ? t('products.form.updated') : t('products.form.created'))
       await queryClient.invalidateQueries({ queryKey: adminProductQueryKeys.all })
       await queryClient.invalidateQueries({ queryKey: catalogQueryKeys.all })
-      queryClient.setQueryData(adminProductQueryKeys.detail(saved.id), saved)
+      if (locale === CANONICAL_LOCALE) {
+        queryClient.setQueryData(adminProductQueryKeys.detail(CANONICAL_LOCALE, saved.id), saved)
+      }
       void navigate(`/admin/products/${saved.id}/edit`, { replace: true })
     },
     onError: (error) => {
@@ -119,7 +131,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
         setFormError(error.userMessage)
         return
       }
-      setFormError('Unable to save product.')
+      setFormError(t('products.form.saveError'))
     },
   })
 
@@ -132,14 +144,18 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
 
   if (isEdit && !idValid) {
     return (
-      <Unavailable title="Invalid product link" message="The product id in the URL is not valid." />
+      <Unavailable
+        title={t('products.form.invalidLinkTitle')}
+        message={t('products.form.invalidLinkMessage')}
+        backLabel={t('products.form.backToProducts')}
+      />
     )
   }
 
   if (isEdit && productQuery.isLoading) {
     return (
       <div className="mx-auto max-w-xl space-y-4" role="status" aria-live="polite">
-        <p className="sr-only">Loading product…</p>
+        <p className="sr-only">{t('products.form.loading')}</p>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 w-full rounded-xl" />
       </div>
@@ -149,14 +165,18 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
   if (isEdit && productQuery.isError) {
     if (productQuery.error instanceof ApiClientError && productQuery.error.status === 404) {
       return (
-        <Unavailable title="Product not found" message="This product does not exist or was removed." />
+        <Unavailable
+          title={t('products.form.notFoundTitle')}
+          message={t('products.form.notFoundMessage')}
+          backLabel={t('products.form.backToProducts')}
+        />
       )
     }
     return (
       <p className="text-sm text-destructive" role="alert">
         {productQuery.error instanceof ApiClientError
           ? productQuery.error.userMessage
-          : 'Unable to load product.'}
+          : t('products.form.loadError')}
       </p>
     )
   }
@@ -164,29 +184,29 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
   return (
     <section className={`mx-auto max-w-xl ${adminPageSectionClass}`}>
       <div className="space-y-2">
-        <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+        <nav aria-label={t('shell.breadcrumb')} className="text-sm text-muted-foreground">
           <Link to="/admin/products" className="font-medium text-primary hover:underline">
-            Products
+            {t('products.form.breadcrumbProducts')}
           </Link>
           <span aria-hidden="true"> / </span>
-          <span className="text-foreground">{isEdit ? 'Edit' : 'New'}</span>
+          <span className="text-foreground">{isEdit ? t('products.form.breadcrumbEdit') : t('products.form.breadcrumbNew')}</span>
         </nav>
         <h1 className={adminPageTitleClass}>
-          {isEdit ? 'Edit product' : 'Create product'}
+          {isEdit ? t('products.form.editTitle') : t('products.form.createTitle')}
         </h1>
         <p className={adminPageLeadClass}>
           {isEdit
-            ? 'Update catalog fields below. Stock is managed in the Inventory section.'
-            : 'Create the product first, then set stock quantity on the edit page.'}
+            ? t('products.form.editLead')
+            : t('products.form.createLead')}
         </p>
       </div>
 
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>
-            <h2 className="text-base font-semibold">Product details</h2>
+            <h2 className="text-base font-semibold">{t('products.form.detailsTitle')}</h2>
           </CardTitle>
-          <CardDescription>SKU, pricing, and category assignment.</CardDescription>
+          <CardDescription>{t('products.form.detailsDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -200,7 +220,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
           >
             <Field
               id="product-sku"
-              label="SKU"
+              label={t('products.form.sku')}
               error={form.formState.errors.sku?.message}
             >
               <Input
@@ -212,7 +232,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
             </Field>
             <Field
               id="product-name"
-              label="Name"
+              label={t('products.form.name')}
               error={form.formState.errors.name?.message}
             >
               <Input
@@ -224,7 +244,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
             </Field>
             <Field
               id="product-description"
-              label="Description"
+              label={t('products.form.description')}
               error={form.formState.errors.description?.message}
             >
               <Textarea
@@ -235,13 +255,16 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
                 {...form.register('description')}
               />
             </Field>
+            <p className="text-xs text-muted-foreground" data-testid="product-canonical-note">
+              {isEdit ? t('products.form.canonicalNote') : t('products.form.createTranslationsHint')}
+            </p>
 
             <Separator />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 id="product-price"
-                label="Unit price"
+                label={t('products.form.unitPrice')}
                 error={form.formState.errors.unitPrice?.message}
               >
                 <Input
@@ -254,7 +277,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
               </Field>
               <Field
                 id="product-currency"
-                label="Currency"
+                label={t('products.form.currency')}
                 error={form.formState.errors.currency?.message}
               >
                 <Input
@@ -267,7 +290,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
             </div>
             <Field
               id="product-category"
-              label="Category"
+              label={t('products.form.category')}
               error={form.formState.errors.categoryId?.message}
             >
               <select
@@ -277,10 +300,10 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
                 aria-invalid={Boolean(form.formState.errors.categoryId)}
                 {...form.register('categoryId')}
               >
-                <option value="">Select a category</option>
+                <option value="">{t('products.form.selectCategory')}</option>
                 {selectedInactive ? (
                   <option value={selectedInactive.id}>
-                    {selectedInactive.name} (inactive — reassignment required)
+                    {t('products.form.inactiveCategory', { name: selectedInactive.name })}
                   </option>
                 ) : null}
                 {activeCategories.map((category) => (
@@ -307,7 +330,7 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
 
             {categoriesQuery.isError ? (
               <p className="text-sm text-destructive" role="alert">
-                Unable to load categories for the form.
+                {t('products.form.categoriesError')}
               </p>
             ) : null}
 
@@ -330,15 +353,21 @@ export function AdminProductFormPage({ mode }: { mode: Mode }) {
 
             <div className="flex flex-wrap gap-2 pt-2">
               <Button type="submit" disabled={saveMutation.isPending || form.formState.isSubmitting}>
-                {saveMutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
+                {saveMutation.isPending
+                  ? t('products.form.saving')
+                  : isEdit
+                    ? t('products.form.save')
+                    : t('products.form.create')}
               </Button>
               <Button asChild variant="outline">
-                <Link to="/admin/products">Back to list</Link>
+                <Link to="/admin/products">{t('products.form.backToList')}</Link>
               </Button>
             </div>
           </form>
         </CardContent>
       </Card>
+
+      {isEdit && idValid ? <EntityTranslationsEditor kind="product" entityId={productId} /> : null}
 
       {isEdit && idValid ? <ProductInventoryForm productId={productId} /> : null}
     </section>
@@ -365,14 +394,22 @@ function Field({
   )
 }
 
-function Unavailable({ title, message }: { title: string; message: string }) {
+function Unavailable({
+  title,
+  message,
+  backLabel,
+}: {
+  title: string
+  message: string
+  backLabel: string
+}) {
   return (
     <Card className="border-dashed shadow-none">
       <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground">{message}</p>
         <Button asChild variant="link">
-          <Link to="/admin/products">Back to products</Link>
+          <Link to="/admin/products">{backLabel}</Link>
         </Button>
       </CardContent>
     </Card>

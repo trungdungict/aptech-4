@@ -7,7 +7,7 @@ describe('TimeseriesChart', () => {
   it('keeps zero-filled days and sparse activity readable with exact table values', () => {
     render(
       <TimeseriesChart
-        currency="VND"
+        currency="USD"
         empty={false}
         points={[
           { date: '2026-05-01', placedOrderCount: 2, revenueTotal: 100 },
@@ -27,7 +27,7 @@ describe('TimeseriesChart', () => {
   it('shows empty copy for zero-filled empty ranges', () => {
     render(
       <TimeseriesChart
-        currency="VND"
+        currency="USD"
         empty
         points={[{ date: '2088-01-01', placedOrderCount: 0, revenueTotal: 0 }]}
       />,

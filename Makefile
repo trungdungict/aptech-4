@@ -35,7 +35,7 @@ SEED_SERVER_PORT ?= 18081
 .PHONY: help env-check up-deps down-deps down down-all up-all clean ps logs-deps health-deps reset-deps-volumes \
 	build-stack deploy-local deploy-demo-stack deploy-local-ai down-local health-local health-demo-stack \
 	logs-local smoke-local smoke-demo smoke-chat smoke-product-image-upload smoke-promotions \
-	smoke-inventory-analytics e2e-inventory-analytics \
+	smoke-inventory-analytics e2e-inventory-analytics e2e-customer-bilingual \
 	test-product-image-upload test-promotions test-nginx-assets-no-spa-fallback \
 	up-ai ollama-pull ollama-ensure-model ollama-health down-ai \
 	monitoring-up monitoring-down monitoring-status monitoring-validate monitoring-validate-demo \
@@ -369,6 +369,17 @@ seed-check: env-check ## Seed preflight / dry report (no writes); refuse prod pr
 			-c "SELECT (SELECT count(*) FROM users WHERE email IN ('$$admin', '$$customer')) AS demo_users, \
 			(SELECT count(*) FROM categories WHERE slug IN ('demo-electronics','demo-books','demo-home','demo-archive')) AS demo_categories, \
 			(SELECT count(*) FROM products WHERE sku LIKE 'DEMO-%') AS demo_products;"; \
+		echo "Read-only bilingual translation counts (FoodMart / promo; no writes):"; \
+		$(COMPOSE) exec -T postgres psql -U "$${POSTGRES_USER:-aptech}" -d "$$db" -v ON_ERROR_STOP=1 \
+			-c "SELECT \
+			(SELECT count(*) FROM category_translations t JOIN categories c ON c.id = t.category_id WHERE c.slug LIKE 'food-%' AND t.locale = 'vi') AS cat_vi, \
+			(SELECT count(*) FROM category_translations t JOIN categories c ON c.id = t.category_id WHERE c.slug LIKE 'food-%' AND t.locale = 'en') AS cat_en, \
+			(SELECT count(*) FROM product_translations t JOIN products p ON p.id = t.product_id WHERE p.sku LIKE 'FOOD-%' AND t.locale = 'vi') AS prod_vi, \
+			(SELECT count(*) FROM product_translations t JOIN products p ON p.id = t.product_id WHERE p.sku LIKE 'FOOD-%' AND t.locale = 'en') AS prod_en, \
+			(SELECT count(*) FROM product_translations t JOIN products p ON p.id = t.product_id WHERE p.sku = 'FOOD-FROZEN-PEAS-001' AND t.locale = 'en') AS peas_en, \
+			(SELECT count(*) FROM promotion_strategy_translations WHERE locale = 'en') AS strat_en, \
+			(SELECT count(*) FROM promotion_campaign_translations WHERE locale = 'en') AS camp_en, \
+			(SELECT count(*) FROM promotion_placement_translations WHERE locale = 'en') AS place_en;"; \
 	else \
 		echo "Postgres not running yet — counts skipped (make up-deps / deploy-local first)."; \
 	fi; \
@@ -523,6 +534,9 @@ smoke-inventory-analytics: ## Opt-in: Admin inventory + analytics via nginx (nee
 
 e2e-inventory-analytics: ## Opt-in: Playwright Admin inventory + analytics UI (stack + DEMO_*)
 	@bash ./scripts/e2e-inventory-analytics.sh
+
+e2e-customer-bilingual: ## Opt-in: Playwright customer storefront VI/EN (stack + DEMO_CUSTOMER_*)
+	@bash ./scripts/e2e-customer-bilingual.sh
 
 test-product-image-upload: ## Host unit/IT + frontend suites for product image upload
 	@echo "== backend ProductImage* + AdminProductImageUpload =="

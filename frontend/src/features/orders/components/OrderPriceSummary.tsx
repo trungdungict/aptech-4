@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { Separator } from '@/components/ui/separator'
 
@@ -24,13 +26,14 @@ export function OrderPriceSummary({
   totalAmount,
   appliedPromotions = [],
 }: OrderPriceSummaryProps) {
+  const { t } = useTranslation('orders')
   const showDiscount = hasOrderDiscount(discountAmount)
   const promotions = appliedPromotions ?? []
 
   return (
     <div className="space-y-3 text-sm">
       <div className="flex justify-between gap-3">
-        <span className="text-muted-foreground">Subtotal</span>
+        <span className="text-muted-foreground">{t('summary.subtotal')}</span>
         <ProductPrice
           unitPrice={subtotalAmount}
           currency={currency}
@@ -38,7 +41,7 @@ export function OrderPriceSummary({
         />
       </div>
       <div className="flex justify-between gap-3">
-        <span className="text-muted-foreground">Shipping</span>
+        <span className="text-muted-foreground">{t('summary.shipping')}</span>
         <ProductPrice
           unitPrice={shippingAmount}
           currency={currency}
@@ -48,7 +51,7 @@ export function OrderPriceSummary({
       {showDiscount ? (
         <div className="space-y-2">
           <div className="flex justify-between gap-3">
-            <span className="text-muted-foreground">Discount</span>
+            <span className="text-muted-foreground">{t('summary.discount')}</span>
             <span className="text-sm font-medium text-emerald-700">
               −
               <ProductPrice
@@ -84,7 +87,7 @@ export function OrderPriceSummary({
       ) : null}
       <Separator />
       <div className="flex justify-between gap-3 font-semibold">
-        <span>Total</span>
+        <span>{t('summary.total')}</span>
         <ProductPrice
           unitPrice={totalAmount}
           currency={currency}

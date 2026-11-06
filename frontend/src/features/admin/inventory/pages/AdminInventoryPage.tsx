@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { PackageIcon, WarehouseIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { Pagination, parsePageParam, writePageParam } from '@/components/pagination'
@@ -11,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PRODUCT_DEFAULT_PAGE_SIZE } from '@/features/catalog/types'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import {
@@ -27,7 +29,7 @@ import {
 import * as inventoryApi from '../api/admin-inventory-api'
 import { AdjustInventorySheet } from '../components/AdjustInventorySheet'
 import { adminInventoryQueryKeys } from '../hooks/admin-inventory-query-keys'
-import { stockBucketBadgeVariant, stockBucketLabel } from '../lib/stock-status-badge'
+import { stockBucketBadgeVariant, stockBucketLabelKey } from '../lib/stock-status-badge'
 import {
   ADMIN_INVENTORY_DEFAULT_SORT,
   ADMIN_INVENTORY_SORT_OPTIONS,
@@ -43,6 +45,9 @@ function parseStockStatus(raw: string | null): AdminInventoryStockStatusFilter {
 }
 
 export function AdminInventoryPage() {
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
+  const { locale } = useAppLocale()
   const [searchParams, setSearchParams] = useSearchParams()
   const [adjustItem, setAdjustItem] = useState<AdminInventoryListItem | null>(null)
 
@@ -80,7 +85,7 @@ export function AdminInventoryPage() {
   })
 
   const listQuery = useQuery({
-    queryKey: adminInventoryQueryKeys.list(listParams),
+    queryKey: adminInventoryQueryKeys.list(locale, listParams),
     queryFn: ({ signal }) => inventoryApi.listAdminInventory(listParams, signal),
     retry: false,
   })
@@ -91,16 +96,15 @@ export function AdminInventoryPage() {
   return (
     <section className={adminPageSectionClass}>
       <div className="space-y-1">
-        <h1 className={adminPageTitleClass}>Inventory</h1>
+        <h1 className={adminPageTitleClass}>{t('inventory.title')}</h1>
         <p className={adminPageLeadClass}>
-          Catalog-wide stock (active and inactive). Available = on hand − reserved. Adjustments set
-          absolute on-hand only; reserved units come from open checkouts.
+          {t('inventory.lead')}
         </p>
       </div>
 
       {summaryQuery.isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" role="status" aria-live="polite">
-          <p className="sr-only">Loading inventory summary…</p>
+          <p className="sr-only">{t('inventory.summaryLoading')}</p>
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
@@ -110,26 +114,26 @@ export function AdminInventoryPage() {
           <p role="alert">
             {summaryQuery.error instanceof ApiClientError
               ? summaryQuery.error.userMessage
-              : 'Unable to load inventory summary.'}
+              : t('inventory.summaryError')}
           </p>
           <Button type="button" size="sm" onClick={() => void summaryQuery.refetch()}>
-            Retry summary
+            {t('inventory.retrySummary')}
           </Button>
         </div>
       ) : summaryQuery.data ? (
         <div className="space-y-2">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryStat label="Total products" value={summaryQuery.data.totalProducts} />
-            <SummaryStat label="In stock" value={summaryQuery.data.inStockCount} />
-            <SummaryStat label="Low stock" value={summaryQuery.data.lowStockCount} />
-            <SummaryStat label="Out of stock" value={summaryQuery.data.outOfStockCount} />
+            <SummaryStat label={t('inventory.totalProducts')} value={summaryQuery.data.totalProducts} />
+            <SummaryStat label={t('inventory.inStockCount')} value={summaryQuery.data.inStockCount} />
+            <SummaryStat label={t('inventory.lowStockCount')} value={summaryQuery.data.lowStockCount} />
+            <SummaryStat label={t('inventory.outOfStockCount')} value={summaryQuery.data.outOfStockCount} />
           </div>
           <p className="text-xs text-muted-foreground">
-            Low-stock threshold is configured on the server (
+            {t('inventory.thresholdBefore')}
             <span className="font-medium text-foreground">
               {summaryQuery.data.lowStockThreshold}
             </span>
-            ). LOW means available is greater than 0 and at most that threshold.
+            {t('inventory.thresholdAfter')}
           </p>
         </div>
       ) : null}
@@ -165,43 +169,43 @@ export function AdminInventoryPage() {
             }}
           >
             <div className="min-w-[12rem] flex-1 space-y-1.5">
-              <Label htmlFor="admin-inventory-q">Search</Label>
+              <Label htmlFor="admin-inventory-q">{t('inventory.filters.search')}</Label>
               <Input
                 id="admin-inventory-q"
                 name="q"
                 defaultValue={q}
-                placeholder="Search name or SKU"
+                placeholder={t('inventory.filters.searchPlaceholder')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="admin-inventory-active">Product status</Label>
+              <Label htmlFor="admin-inventory-active">{t('inventory.filters.productStatus')}</Label>
               <select
                 id="admin-inventory-active"
                 name="active"
                 defaultValue={activeParam ?? ''}
                 className={adminNativeSelectClass}
               >
-                <option value="">All</option>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
+                <option value="">{t('inventory.filters.all')}</option>
+                <option value="true">{t('common.active')}</option>
+                <option value="false">{t('common.inactive')}</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="admin-inventory-stock">Stock status</Label>
+              <Label htmlFor="admin-inventory-stock">{t('inventory.filters.stockStatus')}</Label>
               <select
                 id="admin-inventory-stock"
                 name="stockStatus"
                 defaultValue={stockStatus}
                 className={adminNativeSelectClass}
               >
-                <option value="ALL">All stock</option>
-                <option value="IN_STOCK">In stock</option>
-                <option value="LOW">Low stock</option>
-                <option value="OUT">Out of stock</option>
+                <option value="ALL">{t('inventory.filters.allStock')}</option>
+                <option value="IN_STOCK">{t('inventory.stock.inStock')}</option>
+                <option value="LOW">{t('inventory.stock.low')}</option>
+                <option value="OUT">{t('inventory.stock.out')}</option>
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="admin-inventory-sort">Sort</Label>
+              <Label htmlFor="admin-inventory-sort">{t('inventory.filters.sort')}</Label>
               <select
                 id="admin-inventory-sort"
                 name="sort"
@@ -210,13 +214,13 @@ export function AdminInventoryPage() {
               >
                 {ADMIN_INVENTORY_SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </option>
                 ))}
               </select>
             </div>
             <Button type="submit" variant="outline">
-              Apply
+              {t('inventory.filters.apply')}
             </Button>
           </form>
         </CardContent>
@@ -224,7 +228,7 @@ export function AdminInventoryPage() {
 
       {listQuery.isLoading ? (
         <div className="space-y-3" role="status" aria-live="polite">
-          <p className="sr-only">Loading inventory…</p>
+          <p className="sr-only">{t('inventory.loading')}</p>
           <Skeleton className="h-12 w-full rounded-xl" />
           <Skeleton className="h-48 w-full rounded-xl" />
         </div>
@@ -233,19 +237,19 @@ export function AdminInventoryPage() {
           <p role="alert">
             {listQuery.error instanceof ApiClientError
               ? listQuery.error.userMessage
-              : 'Unable to load inventory.'}
+              : t('inventory.loadError')}
           </p>
           <Button type="button" size="sm" onClick={() => void listQuery.refetch()}>
-            Retry
+            {tc('actions.retry')}
           </Button>
         </div>
       ) : data && data.items.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
             <WarehouseIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">No products match these inventory filters.</p>
+            <p className="text-sm text-muted-foreground">{t('inventory.empty')}</p>
             <Button asChild variant="link">
-              <Link to="/admin/products">Browse products</Link>
+              <Link to="/admin/products">{t('inventory.browseProducts')}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -255,14 +259,14 @@ export function AdminInventoryPage() {
             <table className={`${adminTableClass} min-w-[52rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className={adminThClass}>Product</th>
-                  <th className={adminThClass}>SKU</th>
-                  <th className={adminThClass}>Active</th>
-                  <th className={adminThClass}>On hand</th>
-                  <th className={adminThClass}>Reserved</th>
-                  <th className={adminThClass}>Available</th>
-                  <th className={adminThClass}>Stock</th>
-                  <th className={adminThClass}>Actions</th>
+                  <th className={adminThClass}>{t('inventory.columns.product')}</th>
+                  <th className={adminThClass}>{t('inventory.columns.sku')}</th>
+                  <th className={adminThClass}>{t('inventory.columns.active')}</th>
+                  <th className={adminThClass}>{t('inventory.columns.onHand')}</th>
+                  <th className={adminThClass}>{t('inventory.columns.reserved')}</th>
+                  <th className={adminThClass}>{t('inventory.columns.available')}</th>
+                  <th className={adminThClass}>{t('inventory.columns.stock')}</th>
+                  <th className={adminThClass}>{t('inventory.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -280,7 +284,7 @@ export function AdminInventoryPage() {
                           <span>{row.name}</span>
                           {!row.hasInventoryRow ? (
                             <p className="text-xs font-normal text-muted-foreground">
-                              No inventory row yet
+                              {t('inventory.noInventoryRow')}
                             </p>
                           ) : null}
                         </div>
@@ -288,7 +292,7 @@ export function AdminInventoryPage() {
                       <td className={`${adminTdClass} font-mono text-xs`}>{row.sku}</td>
                       <td className={adminTdClass}>
                         <Badge variant={row.active ? 'success' : 'warning'}>
-                          {row.active ? 'Active' : 'Inactive'}
+                          {row.active ? t('common.active') : t('common.inactive')}
                         </Badge>
                       </td>
                       <td className={`${adminTdClass} tabular-nums`}>{row.quantityOnHand}</td>
@@ -296,7 +300,7 @@ export function AdminInventoryPage() {
                       <td className={`${adminTdClass} tabular-nums`}>{row.available}</td>
                       <td className={adminTdClass}>
                         <Badge variant={stockBucketBadgeVariant(bucket)}>
-                          {stockBucketLabel(bucket)}
+                          {t(stockBucketLabelKey(bucket))}
                         </Badge>
                       </td>
                       <td className={adminTdClass}>
@@ -307,10 +311,10 @@ export function AdminInventoryPage() {
                             variant="outline"
                             onClick={() => setAdjustItem(row)}
                           >
-                            Set on hand
+                            {t('inventory.setOnHand')}
                           </Button>
                           <Button asChild variant="link" size="sm" className="h-auto px-0">
-                            <Link to={`/admin/products/${row.productId}/edit`}>Edit product</Link>
+                            <Link to={`/admin/products/${row.productId}/edit`}>{t('inventory.editProduct')}</Link>
                           </Button>
                         </div>
                       </td>
@@ -325,7 +329,7 @@ export function AdminInventoryPage() {
             totalPages={data.totalPages}
             totalElements={data.totalElements}
             pageSize={data.size}
-            itemLabel="products"
+            itemLabel={t('pagination.itemLabels.products')}
             disabled={listQuery.isFetching}
             onPageChange={goToPage}
           />

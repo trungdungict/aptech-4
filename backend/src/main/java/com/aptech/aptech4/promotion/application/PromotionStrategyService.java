@@ -20,13 +20,16 @@ public class PromotionStrategyService {
 
 	private final PromotionStrategyRepository strategyRepository;
 	private final PromotionCacheInvalidator promotionCacheInvalidator;
+	private final PromotionLocalizationService promotionLocalizationService;
 
 	public PromotionStrategyService(
 			PromotionStrategyRepository strategyRepository,
-			PromotionCacheInvalidator promotionCacheInvalidator
+			PromotionCacheInvalidator promotionCacheInvalidator,
+			PromotionLocalizationService promotionLocalizationService
 	) {
 		this.strategyRepository = strategyRepository;
 		this.promotionCacheInvalidator = promotionCacheInvalidator;
+		this.promotionLocalizationService = promotionLocalizationService;
 	}
 
 	@Transactional(readOnly = true)
@@ -59,6 +62,7 @@ public class PromotionStrategyService {
 				request.active() == null || request.active()
 		);
 		strategy = strategyRepository.saveAndFlush(strategy);
+		promotionLocalizationService.syncCanonicalViStrategy(strategy);
 		promotionCacheInvalidator.onPromotionMutation();
 		return PromotionStrategyResponse.from(strategy);
 	}
@@ -81,6 +85,7 @@ public class PromotionStrategyService {
 				request.active() == null ? strategy.isActive() : request.active()
 		);
 		strategy = strategyRepository.saveAndFlush(strategy);
+		promotionLocalizationService.syncCanonicalViStrategy(strategy);
 		promotionCacheInvalidator.onPromotionMutation();
 		return PromotionStrategyResponse.from(strategy);
 	}
@@ -96,7 +101,7 @@ public class PromotionStrategyService {
 
 	private PromotionStrategy require(UUID id) {
 		return strategyRepository.findById(id).orElseThrow(() ->
-				new ApiException(HttpStatus.NOT_FOUND, "Not Found", "Promotion strategy not found")
+				ApiException.keyed(HttpStatus.NOT_FOUND, "Not Found", "api.error.not_found.strategy")
 		);
 	}
 

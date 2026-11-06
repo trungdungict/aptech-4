@@ -1228,6 +1228,164 @@ Counts are maintained in `PROGRESS.md` (recalculate from this file).
 
 ---
 
+## P34 — Bilingual VI/EN
+
+Normative plan: `.cursor/plans/11-bilingual-vi-en.md`. Do not start T02 until T01 plan is reviewed.
+
+### P34-T01 — Audit, contract freeze & mock data strategy
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P33-T02
+- **Files:** `.cursor/plans/11-bilingual-vi-en.md`, state docs (this registry)
+- **AC:** Repo audit completed from real paths; locale policy + translation schema + seed strategy + FE i18n + roadmap T02–T09 documented; no implementation/migrations/seed rewrite/`.env`/volumes/commit
+- **Verify:** Plan readable; TASKS P34 registered; PROGRESS/CURRENT_SESSION updated
+- **Evidence:** 2026-11-02 — Audited catalog/promo entities (single-locale columns); FoodMart seed **EN** (`foodmart-catalog.json` 8/48); promo seed **VI** display (`DemoPromotionCatalog`); no Accept-Language/MessageSource; Redis cache keys locale-less; FE no i18next (chat-only hand-rolled EN/VI); money `vi-VN`. Recommended: default/fallback `vi`, `Accept-Language`, entity-specific `*_translations` tables, extend seed in place (T06). Open decisions listed in plan §Open decisions.
+- **Notes:** Planning only. Stop before T02 pending human review.
+
+### P34-T02 — Backend locale foundation
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P34-T01
+- **Files:** `backend/src/main/java/com/aptech/aptech4/common/locale/**`, `SecurityConfig.java` (CORS `Accept-Language` + filter order), security WebMvcTest imports
+- **AC:** Central `AppLocale` + Accept-Language parse (q-values, regional tags); unsupported→`vi`; controllers do not parse headers; request-scoped holder/filter with no cross-request leak; tests
+- **Verify:** `./mvnw -Dtest=AcceptLanguageParserTest,RequestLocaleFilterTest,AppLocaleTest,JwtSecurityWebTest,RbacSecurityWebTest,OpenApiSecurityWebTest test`
+- **Evidence:** 2026-11-02 — Implemented `AppLocale`, `AcceptLanguageParser`, `RequestLocaleHolder`, `RequestLocaleFilter` (also sets `LocaleContextHolder`). Wired before JWT in `SecurityConfig`; CORS allows `Accept-Language`. Policy: missing/unsupported/wildcard-only → `vi`; invalid/`q` out of `[0,1]` skips entry; `q=0` not acceptable; `*` skipped so lower-q supported can win. **MessageSource / GlobalExceptionHandler localization deferred** (avoid EN IT churn before FE); use `RequestLocaleHolder.get()` later. Tests: **51/51** (28 locale + 23 security web). No Liquibase/seed/FE/`.env`/commit.
+- **Notes:** No translation tables yet. Stop before T03 pending review.
+
+### P34-T03 — Database translation schema & safe backfill
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P34-T02
+- **Files:** `db/changelog/changes/145-content-translations.yaml`, `db.changelog-master.yaml`, JPA `*Translation` entities (catalog + promotion), schema ITs
+- **AC:** Entity-specific translation tables + FKs/uniques/indexes; Liquibase up/down blocks; EN catalog + VI promo backfill; no volume wipe
+- **Verify:** `./mvnw -Dtest=ContentTranslationSchemaIntegrationTest,TestcontainersBootstrapTest test`; optional `RUN_COMPOSE_MIGRATE_SMOKE=true ./mvnw -Dtest=ComposeTranslationMigrateSmokeTest test`
+- **Evidence:** 2026-11-02 — Added 5 tables (`product|category|promotion_strategy|campaign|placement_translations`) with FK CASCADE, UNIQUE(entity,locale), CHECK locale∈(vi,en), locale indexes; explicit Liquibase `rollback: dropTable`. Backfill: catalog base→`en` (Compose: 48 products / 8 categories); promo base→`vi` (11 strategies / 12 campaigns / 1 placement). VI catalog + EN promo deferred to T06. TC IT **5/5**; bootstrap OK; Compose migrate smoke **1/1** (7 changesets, Hibernate validate OK). No API/seed/FE/`.env`/volumes/commit.
+- **Notes:** Do not rewrite demo JSON dictionary here (T06). Stop before T04 pending review.
+
+### P34-T04 — Localized APIs & Admin translation CRUD
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P34-T03
+- **Files:** Localization services; Admin `…/translations` controllers; `CatalogCacheKeys` / `PromotionCacheKeys`; `ApiMessageResolver` / `GlobalExceptionHandler`; `backend/docs/OPENAPI.md`
+- **AC:** Public responses resolve by request locale + fallback; Admin can read/write VI+EN maps; cache keys include locale; RBAC unchanged; IT coverage incl. missing-EN fallback
+- **Verify:** Backend ITs with `Accept-Language: vi|en`
+- **Evidence:** 2026-11-02 — `./mvnw -Dtest=CatalogLocalizationIntegrationTest,AdminCatalogTranslationAtomicityIntegrationTest,PromotionLocalizationIntegrationTest,CatalogCacheIntegrationTest,PromotionCacheIntegrationTest,CatalogCacheKeysTest,PromotionCacheKeysTest,ContentLocalizationTest,ApiMessageResolverTest test` → **26/26** BUILD SUCCESS. Admin contract frozen in OPENAPI.md (separate `/translations` endpoints + `translations` map).
+- **Notes:** Separate translation endpoints preferred over embedding on existing Admin write DTOs (keeps invariants off translation path).
+
+### P34-T05 — Frontend i18n foundation
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P34-T02
+- **Files:** `src/lib/i18n/**`, `LanguageSwitcher`, `api-client.ts`, locale-aware catalog/promo/admin query keys, `format-price` → `formatMoney`
+- **AC:** i18next + typed `common` namespace; `Accept-Language` sent; `document.documentElement.lang`; persisted `aptech4.locale`; RQ locale keys; switcher in customer+admin shells; typecheck/tests/build green
+- **Verify:** `npm run typecheck`; `npm test`; `npm run build`
+- **Evidence:** 2026-11-02 — typecheck OK; vitest **290/290**; build OK. Chat `aptech4.chat.language` left independent (not global locale).
+- **Notes:** Full string migration is T07/T08; chat→shared namespace deferred.
+
+### P34-T06 — Bilingual mock/seed data implementation
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P34-T03, P34-T04
+- **Files:** `db/demo/foodmart-catalog.json`, `FoodMartCatalog`/`DemoSeedService`, `DemoPromotionCatalog`/`DemoPromotionSeedService`, FE `foodmart-demo-data.json`, `foodmart-fallback.ts`, `docs/DEMO_SEED.md`, Makefile `seed-check`
+- **AC:** Idempotent `make seed-demo` writes VI+EN; stable SKUs/slugs/prices; deliberate missing-EN product; promo VI+EN display; no `.env`/volume delete; DEMO_SEED updated
+- **Verify:** `make seed-check`; `make seed-demo`; focused BE/FE tests
+- **Evidence:** 2026-11-02 — `FoodMartCatalogTest`+`DemoSeedIntegrationTest` **2/2**; FE demo-data/fallback (+HomePage) green; `typecheck` OK. Live: before seed `prod_en=48 peas_en=1`; after×2 seed stable `cat_vi/en=8/8`, `prod_vi/en=48/47`, `peas_en=0`, `strat_en=9`, `camp_en=12`, `place_en=1`. DB apple EN + peas missing EN confirmed via psql.
+- **Notes:** Extend in place. Compose `api` rebuilt in T07 — locale cache keys verified.
+
+### P34-T07 — Customer web VI/EN
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P34-T04, P34-T05, P34-T06
+- **Files:** `frontend/src/lib/i18n/resources/**`, `RootLayout`, `HomePage`, `features/{auth,catalog,cart,checkout,orders,promotions,notifications}/**` (customer), Pagination
+- **AC:** Customer chrome + API content switch with locale; fallback SKU visible; checkout path intact
+- **Verify:** `npm run typecheck`; `npm test`; `npm run build`; API rebuild + seed + Accept-Language spot-check
+- **Evidence:** 2026-11-02 — typecheck OK; vitest **311/311**; build OK. Rebuilt `aptech4-api:local` + `aptech4-web:local` (pg/redis/uploads volumes kept); `make seed-demo`; EN apple `Crisp Red Apples`, EN peas → VI `Đậu Hà Lan…`; Redis `catalog:products:list:…|en`/`|vi`.
+- **Notes:** Chat language remains independent (`chat-i18n`). Admin chrome deferred to T08.
+
+### P34-T08 — Admin web VI/EN
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P34-T04, P34-T05, P34-T06
+- **Files:** `frontend/src/lib/i18n/resources/{vi,en}/admin.ts`, `features/admin/**` (shell + modules), `features/admin/translations/**`, `e2e/admin-inventory-analytics.spec.ts`
+- **AC:** Admin chrome localized; translation editors for catalog/promotions; lists use UI locale; inventory/analytics E2E updated
+- **Verify:** `npm run typecheck`; admin + full vitest; `npm run build`; `make e2e-inventory-analytics`
+- **Evidence:** 2026-11-02 — typecheck OK; admin **126/126**; full **329/329**; build OK; e2e-inventory-analytics **3/3** (locale pinned `en`). Editors: product/category/strategy/campaign/placement against T04 `/translations`. **Runtime closeout:** rebuilt Compose `web` only (`--no-deps`); volumes kept; browser on `:8088` verified EN+VI Admin chrome and all four translation editor mounts (product/category/strategy/campaign+placement).
+- **Notes:** Chat locale unchanged. T08 fully closed including nginx bundle.
+
+### P34-T09 — Final bilingual verification
+- **Phase:** P34
+- **Status:** DONE
+- **Deps:** P34-T07, P34-T08
+- **Files:** `frontend/e2e/customer-bilingual.spec.ts`, `scripts/e2e-customer-bilingual.sh`, Makefile target `e2e-customer-bilingual`, state
+- **AC:** BE IT + FE + E2E + seed/fallback/cache checks green; documentation complete; P34 closed in PROGRESS
+- **Verify:** Full checklist in plan §Testing strategy
+- **Evidence:** 2026-11-02 — Customer Playwright VI/EN **7/7** (`make e2e-customer-bilingual` → `:8088`). Coverage: locale switch+persist (`aptech4.locale`); home/nav; login/register chrome VI+EN; catalog list/PDP EN apple + peas EN→VI fallback (`FOOD-FROZEN-PEAS-001`); promotions chrome; cart qty + checkout + orders + notifications EN; cart/orders/notifications VI; empty filter. Typecheck OK; vitest **329/329**; admin e2e-inventory-analytics **3/3** regression. Build skipped (E2E-only changes; no web image rebuild). Volumes/`.env` preserved.
+- **Notes:** Cart/order line `productName` still uses product base column (canonical VI) under EN chrome — asserted as live API behavior, not fabricated EN. Chat `chat-i18n` unchanged. No API contract changes.
+
+---
+
+## P35 — Cart/order product-name localization
+
+### P35-T01 — Audit cart/order localization contract
+- **Phase:** P35
+- **Status:** DONE
+- **Deps:** P34-T09
+- **Files:** (read-only) `CartService`, `CartItemResponse`, `OrderItem`, `CheckoutService`, `OrderService`, `CatalogLocalizationService`, `ContentLocalization`, FE cart/checkout/orders pages, `OrderLifecycleIntegrationTest`, plan `11-bilingual-vi-en.md`, `OPENAPI.md`
+- **AC:** Contract/data-flow documented; snapshot vs live vs localized answered; smallest API-compatible design proposed; no code/schema/API/seed/test changes
+- **Verify:** Audit report in chat + state evidence; stop before implementation
+- **Evidence:** 2026-11-03 — Catalog localizes via `CatalogLocalizationService` + `Accept-Language`. Cart reads live `product.getName()` (canonical VI). Orders persist `product_id` + `product_sku` + `product_name` snapshot at checkout via `OrderItem.snapshot`; GET returns stored snapshot (rename IT proves freeze). FE displays API `productName` as-is. Recommendation: localize **cart** (and checkout preview) only; keep order snapshots immutable.
+- **Notes:** Audit-only. No `.env`/volumes/commit. Chat untouched.
+
+### P35-T02 — Localize live cart `productName` via Accept-Language
+- **Phase:** P35
+- **Status:** DONE
+- **Deps:** P35-T01
+- **Files:** `CartService` (+ `CatalogLocalizationService.productTexts`), `CartItemResponse` schema note, `CartIntegrationTest`, `frontend/e2e/customer-bilingual.spec.ts`; no order/schema change
+- **AC:** Cart/checkout-preview `productName` follows request locale with same fallback as catalog (locale → base VI); DTO field names unchanged; order history/detail still return purchase-time snapshot; rename-after-checkout IT still green; no FE-side product-name translation; chat unchanged
+- **Verify:** Focused cart/catalog ITs; FE typecheck + customer bilingual e2e; no Liquibase
+- **Evidence:** 2026-11-03 — `CartService` batch-resolves names via `CatalogLocalizationService.productTexts(RequestLocaleHolder)`. `CartIntegrationTest` **3/3** (new VI/EN/missing-EN/unsupported→VI). `OrderLifecycle`/`Checkout`/`CatalogLocalization` green (rename snapshot intact). Typecheck OK; customer bilingual E2E **7/7** (EN apple + peas VI fallback on cart/checkout; VI apple on cart). Vitest **329/329**. Rebuilt Compose `api` only (`--no-deps`); volumes/`.env` kept. Full `./mvnw test`: cart/order relevant green; unrelated pre-existing failures (localized EN error-message asserts, promo IT seed pollution, WebMvcTest context load) — not caused by T02.
+- **Notes:** `OrderItem.snapshot` still uses canonical `product.getName()`. Chat unchanged. No Liquibase.
+
+### P35-T03 — Catalog translation completeness audit
+- **Phase:** P35
+- **Status:** DONE
+- **Deps:** P35-T02
+- **Files:** (read-only) `foodmart-catalog.json`, `DemoSeedService.syncProductTranslations`, `AdminCatalogTranslationService`, `CatalogLocalizationService`, Admin `EntityTranslationsEditor`/`schemas`, `docs/DEMO_SEED.md`, live Postgres via `make seed-check`
+- **AC:** Counts + missing-EN SKU list; peas/`prod 48/47` verified; intentional vs defect classified; clear-EN API/editor behavior documented; remediation proposed without implementation
+- **Verify:** Read-only DB/`seed-check`/API Accept-Language spot-checks; no writes
+- **Evidence:** 2026-11-03 — Live `aptech4`: products **48**, `prod_vi=48`, `prod_en=47`, `peas_en=0`; only missing EN SKU = `FOOD-FROZEN-PEAS-001` (`NO_EN_ROW`). Seed JSON `omitEnglishTranslation: true` + seed deletes EN row each run (`DemoSeedService` L347–350). Categories **8/8** VI+EN. Admin PUT omits blank EN (no delete); existing EN cannot be cleared via API/editor. Public EN API: peas → VI name, apple → EN name.
+- **Notes:** Audit-only. **Not a data defect** — 48/47 is the deliberate fallback fixture. Do not fill peas EN. Optional follow-up: explicit clear/delete EN translation semantics (out of T03).
+
+### P35-T04 — Locale flow audit (catalog / cart / checkout / orders / FE)
+- **Phase:** P35
+- **Status:** DONE
+- **Deps:** P35-T03
+- **Files:** (read-only) `RequestLocaleFilter`, `ProductService`, `CartService`, `CheckoutService`/`OrderService`/`OrderItem`, FE `api-client`/`i18n`/`CheckoutPage`/`OrderDetailPage`, bilingual E2E + ITs
+- **AC:** Per-flow actual behavior + evidence; expected vs actual mismatches; test coverage gaps; minimal follow-ups proposed; no implementation
+- **Verify:** Code/test audit only; no writes
+- **Evidence:** 2026-11-03 — Catalog list+detail share `toResponse`→`productText` + locale cache keys. Cart uses `productTexts(RequestLocaleHolder)`; checkout preview = cart `productName`; post-place/order GET = frozen `product.getName()` snapshot. FE: `aptech4.locale` → `Accept-Language` on all API calls; chrome i18n separate from API names; chat `aptech4.chat.language` independent. No policy mismatch. Gaps: BE list-locale IT thin; order GET not asserted under EN header; E2E does not assert order-line name language after place.
+- **Notes:** Audit-only. Design note: EN checkout preview → VI order detail names is expected under current snapshot rules.
+
+### P35-T05 — Locale coverage tests
+- **Phase:** P35
+- **Status:** DONE
+- **Deps:** P35-T04
+- **Files:** `CatalogLocalizationIntegrationTest`, `OrderLifecycleIntegrationTest`, `CheckoutIntegrationTest` (test-only)
+- **AC:** List EN + missing-EN fallback IT; order customer/admin GET under EN keeps VI snapshot; checkout place-response under EN keeps VI; no production/API/seed/schema changes
+- **Verify:** New + related ITs green
+- **Evidence:** 2026-11-03 — Added `publicProductListResolvesEnAndMissingEnFallback`, `orderItemProductNameIgnoresAcceptLanguageEn`, `checkoutPlaceResponseKeepsCanonicalViNameUnderAcceptLanguageEn`. Related suites: CatalogLocalization **5/5**, OrderLifecycle **3/3**, Checkout **3/3**, Cart **3/3**. Full `./mvnw test`: new asserts PASS; only pre-known fails (VI message asserts, promo seed pollution, WebMvcTest ctx). No prod code changes; peas EN not filled.
+- **Notes:** Public list `q` matches name/description only (not SKU) — list IT searches by canonical VI name + categoryId.
+
+### P35 — Phase closeout
+- **Phase:** P35
+- **Status:** DONE (COMPLETE)
+- **Deps:** P35-T01 … P35-T05
+- **AC:** Policy verified in source+tests; T05 name/locale asserts substantive; known non-P35 suite failures documented; no schema/API field/seed/Liquibase changes in P35; no commit/push
+- **Evidence:** 2026-11-03 final audit — Catalog/cart live locale; orders freeze `product.getName()`; checkout preview from cart; chat `aptech4.chat.language` independent; peas `omitEnglishTranslation` / `peas_en=0`. T05 surefire PASS for all three methods. Prod delta: `CartService` + `CartItemResponse` schema note only (+ E2E assert updates in T02).
+- **Notes:** Outstanding (non-blocking): Admin cannot clear EN via PUT; optional E2E order-line language assert; full `./mvnw test` still has pre-existing unrelated failures.
+
+---
+
 ## P17 — Final acceptance
 
 ### P17-T01 — End-to-end acceptance checklist execution

@@ -48,7 +48,7 @@ public class ShopOrder extends AbstractUuidEntity {
 
 	@JdbcTypeCode(SqlTypes.CHAR)
 	@Column(name = "currency", nullable = false, length = 3)
-	private String currency = "VND";
+	private String currency = "USD";
 
 	@Column(name = "subtotal_amount", nullable = false, precision = 12, scale = 2)
 	private BigDecimal subtotalAmount;

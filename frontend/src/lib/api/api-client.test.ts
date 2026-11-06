@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { setActiveLocale } from '@/lib/i18n/locale-store'
+
 import { ApiClientError } from './api-error'
 import { apiRequest, configureApiClientAuth, joinApiUrl } from './api-client'
 
 describe('api client', () => {
   beforeEach(() => {
+    setActiveLocale('vi')
     configureApiClientAuth({
       getAccessToken: () => null,
       refreshAccessToken: async () => null,
@@ -14,6 +17,7 @@ describe('api client', () => {
   })
 
   afterEach(() => {
+    setActiveLocale('vi')
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -34,6 +38,36 @@ describe('api client', () => {
     )
 
     await expect(apiRequest<{ ok: boolean }>('/health')).resolves.toEqual({ ok: true })
+  })
+
+  it('sends Accept-Language from the active locale (default vi)', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await apiRequest('/health')
+    const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit
+    expect(init.headers).toMatchObject({
+      Accept: 'application/json',
+      'Accept-Language': 'vi',
+    })
+  })
+
+  it('sends Accept-Language: en when active locale is en', async () => {
+    setActiveLocale('en')
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+
+    await apiRequest('/products')
+    const init = vi.mocked(fetch).mock.calls[0]?.[1] as RequestInit
+    expect(init.headers).toMatchObject({ 'Accept-Language': 'en' })
   })
 
   it('returns undefined for 204 No Content', async () => {

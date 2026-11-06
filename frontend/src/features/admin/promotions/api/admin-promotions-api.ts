@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api/api-client'
+import type { AppLocale } from '@/lib/i18n'
 
 import type {
   AdminCampaignPreview,
@@ -22,11 +23,16 @@ export function listAdminStrategies(signal?: AbortSignal): Promise<AdminPromotio
 }
 
 /** GET /api/v1/admin/promotions/strategies/{id} */
-export function getAdminStrategy(id: string, signal?: AbortSignal): Promise<AdminPromotionStrategy> {
+export function getAdminStrategy(
+  id: string,
+  signal?: AbortSignal,
+  locale?: AppLocale,
+): Promise<AdminPromotionStrategy> {
   return apiRequest<AdminPromotionStrategy>(`/admin/promotions/strategies/${encodeURIComponent(id)}`, {
     method: 'GET',
     auth: true,
     signal,
+    headers: locale ? { 'Accept-Language': locale } : undefined,
   })
 }
 
@@ -84,11 +90,16 @@ export function listAdminCampaigns(signal?: AbortSignal): Promise<AdminPromotion
 }
 
 /** GET /api/v1/admin/promotions/campaigns/{id} */
-export function getAdminCampaign(id: string, signal?: AbortSignal): Promise<AdminPromotionCampaign> {
+export function getAdminCampaign(
+  id: string,
+  signal?: AbortSignal,
+  locale?: AppLocale,
+): Promise<AdminPromotionCampaign> {
   return apiRequest<AdminPromotionCampaign>(`/admin/promotions/campaigns/${encodeURIComponent(id)}`, {
     method: 'GET',
     auth: true,
     signal,
+    headers: locale ? { 'Accept-Language': locale } : undefined,
   })
 }
 
@@ -188,10 +199,16 @@ export function deleteAdminCampaign(id: string, signal?: AbortSignal): Promise<v
 export function listAdminCampaignPlacements(
   campaignId: string,
   signal?: AbortSignal,
+  locale?: AppLocale,
 ): Promise<AdminPromotionPlacement[]> {
   return apiRequest<AdminPromotionPlacement[]>(
     `/admin/promotions/campaigns/${encodeURIComponent(campaignId)}/placements`,
-    { method: 'GET', auth: true, signal },
+    {
+      method: 'GET',
+      auth: true,
+      signal,
+      headers: locale ? { 'Accept-Language': locale } : undefined,
+    },
   )
 }
 

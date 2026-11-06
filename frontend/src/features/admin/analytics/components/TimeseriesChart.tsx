@@ -1,4 +1,5 @@
 import { useId, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { toMoneyNumber } from '@/features/orders/lib/order-money'
@@ -16,6 +17,7 @@ type TimeseriesChartProps = {
  * CSS/SVG only — tooltips via hover state; exact values in the table below.
  */
 export function TimeseriesChart({ points, currency, empty }: TimeseriesChartProps) {
+  const { t } = useTranslation('admin')
   const gradId = useId().replace(/:/g, '')
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
 
@@ -55,7 +57,7 @@ export function TimeseriesChart({ points, currency, empty }: TimeseriesChartProp
     <div className="space-y-3">
       {empty ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-5 text-center text-sm text-muted-foreground">
-          No orders in this range. Daily values are zero-filled.
+          {t('analytics.timeseries.empty')}
         </p>
       ) : null}
 
@@ -63,15 +65,15 @@ export function TimeseriesChart({ points, currency, empty }: TimeseriesChartProp
         <div className="flex flex-wrap gap-4">
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block size-2.5 rounded-sm bg-primary/80" aria-hidden="true" />
-            Revenue (bars)
+            {t('analytics.timeseries.revenueBars')}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block size-2.5 rounded-full bg-teal-700" aria-hidden="true" />
-            Placed orders (line)
+            {t('analytics.timeseries.placedLine')}
           </span>
         </div>
         <p className="tabular-nums">
-          {activeDays}/{points.length} days with activity
+          {t('analytics.timeseries.activeDays', { active: activeDays, total: points.length })}
         </p>
       </div>
 
@@ -83,10 +85,10 @@ export function TimeseriesChart({ points, currency, empty }: TimeseriesChartProp
           >
             <p className="font-mono font-medium text-foreground">{hover.date}</p>
             <p className="mt-1 text-muted-foreground">
-              Placed: <span className="tabular-nums text-foreground">{hover.placedOrderCount}</span>
+              {t('analytics.timeseries.placed')} <span className="tabular-nums text-foreground">{hover.placedOrderCount}</span>
             </p>
             <p className="text-muted-foreground">
-              Revenue:{' '}
+              {t('analytics.timeseries.revenue')}{' '}
               <ProductPrice
                 unitPrice={hover.revenueTotal}
                 currency={currency}
@@ -98,11 +100,11 @@ export function TimeseriesChart({ points, currency, empty }: TimeseriesChartProp
 
         <svg
           role="img"
-          aria-label="Daily revenue bars and placed-order line"
+          aria-label={t('analytics.timeseries.svgAria')}
           viewBox={`0 0 ${width} ${height}`}
           className="h-56 w-full min-w-[20rem]"
         >
-          <title>Daily revenue and placed orders</title>
+          <title>{t('analytics.timeseries.svgTitle')}</title>
           <defs>
             <linearGradient id={`rev-${gradId}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.85" />
@@ -126,10 +128,10 @@ export function TimeseriesChart({ points, currency, empty }: TimeseriesChartProp
           })}
 
           <text x={4} y={padT + 8} className="fill-muted-foreground text-[10px]">
-            Rev
+            {t('analytics.timeseries.axisRevenue')}
           </text>
           <text x={width - 40} y={padT + 8} className="fill-muted-foreground text-[10px]">
-            Orders
+            {t('analytics.timeseries.axisOrders')}
           </text>
 
           {points.map((point, index) => {
@@ -171,7 +173,12 @@ export function TimeseriesChart({ points, currency, empty }: TimeseriesChartProp
                   onBlur={() => setHoverIndex(null)}
                   tabIndex={0}
                   role="img"
-                  aria-label={`${point.date}: ${point.placedOrderCount} placed, revenue ${String(point.revenueTotal)} ${currency}`}
+                  aria-label={t('analytics.timeseries.pointAria', {
+                    date: point.date,
+                    placed: point.placedOrderCount,
+                    revenue: String(point.revenueTotal),
+                    currency,
+                  })}
                 />
               </g>
             )
@@ -205,16 +212,16 @@ export function TimeseriesChart({ points, currency, empty }: TimeseriesChartProp
 
       <details className="rounded-xl border border-border/80 bg-card shadow-sm">
         <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-foreground">
-          Exact daily values
+          {t('analytics.timeseries.exactDaily')}
         </summary>
         <div className="overflow-x-auto border-t border-border">
           <table className="w-full min-w-[28rem] text-left text-sm">
-            <caption className="sr-only">Daily timeseries values</caption>
+            <caption className="sr-only">{t('analytics.timeseries.caption')}</caption>
             <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Date (UTC)</th>
-                <th className="px-4 py-2.5 font-medium">Placed orders</th>
-                <th className="px-4 py-2.5 font-medium">Revenue</th>
+                <th className="px-4 py-2.5 font-medium">{t('analytics.timeseries.columns.date')}</th>
+                <th className="px-4 py-2.5 font-medium">{t('analytics.timeseries.columns.placed')}</th>
+                <th className="px-4 py-2.5 font-medium">{t('analytics.timeseries.columns.revenue')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">

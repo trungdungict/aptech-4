@@ -46,7 +46,7 @@ public class Product extends AbstractUuidEntity {
 
 	@JdbcTypeCode(SqlTypes.CHAR)
 	@Column(name = "currency", nullable = false, length = 3)
-	private String currency = "VND";
+	private String currency = "USD";
 
 	@Column(name = "active", nullable = false)
 	private boolean active = true;
@@ -82,7 +82,7 @@ public class Product extends AbstractUuidEntity {
 		product.name = name;
 		product.description = description;
 		product.unitPrice = unitPrice;
-		product.currency = currency == null || currency.isBlank() ? "VND" : currency;
+		product.currency = currency == null || currency.isBlank() ? "USD" : currency;
 		product.active = active;
 		Instant now = Instant.now();
 		product.createdAt = now;

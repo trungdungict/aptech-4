@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { TagsIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { DEFAULT_LIST_PAGE_SIZE, Pagination, useClientListPagination } from '@/components/pagination'
@@ -22,16 +23,20 @@ import {
 } from '../../lib/admin-ui'
 import * as api from '../api/admin-promotions-api'
 import { adminPromotionQueryKeys } from '../hooks/admin-promotion-query-keys'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
 
 /** Client-side page size — admin strategies API returns a full list (no server page contract). */
 export const STRATEGY_LIST_PAGE_SIZE = DEFAULT_LIST_PAGE_SIZE
 
 export function AdminStrategyListPage() {
   const queryClient = useQueryClient()
+  const { locale } = useAppLocale()
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
   const [statusError, setStatusError] = useState<string | null>(null)
 
   const strategiesQuery = useQuery({
-    queryKey: adminPromotionQueryKeys.strategies(),
+    queryKey: adminPromotionQueryKeys.strategies(locale),
     queryFn: ({ signal }) => api.listAdminStrategies(signal),
     retry: false,
   })
@@ -44,7 +49,7 @@ export function AdminStrategyListPage() {
       await queryClient.invalidateQueries({ queryKey: adminPromotionQueryKeys.all })
     },
     onError: (error) => {
-      setStatusError(error instanceof ApiClientError ? error.userMessage : 'Status update failed.')
+      setStatusError(error instanceof ApiClientError ? error.userMessage : t('promotions.strategies.list.statusFailed'))
     },
   })
 
@@ -58,21 +63,20 @@ export function AdminStrategyListPage() {
     <section className={adminPageSectionClass}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
-          <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+          <nav aria-label={t('shell.breadcrumb')} className="text-sm text-muted-foreground">
             <Link to="/admin/promotions" className="font-medium text-primary hover:underline">
-              Promotions
+              {t('promotions.breadcrumb.promotions')}
             </Link>
             <span aria-hidden="true"> / </span>
-            <span className="text-foreground">Strategies</span>
+            <span className="text-foreground">{t('promotions.breadcrumb.strategies')}</span>
           </nav>
-          <h1 className={adminPageTitleClass}>Promotion strategies</h1>
+          <h1 className={adminPageTitleClass}>{t('promotions.strategies.list.title')}</h1>
           <p className={adminPageLeadClass}>
-            Reusable pricing/marketing templates. Soft-deactivate via status — campaigns keep their
-            own runtime priority/stackable.
+            {t('promotions.strategies.list.lead')}
           </p>
         </div>
         <Button asChild>
-          <Link to="/admin/promotions/strategies/new">New strategy</Link>
+          <Link to="/admin/promotions/strategies/new">{t('promotions.strategies.list.newStrategy')}</Link>
         </Button>
       </div>
 
@@ -92,19 +96,19 @@ export function AdminStrategyListPage() {
           <p role="alert">
             {strategiesQuery.error instanceof ApiClientError
               ? strategiesQuery.error.userMessage
-              : 'Unable to load strategies.'}
+              : t('promotions.strategies.list.loadError')}
           </p>
           <Button type="button" size="sm" onClick={() => void strategiesQuery.refetch()}>
-            Retry
+            {tc('actions.retry')}
           </Button>
         </div>
       ) : strategies && strategies.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
             <TagsIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">No strategies yet.</p>
+            <p className="text-sm text-muted-foreground">{t('promotions.strategies.list.empty')}</p>
             <Button asChild variant="link">
-              <Link to="/admin/promotions/strategies/new">Create a strategy</Link>
+              <Link to="/admin/promotions/strategies/new">{t('promotions.strategies.list.createStrategy')}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -114,12 +118,12 @@ export function AdminStrategyListPage() {
             <table className={`${adminTableClass} min-w-[44rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className={adminThClass}>Name</th>
-                  <th className={adminThClass}>Type</th>
-                  <th className={adminThClass}>Config</th>
-                  <th className={adminThClass}>Priority</th>
-                  <th className={adminThClass}>Status</th>
-                  <th className={adminThClass}>Actions</th>
+                  <th className={adminThClass}>{t('promotions.strategies.list.columns.name')}</th>
+                  <th className={adminThClass}>{t('promotions.strategies.list.columns.type')}</th>
+                  <th className={adminThClass}>{t('promotions.strategies.list.columns.config')}</th>
+                  <th className={adminThClass}>{t('promotions.strategies.list.columns.priority')}</th>
+                  <th className={adminThClass}>{t('promotions.strategies.list.columns.status')}</th>
+                  <th className={adminThClass}>{t('promotions.strategies.list.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -139,18 +143,20 @@ export function AdminStrategyListPage() {
                       <td className={`${adminTdClass} text-xs text-muted-foreground`}>
                         {strategy.discountPercent != null ? `${strategy.discountPercent}%` : null}
                         {strategy.discountAmount != null ? ` ${strategy.discountAmount}` : null}
-                        {strategy.type === 'BANNER_ONLY' ? 'Banner only' : null}
-                        {strategy.stackable ? ' · stackable' : ' · non-stackable'}
+                        {strategy.type === 'BANNER_ONLY' ? t('promotions.strategies.list.bannerOnly') : null}
+                        {strategy.stackable
+                          ? t('promotions.strategies.list.stackable')
+                          : t('promotions.strategies.list.nonStackable')}
                       </td>
                       <td className={adminTdClass}>{strategy.priority}</td>
                       <td className={adminTdClass}>
                         <Badge variant={strategy.active ? 'default' : 'secondary'}>
-                          {strategy.active ? 'Active' : 'Inactive'}
+                          {strategy.active ? t('promotions.strategies.list.active') : t('promotions.strategies.list.inactive')}
                         </Badge>
                       </td>
                       <td className={`${adminTdClass} space-x-2`}>
                         <Button asChild variant="link" className="h-auto p-0">
-                          <Link to={`/admin/promotions/strategies/${strategy.id}/edit`}>Edit</Link>
+                          <Link to={`/admin/promotions/strategies/${strategy.id}/edit`}>{t('promotions.strategies.list.edit')}</Link>
                         </Button>
                         <Button
                           type="button"
@@ -161,8 +167,8 @@ export function AdminStrategyListPage() {
                             const next = !strategy.active
                             const ok = window.confirm(
                               next
-                                ? `Activate strategy “${strategy.name}”? Dependent campaigns may become placement/pricing effective when windows match.`
-                                : `Deactivate strategy “${strategy.name}”? Dependent ACTIVE campaigns immediately lose pricing/placement effectiveness.`,
+                                ? t('promotions.strategies.list.confirmActivate', { name: strategy.name })
+                                : t('promotions.strategies.list.confirmDeactivate', { name: strategy.name }),
                             )
                             if (!ok) {
                               return
@@ -170,7 +176,7 @@ export function AdminStrategyListPage() {
                             statusMutation.mutate({ id: strategy.id, active: next })
                           }}
                         >
-                          {strategy.active ? 'Deactivate' : 'Activate'}
+                          {strategy.active ? t('promotions.strategies.list.deactivate') : t('promotions.strategies.list.activate')}
                         </Button>
                       </td>
                     </tr>
@@ -184,7 +190,7 @@ export function AdminStrategyListPage() {
             totalPages={totalPages}
             totalElements={totalElements}
             pageSize={STRATEGY_LIST_PAGE_SIZE}
-            itemLabel="strategies"
+            itemLabel={t('pagination.itemLabels.strategies')}
             onPageChange={goToPage}
           />
         </>

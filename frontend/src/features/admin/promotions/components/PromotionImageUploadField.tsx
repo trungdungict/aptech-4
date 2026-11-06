@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,6 +30,7 @@ export function PromotionImageUploadField({
   onImageUrlChange,
   disabled = false,
 }: PromotionImageUploadFieldProps) {
+  const { t } = useTranslation('admin')
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -74,9 +76,9 @@ export function PromotionImageUploadField({
     try {
       const result = await uploadAdminPromotionImage(file)
       onImageUrlChange(result.imageUrl)
-      setUploadOk('Uploaded. Save the placement to persist this path.')
+      setUploadOk(t('promotions.upload.uploaded'))
     } catch (error) {
-      setLocalError(error instanceof ApiClientError ? error.userMessage : 'Upload failed.')
+      setLocalError(error instanceof ApiClientError ? error.userMessage : t('promotions.upload.failed'))
       clearPreview()
     } finally {
       setUploading(false)
@@ -91,8 +93,7 @@ export function PromotionImageUploadField({
       <div className="space-y-1">
         <Label htmlFor={inputId}>{label}</Label>
         <p className="text-xs text-muted-foreground">
-          purpose=PROMOTION · JPEG/PNG/WebP under {formatBytes(productImageMaxSizeBytes)} · path under
-          {' '}/uploads/promotions/
+          {t('promotions.upload.hint', { max: formatBytes(productImageMaxSizeBytes) })}
         </p>
       </div>
       {displaySrc ? (
@@ -129,10 +130,10 @@ export function PromotionImageUploadField({
             onImageUrlChange(null)
           }}
         >
-          Clear
+          {t('promotions.upload.clear')}
         </Button>
       </div>
-      {uploading ? <p className="text-xs text-muted-foreground">Uploading…</p> : null}
+      {uploading ? <p className="text-xs text-muted-foreground">{t('promotions.upload.uploading')}</p> : null}
       {uploadOk ? <p className="text-xs text-emerald-800">{uploadOk}</p> : null}
       {localError ? (
         <p className="text-xs text-destructive" role="alert">

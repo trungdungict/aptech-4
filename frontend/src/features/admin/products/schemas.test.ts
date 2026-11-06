@@ -1,8 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 
-import { adminInventoryFormSchema } from './schemas'
+import { i18n } from '@/lib/i18n'
+
+import { createAdminInventoryFormSchema } from './schemas'
+
+let adminInventoryFormSchema: ReturnType<typeof createAdminInventoryFormSchema>
 
 describe('adminInventoryFormSchema', () => {
+  beforeAll(() => {
+    // i18n is initialized in the global test setup `beforeAll` (runs first).
+    adminInventoryFormSchema = createAdminInventoryFormSchema(i18n.getFixedT('en', 'admin'))
+  })
+
   it('accepts non-negative integers', () => {
     expect(adminInventoryFormSchema.parse({ quantityOnHand: '0' })).toEqual({
       quantityOnHand: 0,

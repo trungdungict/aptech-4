@@ -101,7 +101,7 @@ class PromotionCacheIntegrationTest {
 		assertThat(empty.hero()).isEmpty();
 		Cache homepageCache = cacheManager.getCache(PromotionCacheNames.HOMEPAGE);
 		assertThat(homepageCache).isNotNull();
-		assertThat(homepageCache.get(PromotionCacheKeys.HOMEPAGE)).isNotNull();
+		assertThat(homepageCache.get(PromotionCacheKeys.homepage())).isNotNull();
 
 		String strategyId = createBannerStrategy(admin, "Cache Strat " + suffix);
 		Instant starts = Instant.now().minus(1, ChronoUnit.HOURS);
@@ -125,12 +125,12 @@ class PromotionCacheIntegrationTest {
 				.andExpect(status().isCreated());
 
 		// Mutation must invalidate — without waiting for TTL the next read is a miss then fresh put.
-		assertThat(homepageCache.get(PromotionCacheKeys.HOMEPAGE)).isNull();
+		assertThat(homepageCache.get(PromotionCacheKeys.homepage())).isNull();
 
 		HomepagePromotionsResponse after = publicPromotionService.homepage();
 		assertThat(after.hero()).hasSize(1);
 		assertThat(after.hero().getFirst().title()).isEqualTo("Cached Hero " + suffix);
-		assertThat(homepageCache.get(PromotionCacheKeys.HOMEPAGE)).isNotNull();
+		assertThat(homepageCache.get(PromotionCacheKeys.homepage())).isNotNull();
 
 		mockMvc.perform(put("/api/v1/admin/promotions/campaigns/" + campaignId)
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + admin)
@@ -145,12 +145,12 @@ class PromotionCacheIntegrationTest {
 								}
 								""".formatted(strategyId, suffix, suffix, starts, ends)))
 				.andExpect(status().isOk());
-		assertThat(homepageCache.get(PromotionCacheKeys.HOMEPAGE)).isNull();
+		assertThat(homepageCache.get(PromotionCacheKeys.homepage())).isNull();
 
 		mockMvc.perform(post("/api/v1/admin/promotions/campaigns/" + campaignId + "/pause")
 						.header(HttpHeaders.AUTHORIZATION, "Bearer " + admin))
 				.andExpect(status().isOk());
-		assertThat(homepageCache.get(PromotionCacheKeys.HOMEPAGE)).isNull();
+		assertThat(homepageCache.get(PromotionCacheKeys.homepage())).isNull();
 
 		HomepagePromotionsResponse paused = publicPromotionService.homepage();
 		assertThat(paused.hero()).isEmpty();

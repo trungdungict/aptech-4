@@ -65,4 +65,7 @@ databaseChangeLog:
   - include:
       file: changes/144-order-promotion-discount.yaml
       relativeToChangelogFile: true
+  - include:
+      file: changes/145-content-translations.yaml
+      relativeToChangelogFile: true
 

@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,16 +33,20 @@ export function AnalyticsSectionShell({
   children,
   className,
 }: AnalyticsSectionShellProps) {
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
+  const headingId = useId()
+  const lowerTitle = title.toLowerCase()
   return (
     <Card
       className={`border-border/80 shadow-sm ${className ?? ''}`.trim()}
-      aria-labelledby={`analytics-${slugify(title)}`}
+      aria-labelledby={headingId}
       aria-busy={isLoading || isFetching || undefined}
     >
       <CardHeader className="space-y-1 pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle
-            id={`analytics-${slugify(title)}`}
+            id={headingId}
             className="text-base font-semibold tracking-tight text-foreground"
           >
             {/* Keep h2 for a11y / E2E heading queries */}
@@ -49,7 +54,7 @@ export function AnalyticsSectionShell({
           </CardTitle>
           {isFetching && !isLoading ? (
             <span className="text-xs text-muted-foreground" role="status">
-              Updating…
+              {t('analytics.shell.updating')}
             </span>
           ) : null}
         </div>
@@ -58,7 +63,7 @@ export function AnalyticsSectionShell({
       <CardContent>
         {isLoading ? (
           <div role="status" aria-live="polite">
-            <p className="sr-only">Loading {title}…</p>
+            <p className="sr-only">{t('analytics.shell.loading', { title })}</p>
             <Skeleton className={`${skeletonHeightClass} w-full rounded-xl`} />
           </div>
         ) : isError && children == null ? (
@@ -66,10 +71,10 @@ export function AnalyticsSectionShell({
             <p role="alert">
               {error instanceof ApiClientError
                 ? error.userMessage
-                : `Unable to load ${title.toLowerCase()}.`}
+                : t('analytics.shell.loadError', { title: lowerTitle })}
             </p>
             <Button type="button" size="sm" onClick={onRetry}>
-              Retry
+              {tc('actions.retry')}
             </Button>
           </div>
         ) : (
@@ -79,10 +84,10 @@ export function AnalyticsSectionShell({
                 <p role="alert">
                   {error instanceof ApiClientError
                     ? error.userMessage
-                    : `Unable to refresh ${title.toLowerCase()}.`}
+                    : t('analytics.shell.refreshError', { title: lowerTitle })}
                 </p>
                 <Button type="button" size="sm" onClick={onRetry}>
-                  Retry
+                  {tc('actions.retry')}
                 </Button>
               </div>
             ) : null}
@@ -92,8 +97,4 @@ export function AnalyticsSectionShell({
       </CardContent>
     </Card>
   )
-}
-
-function slugify(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useId, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/features/auth/hooks/useAuth'
@@ -14,6 +15,8 @@ import type { AppNotification } from '../types'
 import { NOTIFICATION_DEFAULT_PAGE_SIZE, NOTIFICATION_FALLBACK_POLL_MS } from '../types'
 
 export function NotificationBell() {
+  const { t } = useTranslation('notifications')
+  const { t: tc } = useTranslation('common')
   const { status, user } = useAuth()
   const userId = user?.id
   const enabled = status === 'authenticated' && Boolean(userId)
@@ -116,8 +119,8 @@ export function NotificationBell() {
         className="relative rounded-lg px-2.5 py-1.5 text-foreground hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         aria-label={
           unreadCount > 0
-            ? `Notifications, ${unreadCount} unread`
-            : 'Notifications'
+            ? t('openWithUnread', { count: unreadCount })
+            : t('title')
         }
         aria-expanded={open}
         aria-controls={panelId}
@@ -135,11 +138,11 @@ export function NotificationBell() {
         <div
           id={panelId}
           role="dialog"
-          aria-label="Notifications"
+          aria-label={t('title')}
           className="absolute right-0 z-40 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-card shadow-lg"
         >
           <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-            <p className="text-sm font-semibold text-foreground">Notifications</p>
+            <p className="text-sm font-semibold text-foreground">{t('title')}</p>
             <button
               type="button"
               className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
@@ -148,14 +151,14 @@ export function NotificationBell() {
                 void markAllMutation.mutateAsync()
               }}
             >
-              Mark all as read
+              {t('markAllRead')}
             </button>
           </div>
 
           <div className="max-h-[min(24rem,60vh)] overflow-y-auto">
             {listQuery.isLoading ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground" role="status">
-                Loading notifications…
+                {tc('status.loading')}
               </p>
             ) : null}
 
@@ -164,7 +167,7 @@ export function NotificationBell() {
                 <p className="text-sm text-muted-foreground">
                   {listQuery.error instanceof ApiClientError
                     ? listQuery.error.userMessage
-                    : 'Could not load notifications.'}
+                    : t('loadError')}
                 </p>
                 <button
                   type="button"
@@ -173,14 +176,14 @@ export function NotificationBell() {
                     void listQuery.refetch()
                   }}
                 >
-                  Retry
+                  {tc('actions.retry')}
                 </button>
               </div>
             ) : null}
 
             {listQuery.isSuccess && listQuery.data.items.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No notifications yet.
+                {t('empty')}
               </p>
             ) : null}
 
@@ -226,7 +229,7 @@ export function NotificationBell() {
                   className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted"
                   onClick={() => setPage((current) => Math.max(0, current - 1))}
                 >
-                  Newer
+                  {t('newer')}
                 </button>
               ) : null}
               {!listQuery.data.last ? (
@@ -235,7 +238,7 @@ export function NotificationBell() {
                   className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium text-primary hover:bg-muted"
                   onClick={() => setPage((current) => current + 1)}
                 >
-                  Older
+                  {t('older')}
                 </button>
               ) : null}
             </div>

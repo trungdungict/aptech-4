@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
+import { changeAppLocale, i18n } from '@/lib/i18n'
 import { demoCustomerSession, renderWithProviders } from '@/test/render-app'
 
 function jsonResponse(status: number, body: unknown) {
@@ -131,5 +132,17 @@ describe('ProductDetailPage', () => {
       expect(cartPosts).toEqual([{ productId, quantity: 2 }])
     })
     expect(await screen.findByText(/added to cart/i)).toBeInTheDocument()
+  })
+
+  it('renders Vietnamese invalid-link state after switching locale', async () => {
+    await changeAppLocale('vi')
+    renderWithProviders(<AppRouter />, { route: '/products/not-a-uuid' })
+
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('catalog:detail.invalidLink') }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getAllByRole('link', { name: i18n.t('catalog:detail.backToCatalog') }).length,
+    ).toBeGreaterThan(0)
   })
 })

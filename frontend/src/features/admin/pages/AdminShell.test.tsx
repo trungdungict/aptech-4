@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
+import { changeAppLocale } from '@/lib/i18n'
 import { safeInternalPath } from '@/lib/safe-redirect'
 import {
   demoAdminSession,
@@ -150,6 +151,19 @@ describe('Admin shell + role gate', () => {
     renderWithProviders(<AppRouter />, { route: '/admin', session: demoCustomerSession })
     expect(await screen.findByRole('heading', { name: /access denied/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /admin overview/i })).not.toBeInTheDocument()
+  })
+
+  it('localizes admin chrome and nav in Vietnamese', async () => {
+    await changeAppLocale('vi')
+    mockSessionRefresh(demoAdminSession)
+    renderWithProviders(<AppRouter />, { route: '/admin', session: demoAdminSession })
+
+    const nav = await screen.findByRole('navigation', { name: /^quản trị$/i })
+    expect(nav).toBeInTheDocument()
+    expect(screen.getAllByText('Không gian quản trị').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: 'Sản phẩm' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: 'Khuyến mãi' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('link', { name: 'Products' })).not.toBeInTheDocument()
   })
 
   it('does not flash admin content while the session is still booting', async () => {

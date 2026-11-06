@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -9,19 +10,23 @@ import { ApiClientError } from '@/lib/api/api-error'
 
 import { AuthFormField } from '../components/AuthFormField'
 import { useAuth } from '../hooks/useAuth'
-import { registerSchema, type RegisterFormValues } from '../schemas'
+import { createRegisterSchema, type RegisterFormValues } from '../schemas'
 
 export function RegisterPage() {
+  const { t } = useTranslation('auth')
+  const { t: tv } = useTranslation('validation')
   const { register: registerAccount } = useAuth()
   const navigate = useNavigate()
   const [formError, setFormError] = useState<string | null>(null)
+
+  const resolver = useMemo(() => zodResolver(createRegisterSchema(tv)), [tv])
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
+    resolver,
     defaultValues: { email: '', fullName: '', password: '' },
   })
 
@@ -37,7 +42,7 @@ export function RegisterPage() {
         setFormError(error.userMessage)
       }
       else {
-        setFormError('Unable to register. Please try again.')
+        setFormError(t('register.unknownError'))
       }
     }
   })
@@ -45,9 +50,9 @@ export function RegisterPage() {
   return (
     <section className="mx-auto w-full max-w-md space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Create account</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('register.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Registers a customer account only. Admin privileges cannot be selected here.
+          {t('register.subtitle')}
         </p>
       </div>
 
@@ -56,7 +61,7 @@ export function RegisterPage() {
           <form className="space-y-4" onSubmit={onSubmit} noValidate>
             <AuthFormField
               id="register-full-name"
-              label="Full name"
+              label={t('register.fullName')}
               type="text"
               autoComplete="name"
               disabled={isSubmitting}
@@ -65,7 +70,7 @@ export function RegisterPage() {
             />
             <AuthFormField
               id="register-email"
-              label="Email"
+              label={t('register.email')}
               type="email"
               autoComplete="email"
               disabled={isSubmitting}
@@ -74,7 +79,7 @@ export function RegisterPage() {
             />
             <AuthFormField
               id="register-password"
-              label="Password"
+              label={t('register.password')}
               type="password"
               autoComplete="new-password"
               disabled={isSubmitting}
@@ -89,16 +94,16 @@ export function RegisterPage() {
             ) : null}
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating account…' : 'Create account'}
+              {isSubmitting ? t('register.submitting') : t('register.submit')}
             </Button>
           </form>
         </CardContent>
       </Card>
 
       <p className="text-center text-sm text-muted-foreground">
-        Already registered?{' '}
+        {t('register.hasAccount')}{' '}
         <Link className="font-medium text-primary underline-offset-4 hover:underline" to="/login">
-          Sign in
+          {t('register.signIn')}
         </Link>
       </p>
     </section>

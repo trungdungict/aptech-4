@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { ClipboardListIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { Pagination, parsePageParam, writePageParam } from '@/components/pagination'
@@ -11,6 +12,7 @@ import { formatProductPrice } from '@/features/catalog/lib/format-price'
 import { OrderStatusBadge } from '@/features/orders/components/OrderStatusBadge'
 import { ORDER_DEFAULT_PAGE_SIZE, ORDER_DEFAULT_SORT } from '@/features/orders/types'
 import { ApiClientError } from '@/lib/api/api-error'
+import { formatDateTime } from '@/lib/i18n'
 
 import {
   adminAlertErrorClass,
@@ -27,28 +29,26 @@ import {
 import * as ordersApi from '../api/admin-orders-api'
 import { adminOrderQueryKeys } from '../hooks/admin-order-query-keys'
 import { ORDER_STATUS_VALUES } from '../lib/admin-order-transitions'
+import { useOrderStatusLabel } from '../lib/use-order-status-label'
 
 function formatPlacedAt(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('vi-VN', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
+  return formatDateTime(iso, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+/** `value` is the API sort token (never translated); `labelKey` is an `admin` i18n key. */
 const SORT_OPTIONS = [
-  { value: 'placedAt,desc', label: 'Placed (newest)' },
-  { value: 'placedAt,asc', label: 'Placed (oldest)' },
-  { value: 'totalAmount,desc', label: 'Total (high → low)' },
-  { value: 'totalAmount,asc', label: 'Total (low → high)' },
-  { value: 'status,asc', label: 'Status (A–Z)' },
-  { value: 'status,desc', label: 'Status (Z–A)' },
-]
+  { value: 'placedAt,desc', labelKey: 'orders.list.sortOptions.placedDesc' },
+  { value: 'placedAt,asc', labelKey: 'orders.list.sortOptions.placedAsc' },
+  { value: 'totalAmount,desc', labelKey: 'orders.list.sortOptions.totalDesc' },
+  { value: 'totalAmount,asc', labelKey: 'orders.list.sortOptions.totalAsc' },
+  { value: 'status,asc', labelKey: 'orders.list.sortOptions.statusAsc' },
+  { value: 'status,desc', labelKey: 'orders.list.sortOptions.statusDesc' },
+] as const
 
 export function AdminOrderListPage() {
+  const { t } = useTranslation('admin')
+  const { t: tc } = useTranslation('common')
+  const statusLabel = useOrderStatusLabel()
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parsePageParam(searchParams.get('page'))
   const status = searchParams.get('status') ?? ''
@@ -80,11 +80,10 @@ export function AdminOrderListPage() {
     <section className={adminPageSectionClass}>
       <div className="space-y-1">
         <h1 className={adminPageTitleClass}>
-          Orders
+          {t('orders.list.title')}
         </h1>
         <p className={adminPageLeadClass}>
-          All customer orders (admin). Totals and line items are checkout snapshots. Customer email
-          is not returned by this API — only userId.
+          {t('orders.list.lead')}
         </p>
       </div>
 
@@ -104,23 +103,23 @@ export function AdminOrderListPage() {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="admin-order-status">Status filter</Label>
+              <Label htmlFor="admin-order-status">{t('orders.list.statusFilter')}</Label>
               <select
                 id="admin-order-status"
                 name="status"
                 defaultValue={status}
                 className={adminNativeSelectClass}
               >
-                <option value="">All statuses</option>
+                <option value="">{t('orders.list.allStatuses')}</option>
                 {ORDER_STATUS_VALUES.map((value) => (
                   <option key={value} value={value}>
-                    {value}
+                    {statusLabel(value)}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="admin-order-sort">Sort</Label>
+              <Label htmlFor="admin-order-sort">{t('orders.list.sort')}</Label>
               <select
                 id="admin-order-sort"
                 name="sort"
@@ -129,13 +128,13 @@ export function AdminOrderListPage() {
               >
                 {SORT_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </option>
                 ))}
               </select>
             </div>
             <Button type="submit" variant="outline">
-              Apply
+              {t('orders.list.apply')}
             </Button>
           </form>
         </CardContent>
@@ -143,7 +142,7 @@ export function AdminOrderListPage() {
 
       {ordersQuery.isLoading ? (
         <div className="space-y-3" role="status" aria-live="polite">
-          <p className="sr-only">Loading orders…</p>
+          <p className="sr-only">{t('orders.list.loading')}</p>
           <Skeleton className="h-12 w-full rounded-xl" />
           <Skeleton className="h-48 w-full rounded-xl" />
         </div>
@@ -152,10 +151,10 @@ export function AdminOrderListPage() {
           <p role="alert">
             {ordersQuery.error instanceof ApiClientError
               ? ordersQuery.error.userMessage
-              : 'Unable to load orders.'}
+              : t('orders.list.loadError')}
           </p>
           <Button type="button" size="sm" onClick={() => void ordersQuery.refetch()}>
-            Retry
+            {tc('actions.retry')}
           </Button>
         </div>
       ) : data && data.items.length === 0 ? (
@@ -165,7 +164,7 @@ export function AdminOrderListPage() {
               className="size-10 text-muted-foreground opacity-60"
               aria-hidden="true"
             />
-            <p className="text-sm text-muted-foreground">No orders match these filters.</p>
+            <p className="text-sm text-muted-foreground">{t('orders.list.empty')}</p>
           </CardContent>
         </Card>
       ) : data ? (
@@ -174,12 +173,12 @@ export function AdminOrderListPage() {
             <table className={`${adminTableClass} min-w-[44rem]`}>
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
-                  <th className={adminThClass}>Order</th>
-                  <th className={adminThClass}>Customer userId</th>
-                  <th className={adminThClass}>Placed</th>
-                  <th className={adminThClass}>Status</th>
-                  <th className={adminThClass}>Total</th>
-                  <th className={adminThClass}>Actions</th>
+                  <th className={adminThClass}>{t('orders.list.columns.order')}</th>
+                  <th className={adminThClass}>{t('orders.list.columns.userId')}</th>
+                  <th className={adminThClass}>{t('orders.list.columns.placed')}</th>
+                  <th className={adminThClass}>{t('orders.list.columns.status')}</th>
+                  <th className={adminThClass}>{t('orders.list.columns.total')}</th>
+                  <th className={adminThClass}>{t('orders.list.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -207,7 +206,7 @@ export function AdminOrderListPage() {
                     </td>
                     <td className={adminTdClass}>
                       <Button asChild variant="link" size="sm" className="h-auto px-0">
-                        <Link to={`/admin/orders/${order.id}`}>View</Link>
+                        <Link to={`/admin/orders/${order.id}`}>{t('orders.list.view')}</Link>
                       </Button>
                     </td>
                   </tr>
@@ -220,7 +219,7 @@ export function AdminOrderListPage() {
             totalPages={data.totalPages}
             totalElements={data.totalElements}
             pageSize={data.size}
-            itemLabel="orders"
+            itemLabel={t('pagination.itemLabels.orders')}
             disabled={ordersQuery.isFetching}
             onPageChange={goToPage}
           />

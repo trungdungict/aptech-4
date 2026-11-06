@@ -47,5 +47,5 @@ export PLAYWRIGHT_BASE_URL="$base"
 export DEMO_ADMIN_EMAIL DEMO_ADMIN_PASSWORD DEMO_CUSTOMER_EMAIL DEMO_CUSTOMER_PASSWORD
 
 echo "e2e-inventory-analytics: running Playwright against $PLAYWRIGHT_BASE_URL"
-npm run test:e2e -- "$@"
+npm run test:e2e -- e2e/admin-inventory-analytics.spec.ts "$@"
 echo "OK: e2e-inventory-analytics complete"

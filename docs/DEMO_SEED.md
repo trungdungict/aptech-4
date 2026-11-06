@@ -26,13 +26,40 @@ See ADR-010 (seed) and ADR-011 (reset).
 | Admin user | `DEMO_ADMIN_EMAIL` (default `admin@aptech4.local`) | Role `ADMIN`; password hashed with BCrypt |
 | Customer user | `DEMO_CUSTOMER_EMAIL` (default `customer@aptech4.local`) | Role `CUSTOMER` |
 | Categories | FoodMart slugs from `db/demo/foodmart-catalog.json` (`food-*`) | 8 grocery categories |
-| Products | FoodMart SKUs (`FOOD-*`) | 48 products; includes zero-stock SKUs; each gets persisted `/uploads/products/{uuid}.ext` from `foodmart-product-images.json` |
+| Products | FoodMart SKUs (`FOOD-*`) | 48 products; **USD** unit prices (currency of record); includes zero-stock SKUs; each gets persisted `/uploads/products/{uuid}.ext` from `foodmart-product-images.json`. Storefront may display VND via documented mock FX `1 USD = 25_000 VND` (`aptech4.currency`) — display only, not live FX. |
 | Inventory | per seeded product | `on_hand ≥ reserved`; never negative |
 | Journeys | addresses, cart, sample orders, notifications | FoodMart products only |
 | Promotion strategies | codes `PROMO-*` | See table below — upsert by code |
 | Promotion campaigns | grocery slugs (e.g. `banner-trang-chu`) | Upsert by slug; **no seeded checkout orders** with snapshots |
+| Translations | `(parent_id, locale)` on catalog + promo tables | VI base columns + VI/EN translation rows (P34-T06) |
 
 Seed also **purges retired** legacy `DEMO-*` / `demo-*` / former `DEMO-PROMO-*` / `demo-promo-*` natural keys listed in `DemoSeedMarkers` / `DemoPromotionCatalog` (local-demo guard). It does **not** delete unrelated non-demo rows.
+
+### Bilingual catalog & promotions (P34-T06)
+
+Canonical **base columns** (`products.name`, category/strategy/campaign/placement display fields) stay **Vietnamese**. Seed upserts matching `*_translations` rows for `vi` and `en` without changing SKUs, slugs, prices, or counts.
+
+| Entity | VI rows | EN rows | Notes |
+|--------|---------|---------|-------|
+| Categories (`food-*`) | 8 | 8 | `name`/`description` VI base + both locales |
+| Products (`FOOD-*`) | 48 | **47** | All have VI; **one** SKU intentionally has **no** EN row |
+| Strategies (`PROMO-*`) | 9 demo codes | 9 | Display names VI+EN (`DemoPromotionCatalog`); leftover `TMP-*` smoke strategies are out of seed scope |
+| Campaigns (grocery slugs) | 12 | 12 | Display names VI+EN |
+| Placements (hero) | 1 | 1 | `banner-trang-chu` HOME_HERO titles |
+
+**Missing-English fallback fixture:** SKU `FOOD-FROZEN-PEAS-001` is marked `omitEnglishTranslation: true` in `db/demo/foodmart-catalog.json` (mirrored in FE `foodmart-demo-data.json`). Seed **deletes** any existing EN translation for that product and never recreates it, so `Accept-Language: en` resolves to VI via API fallback. Re-running `make seed-demo` must keep EN count at 47 for FoodMart products.
+
+Frontend offline helpers: `foodmart-demo-data.json` mirrors VI/EN fields; `foodmartHomepageFallbackFor(locale)` / `withFoodmartHomepageFallback(data, locale)` supply locale-aware homepage banner copy when placements are empty.
+
+Safe workflow (unchanged ADR-010):
+
+```bash
+make seed-check    # dry; prints demo + bilingual translation counts when Postgres is up
+make seed-demo     # idempotent upsert (no volume wipe)
+make seed-check    # re-check; translation counts stay stable
+```
+
+Do **not** use `reset-demo` / volume deletes to “fix” translations — reconcile via seed upsert + the peas EN delete path only.
 
 ### Promotion fixtures (Phase 8)
 

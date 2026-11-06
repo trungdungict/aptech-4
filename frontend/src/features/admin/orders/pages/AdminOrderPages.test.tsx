@@ -270,7 +270,7 @@ describe('Admin order pages', () => {
 
     await user.click(await screen.findByRole('button', { name: /set processing/i }))
     expect(await screen.findByRole('alert')).toHaveTextContent(/invalid status transition/i)
-    expect(screen.getByText('PAID')).toBeInTheDocument()
+    expect(screen.getByText('Paid')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /set processing/i })).toBeInTheDocument()
   })
 

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ImageIcon } from 'lucide-react'
 import { useState } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useLocation, useParams } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,9 @@ import { useAuth } from '@/features/auth/hooks/useAuth'
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { formatProductPrice } from '@/features/catalog/lib/format-price'
 import type { CheckoutResult } from '@/features/checkout/types'
+import { useAppCurrency } from '@/features/i18n/hooks/useAppCurrency'
 import { ApiClientError } from '@/lib/api/api-error'
+import { formatDateTime } from '@/lib/i18n'
 
 import * as ordersApi from '../api/orders-api'
 import { OrderPriceSummary } from '../components/OrderPriceSummary'
@@ -21,18 +24,10 @@ import { hasOrderDiscount } from '../lib/order-money'
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function formatPlacedAt(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('vi-VN', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
-
 export function OrderDetailPage() {
+  const { t } = useTranslation('orders')
+  const { t: tc } = useTranslation('common')
+  const { currency: displayCurrency } = useAppCurrency()
   const { orderId = '' } = useParams<{ orderId: string }>()
   const idValid = UUID_RE.test(orderId)
   const { user } = useAuth()
@@ -70,15 +65,15 @@ export function OrderDetailPage() {
 
   return (
     <section className="space-y-6">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+      <nav aria-label={t('detail.breadcrumbAria')} className="text-sm text-muted-foreground">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link to="/orders" className="font-medium text-primary hover:underline">
-              Orders
+              {t('history.title')}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li className="font-medium text-foreground">Detail</li>
+          <li className="font-medium text-foreground">{tc('nav.detail')}</li>
         </ol>
       </nav>
 
@@ -92,45 +87,57 @@ export function OrderDetailPage() {
           role="status"
         >
           <p>
-            Checkout recorded order{' '}
-            <span className="font-mono text-xs">{checkoutFlash.orderId}</span> with status{' '}
-            <strong>{checkoutFlash.orderStatus}</strong>
-            {checkoutFlash.payment
-              ? ` (mock payment: ${checkoutFlash.payment.status})`
-              : ''}
-            .
+            <Trans
+              i18nKey="detail.flashSummary"
+              ns="orders"
+              values={{
+                orderId: checkoutFlash.orderId,
+                status: checkoutFlash.orderStatus,
+                payment: checkoutFlash.payment
+                  ? t('detail.flashPayment', { status: checkoutFlash.payment.status })
+                  : '',
+              }}
+              components={{ mono: <span className="font-mono text-xs" />, strong: <strong /> }}
+            />
           </p>
           <p className="mt-1 text-xs opacity-90">
-            Payment is demo/mock only. Cart cleared: {checkoutFlash.cartCleared ? 'yes' : 'no'}.
+            {t('detail.flashDemo', {
+              cleared: checkoutFlash.cartCleared ? t('detail.yes') : t('detail.no'),
+            })}
             {hasOrderDiscount(checkoutFlash.discountAmount)
-              ? ` Discount applied: ${formatProductPrice(checkoutFlash.discountAmount, checkoutFlash.currency)}.`
+              ? t('detail.flashDiscount', {
+                  amount: formatProductPrice(
+                    checkoutFlash.discountAmount,
+                    checkoutFlash.currency,
+                    undefined,
+                    displayCurrency,
+                  ),
+                })
               : ''}
           </p>
-          <p className="mt-1 text-xs opacity-90">
-            Live status below is loaded from the orders API and remains accurate after refresh.
-          </p>
+          <p className="mt-1 text-xs opacity-90">{t('detail.flashLive')}</p>
         </div>
       ) : null}
 
       {!idValid ? (
-        <Unavailable title="Invalid order link" message="The order id in the URL is not valid." />
+        <Unavailable title={t('detail.invalidLink')} message={t('detail.invalidLinkMessage')} />
       ) : orderQuery.isLoading ? (
         <OrderDetailSkeleton />
       ) : orderQuery.isError ? (
         orderQuery.error instanceof ApiClientError && orderQuery.error.status === 404 ? (
           <Unavailable
-            title="Order unavailable"
-            message="This order was not found or you do not have access to it."
+            title={t('detail.unavailable')}
+            message={t('detail.unavailableMessage')}
           />
         ) : (
           <div className="space-y-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             <p role="alert">
               {orderQuery.error instanceof ApiClientError
                 ? orderQuery.error.userMessage
-                : 'Unable to load order.'}
+                : t('detail.loadError')}
             </p>
             <Button type="button" size="sm" onClick={() => void orderQuery.refetch()}>
-              Retry
+              {tc('actions.retry')}
             </Button>
           </div>
         )
@@ -138,13 +145,13 @@ export function OrderDetailPage() {
         <article className="space-y-6">
           <header className="space-y-3">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-              Order detail
+              {t('detail.title')}
             </h1>
             <p className="break-all font-mono text-xs text-muted-foreground">{order.id}</p>
             <div className="flex flex-wrap items-center gap-3">
               <OrderStatusBadge status={order.status} />
               <p className="text-sm text-muted-foreground">
-                Placed {formatPlacedAt(order.placedAt)}
+                {t('detail.placed', { when: formatDateTime(order.placedAt) })}
               </p>
             </div>
           </header>
@@ -154,10 +161,10 @@ export function OrderDetailPage() {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>
-                    <h2 className="text-base font-semibold">Items (price snapshots)</h2>
+                    <h2 className="text-base font-semibold">{t('detail.itemsSnapshot')}</h2>
                   </CardTitle>
                   <CardDescription>
-                    Names and prices captured at checkout — not live catalog values.
+                    {t('detail.itemsSnapshotDesc')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -181,8 +188,15 @@ export function OrderDetailPage() {
                             </span>
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {formatProductPrice(item.unitPrice, order.currency)} each ×{' '}
-                            {item.quantity}
+                            {t('detail.eachTimes', {
+                              price: formatProductPrice(
+                                item.unitPrice,
+                                order.currency,
+                                undefined,
+                                displayCurrency,
+                              ),
+                              quantity: item.quantity,
+                            })}
                           </p>
                         </div>
                         <ProductPrice
@@ -199,7 +213,7 @@ export function OrderDetailPage() {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>
-                    <h2 className="text-base font-semibold">Shipping</h2>
+                    <h2 className="text-base font-semibold">{t('detail.shipping')}</h2>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground">
@@ -231,22 +245,32 @@ export function OrderDetailPage() {
                 <Card className="shadow-sm">
                   <CardHeader>
                     <CardTitle>
-                      <h2 className="text-base font-semibold">Payment (mock)</h2>
+                      <h2 className="text-base font-semibold">{t('detail.paymentMock')}</h2>
                     </CardTitle>
-                    <CardDescription>As returned by the orders API — demo payment only.</CardDescription>
+                    <CardDescription>{t('detail.paymentDesc')}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-1 text-sm text-muted-foreground">
                     <p>
-                      Provider {order.payment.provider} · Status {order.payment.status}
+                      {t('detail.paymentLine', {
+                        provider: order.payment.provider,
+                        status: order.payment.status,
+                      })}
                       {order.payment.providerReference
-                        ? ` · Ref ${order.payment.providerReference}`
+                        ? t('detail.paymentRef', { ref: order.payment.providerReference })
                         : ''}
                     </p>
                     <p>
-                      Amount {formatProductPrice(order.payment.amount, order.payment.currency)}
+                      {t('detail.paymentAmount', {
+                        amount: formatProductPrice(
+                          order.payment.amount,
+                          order.payment.currency,
+                          undefined,
+                          displayCurrency,
+                        ),
+                      })}
                     </p>
                     {order.payment.failureReason ? (
-                      <p>Failure: {order.payment.failureReason}</p>
+                      <p>{t('detail.paymentFailure', { reason: order.payment.failureReason })}</p>
                     ) : null}
                   </CardContent>
                 </Card>
@@ -257,7 +281,7 @@ export function OrderDetailPage() {
               <Card className="sticky top-20 shadow-sm">
                 <CardHeader>
                   <CardTitle>
-                    <h2 className="text-base font-semibold">Order summary</h2>
+                    <h2 className="text-base font-semibold">{t('detail.summaryTitle')}</h2>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -276,10 +300,10 @@ export function OrderDetailPage() {
                 <Card className="shadow-sm">
                   <CardHeader>
                     <CardTitle>
-                      <h2 className="text-base font-semibold">Cancel order</h2>
+                      <h2 className="text-base font-semibold">{t('detail.cancel')}</h2>
                     </CardTitle>
                     <CardDescription>
-                      Customer cancel is only allowed while status is PENDING_PAYMENT.
+                      {t('detail.cancelDesc')}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -287,7 +311,7 @@ export function OrderDetailPage() {
                       <p className="text-sm text-destructive" role="alert">
                         {cancelMutation.error instanceof ApiClientError
                           ? cancelMutation.error.userMessage
-                          : 'Cancel failed.'}
+                          : t('detail.cancelFailed')}
                       </p>
                     ) : null}
 
@@ -298,7 +322,7 @@ export function OrderDetailPage() {
                         disabled={cancelMutation.isPending}
                         onClick={() => setConfirmCancel(true)}
                       >
-                        Cancel order
+                        {t('detail.cancel')}
                       </Button>
                     ) : (
                       <div
@@ -308,11 +332,10 @@ export function OrderDetailPage() {
                         aria-describedby="cancel-order-desc"
                       >
                         <p id="cancel-order-title" className="text-sm font-medium text-foreground">
-                          Confirm cancellation?
+                          {t('detail.confirmCancel')}
                         </p>
                         <p id="cancel-order-desc" className="text-xs text-muted-foreground">
-                          This cannot be undone from the storefront. The server will only cancel if
-                          the order is still PENDING_PAYMENT.
+                          {t('detail.cancelConfirmDesc')}
                         </p>
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -321,7 +344,7 @@ export function OrderDetailPage() {
                             disabled={cancelMutation.isPending}
                             onClick={() => cancelMutation.mutate()}
                           >
-                            {cancelMutation.isPending ? 'Cancelling…' : 'Confirm cancel'}
+                            {cancelMutation.isPending ? t('detail.cancelling') : t('detail.confirmYes')}
                           </Button>
                           <Button
                             type="button"
@@ -329,7 +352,7 @@ export function OrderDetailPage() {
                             disabled={cancelMutation.isPending}
                             onClick={() => setConfirmCancel(false)}
                           >
-                            Keep order
+                            {t('detail.keep')}
                           </Button>
                         </div>
                       </div>
@@ -339,7 +362,7 @@ export function OrderDetailPage() {
               ) : null}
 
               <Button asChild variant="outline" className="w-full sm:w-auto">
-                <Link to="/orders">Back to orders</Link>
+                <Link to="/orders">{t('detail.back')}</Link>
               </Button>
             </div>
           </div>
@@ -350,9 +373,10 @@ export function OrderDetailPage() {
 }
 
 function OrderDetailSkeleton() {
+  const { t } = useTranslation('orders')
   return (
     <div className="space-y-4" role="status" aria-live="polite">
-      <p className="sr-only">Loading order…</p>
+      <p className="sr-only">{t('detail.loadingSr')}</p>
       <Skeleton className="h-10 w-48" />
       <Skeleton className="h-4 w-72" />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -364,13 +388,14 @@ function OrderDetailSkeleton() {
 }
 
 function Unavailable({ title, message }: { title: string; message: string }) {
+  const { t } = useTranslation('orders')
   return (
     <Card className="border-dashed shadow-none">
       <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground">{message}</p>
         <Button asChild variant="link">
-          <Link to="/orders">Back to orders</Link>
+          <Link to="/orders">{t('detail.back')}</Link>
         </Button>
       </CardContent>
     </Card>

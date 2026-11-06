@@ -25,6 +25,8 @@ import com.aptech.aptech4.catalog.persistence.CategoryRepository;
 import com.aptech.aptech4.catalog.persistence.ProductRepository;
 import com.aptech.aptech4.catalog.upload.ProductImageProperties;
 import com.aptech.aptech4.catalog.upload.UploadPurpose;
+import com.aptech.aptech4.common.locale.AppLocale;
+import com.aptech.aptech4.promotion.application.PromotionLocalizationService;
 import com.aptech.aptech4.promotion.cache.PromotionCacheInvalidator;
 import com.aptech.aptech4.promotion.domain.PromotionCampaign;
 import com.aptech.aptech4.promotion.domain.PromotionCampaignStatus;
@@ -36,6 +38,7 @@ import com.aptech.aptech4.promotion.domain.PromotionStrategyType;
 import com.aptech.aptech4.promotion.persistence.PromotionCampaignRepository;
 import com.aptech.aptech4.promotion.persistence.PromotionStrategyRepository;
 import com.aptech.aptech4.seed.DemoPromotionCatalog.CampaignSlug;
+import com.aptech.aptech4.seed.DemoPromotionCatalog.DisplayName;
 import com.aptech.aptech4.seed.DemoPromotionCatalog.StrategyCode;
 
 /**
@@ -57,6 +60,7 @@ public class DemoPromotionSeedService {
 	private final Clock clock;
 	private final ObjectProvider<ProductImageProperties> productImageProperties;
 	private final ObjectProvider<PromotionCacheInvalidator> promotionCacheInvalidator;
+	private final PromotionLocalizationService promotionLocalizationService;
 
 	public DemoPromotionSeedService(
 			PromotionStrategyRepository strategyRepository,
@@ -65,7 +69,8 @@ public class DemoPromotionSeedService {
 			CategoryRepository categoryRepository,
 			Clock clock,
 			ObjectProvider<ProductImageProperties> productImageProperties,
-			ObjectProvider<PromotionCacheInvalidator> promotionCacheInvalidator
+			ObjectProvider<PromotionCacheInvalidator> promotionCacheInvalidator,
+			PromotionLocalizationService promotionLocalizationService
 	) {
 		this.strategyRepository = strategyRepository;
 		this.campaignRepository = campaignRepository;
@@ -74,6 +79,7 @@ public class DemoPromotionSeedService {
 		this.clock = clock;
 		this.productImageProperties = productImageProperties;
 		this.promotionCacheInvalidator = promotionCacheInvalidator;
+		this.promotionLocalizationService = promotionLocalizationService;
 	}
 
 	public record Counts(int strategiesCreated, int strategiesUpdated, int campaignsCreated, int campaignsUpdated) {
@@ -103,7 +109,7 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat pct = upsertStrategy(
 				StrategyCode.PCT_ORDER.code(),
-				"Ưu đãi thành viên — giảm 10%",
+				DemoPromotionCatalog.strategyName(StrategyCode.PCT_ORDER),
 				PromotionStrategyType.PERCENTAGE_DISCOUNT,
 				new BigDecimal("10.00"),
 				null,
@@ -123,7 +129,7 @@ public class DemoPromotionSeedService {
 		// Pricing campaigns default PAUSED so seed-demo does not change checkout totals until activated.
 		UpsertCamp pctCamp = upsertCampaign(
 				CampaignSlug.PCT_ACTIVE.slug(),
-				"Ưu đãi thành viên — giảm 10%",
+				DemoPromotionCatalog.campaignName(CampaignSlug.PCT_ACTIVE),
 				pct.strategy(),
 				PromotionCampaignStatus.PAUSED,
 				activeStart,
@@ -141,12 +147,13 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat fixed = upsertStrategy(
 				StrategyCode.FIXED_ORDER.code(),
-				"Ưu đãi đơn hàng — giảm 15.000đ",
+				DemoPromotionCatalog.strategyName(StrategyCode.FIXED_ORDER),
 				PromotionStrategyType.FIXED_AMOUNT_DISCOUNT,
 				null,
-				new BigDecimal("15000.00"),
+				// USD of record (was ₫15,000 / min ₫50,000 at mock 1 USD = 25_000 VND).
+				new BigDecimal("0.60"),
 				null,
-				new BigDecimal("50000.00"),
+				new BigDecimal("2.00"),
 				null,
 				false,
 				90,
@@ -160,7 +167,7 @@ public class DemoPromotionSeedService {
 		}
 		UpsertCamp fixedCamp = upsertCampaign(
 				CampaignSlug.FIXED_ACTIVE.slug(),
-				"Ưu đãi đơn hàng — giảm 15.000đ",
+				DemoPromotionCatalog.campaignName(CampaignSlug.FIXED_ACTIVE),
 				fixed.strategy(),
 				PromotionCampaignStatus.PAUSED,
 				activeStart,
@@ -178,7 +185,7 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat product = upsertStrategy(
 				StrategyCode.PRODUCT.code(),
-				"Ưu đãi táo tươi — giảm 15%",
+				DemoPromotionCatalog.strategyName(StrategyCode.PRODUCT),
 				PromotionStrategyType.PRODUCT_DISCOUNT,
 				new BigDecimal("15.00"),
 				null,
@@ -197,7 +204,7 @@ public class DemoPromotionSeedService {
 		}
 		UpsertCamp productCamp = upsertCampaign(
 				CampaignSlug.PRODUCT_APPLE.slug(),
-				"Ưu đãi táo tươi — giảm 15%",
+				DemoPromotionCatalog.campaignName(CampaignSlug.PRODUCT_APPLE),
 				product.strategy(),
 				PromotionCampaignStatus.PAUSED,
 				activeStart,
@@ -215,7 +222,7 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat category = upsertStrategy(
 				StrategyCode.CATEGORY.code(),
-				"Giảm 8% nhóm đồ uống",
+				DemoPromotionCatalog.strategyName(StrategyCode.CATEGORY),
 				PromotionStrategyType.CATEGORY_DISCOUNT,
 				new BigDecimal("8.00"),
 				null,
@@ -234,7 +241,7 @@ public class DemoPromotionSeedService {
 		}
 		UpsertCamp categoryCamp = upsertCampaign(
 				CampaignSlug.CATEGORY_BEVERAGES.slug(),
-				"Giảm 8% nhóm đồ uống",
+				DemoPromotionCatalog.campaignName(CampaignSlug.CATEGORY_BEVERAGES),
 				category.strategy(),
 				PromotionCampaignStatus.PAUSED,
 				activeStart,
@@ -252,7 +259,7 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat orderOr = upsertStrategy(
 				StrategyCode.ORDER_OR.code(),
-				"Ưu đãi linh hoạt — giảm 5%",
+				DemoPromotionCatalog.strategyName(StrategyCode.ORDER_OR),
 				PromotionStrategyType.PERCENTAGE_DISCOUNT,
 				new BigDecimal("5.00"),
 				null,
@@ -271,7 +278,7 @@ public class DemoPromotionSeedService {
 		}
 		UpsertCamp orderOrCamp = upsertCampaign(
 				CampaignSlug.ORDER_OR.slug(),
-				"Ưu đãi linh hoạt — giảm 5%",
+				DemoPromotionCatalog.campaignName(CampaignSlug.ORDER_OR),
 				orderOr.strategy(),
 				PromotionCampaignStatus.PAUSED,
 				activeStart,
@@ -289,7 +296,7 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat stackA = upsertStrategy(
 				StrategyCode.STACK_A.code(),
-				"Ưu đãi kết hợp — giảm 5%",
+				DemoPromotionCatalog.strategyName(StrategyCode.STACK_A),
 				PromotionStrategyType.PERCENTAGE_DISCOUNT,
 				new BigDecimal("5.00"),
 				null,
@@ -308,7 +315,7 @@ public class DemoPromotionSeedService {
 		}
 		UpsertCamp stackACamp = upsertCampaign(
 				CampaignSlug.STACK_A.slug(),
-				"Ưu đãi kết hợp — giảm 5%",
+				DemoPromotionCatalog.campaignName(CampaignSlug.STACK_A),
 				stackA.strategy(),
 				PromotionCampaignStatus.PAUSED,
 				activeStart,
@@ -326,10 +333,11 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat stackB = upsertStrategy(
 				StrategyCode.STACK_B.code(),
-				"Ưu đãi kết hợp — giảm 5.000đ",
+				DemoPromotionCatalog.strategyName(StrategyCode.STACK_B),
 				PromotionStrategyType.FIXED_AMOUNT_DISCOUNT,
 				null,
-				new BigDecimal("5000.00"),
+				// USD of record (was ₫5,000 at mock 1 USD = 25_000 VND).
+				new BigDecimal("0.20"),
 				null,
 				null,
 				null,
@@ -345,7 +353,7 @@ public class DemoPromotionSeedService {
 		}
 		UpsertCamp stackBCamp = upsertCampaign(
 				CampaignSlug.STACK_B.slug(),
-				"Ưu đãi kết hợp — giảm 5.000đ",
+				DemoPromotionCatalog.campaignName(CampaignSlug.STACK_B),
 				stackB.strategy(),
 				PromotionCampaignStatus.PAUSED,
 				activeStart,
@@ -363,7 +371,7 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat banner = upsertStrategy(
 				StrategyCode.BANNER.code(),
-				"Banner trang chủ",
+				DemoPromotionCatalog.strategyName(StrategyCode.BANNER),
 				PromotionStrategyType.BANNER_ONLY,
 				null,
 				null,
@@ -382,7 +390,7 @@ public class DemoPromotionSeedService {
 		}
 		UpsertCamp heroCamp = upsertCampaign(
 				CampaignSlug.HERO.slug(),
-				"Ưu đãi mua sắm tiết kiệm",
+				DemoPromotionCatalog.campaignName(CampaignSlug.HERO),
 				banner.strategy(),
 				PromotionCampaignStatus.ACTIVE,
 				activeStart,
@@ -401,7 +409,7 @@ public class DemoPromotionSeedService {
 
 		UpsertStrat lifecycle = upsertStrategy(
 				StrategyCode.LIFECYCLE.code(),
-				"Chiến lược vòng đời cơ bản",
+				DemoPromotionCatalog.strategyName(StrategyCode.LIFECYCLE),
 				PromotionStrategyType.PERCENTAGE_DISCOUNT,
 				new BigDecimal("3.00"),
 				null,
@@ -421,7 +429,7 @@ public class DemoPromotionSeedService {
 
 		UpsertCamp scheduled = upsertCampaign(
 				CampaignSlug.SCHEDULED.slug(),
-				"Ưu đãi sắp diễn ra",
+				DemoPromotionCatalog.campaignName(CampaignSlug.SCHEDULED),
 				lifecycle.strategy(),
 				PromotionCampaignStatus.SCHEDULED,
 				scheduledStart,
@@ -439,7 +447,7 @@ public class DemoPromotionSeedService {
 
 		UpsertCamp paused = upsertCampaign(
 				CampaignSlug.PAUSED.slug(),
-				"Ưu đãi tạm dừng",
+				DemoPromotionCatalog.campaignName(CampaignSlug.PAUSED),
 				lifecycle.strategy(),
 				PromotionCampaignStatus.PAUSED,
 				activeStart,
@@ -457,7 +465,7 @@ public class DemoPromotionSeedService {
 
 		UpsertCamp draft = upsertCampaign(
 				CampaignSlug.DRAFT.slug(),
-				"Ưu đãi nháp",
+				DemoPromotionCatalog.campaignName(CampaignSlug.DRAFT),
 				lifecycle.strategy(),
 				PromotionCampaignStatus.DRAFT,
 				activeStart,
@@ -475,7 +483,7 @@ public class DemoPromotionSeedService {
 
 		UpsertCamp expired = upsertCampaign(
 				CampaignSlug.EXPIRED.slug(),
-				"Ưu đãi hết hạn",
+				DemoPromotionCatalog.campaignName(CampaignSlug.EXPIRED),
 				lifecycle.strategy(),
 				PromotionCampaignStatus.EXPIRED,
 				expiredStart,
@@ -529,7 +537,7 @@ public class DemoPromotionSeedService {
 
 	private UpsertStrat upsertStrategy(
 			String code,
-			String name,
+			DisplayName displayName,
 			PromotionStrategyType type,
 			BigDecimal discountPercent,
 			BigDecimal discountAmount,
@@ -540,9 +548,12 @@ public class DemoPromotionSeedService {
 			int priority,
 			boolean active
 	) {
+		String name = displayName.vi();
 		var existing = strategyRepository.findByCodeIgnoreCase(code);
+		PromotionStrategy strategy;
+		boolean created;
 		if (existing.isPresent()) {
-			PromotionStrategy strategy = existing.get();
+			strategy = existing.get();
 			strategy.applyUpdate(
 					name,
 					code,
@@ -556,27 +567,34 @@ public class DemoPromotionSeedService {
 					priority,
 					active
 			);
-			return new UpsertStrat(strategyRepository.save(strategy), false);
+			strategy = strategyRepository.saveAndFlush(strategy);
+			created = false;
 		}
-		PromotionStrategy created = PromotionStrategy.createNew(
-				name,
-				code,
-				type,
-				discountPercent,
-				discountAmount,
-				maxDiscountAmount,
-				minOrderAmount,
-				minQuantity,
-				stackable,
-				priority,
-				active
-		);
-		return new UpsertStrat(strategyRepository.save(created), true);
+		else {
+			strategy = PromotionStrategy.createNew(
+					name,
+					code,
+					type,
+					discountPercent,
+					discountAmount,
+					maxDiscountAmount,
+					minOrderAmount,
+					minQuantity,
+					stackable,
+					priority,
+					active
+			);
+			strategy = strategyRepository.saveAndFlush(strategy);
+			created = true;
+		}
+		promotionLocalizationService.upsertStrategy(strategy, AppLocale.VI.code(), displayName.vi());
+		promotionLocalizationService.upsertStrategy(strategy, AppLocale.EN.code(), displayName.en());
+		return new UpsertStrat(strategy, created);
 	}
 
 	private UpsertCamp upsertCampaign(
 			String slug,
-			String name,
+			DisplayName displayName,
 			PromotionStrategy strategy,
 			PromotionCampaignStatus status,
 			Instant startsAt,
@@ -585,9 +603,12 @@ public class DemoPromotionSeedService {
 			Set<UUID> productIds,
 			Set<UUID> categoryIds
 	) {
+		String name = displayName.vi();
 		var existing = campaignRepository.findBySlugFully(slug);
+		PromotionCampaign campaign;
+		boolean created;
 		if (existing.isPresent()) {
-			PromotionCampaign campaign = existing.get();
+			campaign = existing.get();
 			campaign.setStrategy(strategy);
 			campaign.setName(name);
 			campaign.setSchedule(startsAt, endsAt);
@@ -597,13 +618,20 @@ public class DemoPromotionSeedService {
 			campaign.setNotes(notes);
 			campaign.replaceProductIds(productIds);
 			campaign.replaceCategoryIds(categoryIds);
-			return new UpsertCamp(campaignRepository.save(campaign), false);
+			campaign = campaignRepository.saveAndFlush(campaign);
+			created = false;
 		}
-		PromotionCampaign created = PromotionCampaign.createNew(strategy, name, slug, startsAt, endsAt, notes);
-		created.setStatus(status);
-		created.replaceProductIds(productIds);
-		created.replaceCategoryIds(categoryIds);
-		return new UpsertCamp(campaignRepository.save(created), true);
+		else {
+			campaign = PromotionCampaign.createNew(strategy, name, slug, startsAt, endsAt, notes);
+			campaign.setStatus(status);
+			campaign.replaceProductIds(productIds);
+			campaign.replaceCategoryIds(categoryIds);
+			campaign = campaignRepository.saveAndFlush(campaign);
+			created = true;
+		}
+		promotionLocalizationService.upsertCampaign(campaign, AppLocale.VI.code(), displayName.vi());
+		promotionLocalizationService.upsertCampaign(campaign, AppLocale.EN.code(), displayName.en());
+		return new UpsertCamp(campaign, created);
 	}
 
 	private void ensureHeroPlacement(PromotionCampaign campaign) {
@@ -612,13 +640,14 @@ public class DemoPromotionSeedService {
 				.filter(p -> p.getPlacementKey() == PromotionPlacementKey.HOME_HERO)
 				.findFirst()
 				.orElse(null);
+		PromotionPlacement placement;
 		if (hero == null) {
-			PromotionPlacement.createNew(
+			placement = PromotionPlacement.createNew(
 					managed,
 					PromotionPlacementKey.HOME_HERO,
 					DemoPromotionCatalog.HERO_TITLE,
 					DemoPromotionCatalog.HERO_SUBTITLE,
-					"Browse catalog",
+					DemoPromotionCatalog.HERO_CTA_VI,
 					PromotionCtaType.NONE,
 					null,
 					null,
@@ -637,7 +666,7 @@ public class DemoPromotionSeedService {
 					PromotionPlacementKey.HOME_HERO,
 					DemoPromotionCatalog.HERO_TITLE,
 					DemoPromotionCatalog.HERO_SUBTITLE,
-					"Browse catalog",
+					DemoPromotionCatalog.HERO_CTA_VI,
 					PromotionCtaType.NONE,
 					null,
 					null,
@@ -650,8 +679,28 @@ public class DemoPromotionSeedService {
 					null,
 					true
 			);
+			placement = hero;
 		}
-		campaignRepository.save(managed);
+		campaignRepository.saveAndFlush(managed);
+		PromotionPlacement persisted = campaignRepository.findBySlugFully(managed.getSlug()).orElse(managed)
+				.getPlacements().stream()
+				.filter(p -> p.getPlacementKey() == PromotionPlacementKey.HOME_HERO)
+				.findFirst()
+				.orElse(placement);
+		promotionLocalizationService.upsertPlacement(
+				persisted,
+				AppLocale.VI.code(),
+				DemoPromotionCatalog.HERO_TITLE,
+				DemoPromotionCatalog.HERO_SUBTITLE,
+				DemoPromotionCatalog.HERO_CTA_VI
+		);
+		promotionLocalizationService.upsertPlacement(
+				persisted,
+				AppLocale.EN.code(),
+				DemoPromotionCatalog.HERO_TITLE_EN,
+				DemoPromotionCatalog.HERO_SUBTITLE_EN,
+				DemoPromotionCatalog.HERO_CTA_EN
+		);
 	}
 
 	private void ensureHeroImageFile() {

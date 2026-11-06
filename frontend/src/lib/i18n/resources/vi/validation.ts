@@ -1,0 +1,18 @@
+export const viValidation = {
+  emailRequired: 'Email là bắt buộc',
+  emailInvalid: 'Nhập email hợp lệ',
+  emailTooLong: 'Email quá dài',
+  passwordRequired: 'Mật khẩu là bắt buộc',
+  passwordTooLong: 'Mật khẩu quá dài',
+  passwordMin: 'Mật khẩu phải có ít nhất 8 ký tự',
+  passwordMax: 'Mật khẩu tối đa 72 ký tự',
+  fullNameRequired: 'Họ và tên là bắt buộc',
+  fullNameTooLong: 'Họ và tên quá dài',
+  recipientRequired: 'Tên người nhận là bắt buộc',
+  addressLineRequired: 'Địa chỉ là bắt buộc',
+  cityRequired: 'Thành phố là bắt buộc',
+  countryCode: 'Dùng mã quốc gia 2 chữ cái',
+  minPriceNumber: 'Giá tối thiểu phải là số ≥ 0',
+  maxPriceNumber: 'Giá tối đa phải là số ≥ 0',
+  priceRange: 'Giá tối thiểu không được lớn hơn giá tối đa',
+} as const

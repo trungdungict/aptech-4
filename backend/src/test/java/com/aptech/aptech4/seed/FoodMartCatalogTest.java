@@ -21,16 +21,37 @@ class FoodMartCatalogTest {
 		FoodMartCatalog.categories().forEach(c -> {
 			assertThat(c.slug()).startsWith("food-");
 			assertThat(c.active()).isTrue();
+			assertThat(c.name()).isNotBlank();
+			assertThat(c.nameEn()).isNotBlank();
+			assertThat(c.name()).isNotEqualTo(c.nameEn());
 			categoryKeys.add(c.key());
 		});
 
+		boolean sawFallback = false;
+		boolean sawNullDesc = false;
 		for (var product : FoodMartCatalog.products()) {
 			assertThat(product.sku()).startsWith("FOOD-");
 			assertThat(skus.add(product.sku())).isTrue();
 			assertThat(categoryKeys).contains(product.categoryKey());
 			assertThat(product.onHand()).isGreaterThanOrEqualTo(0);
 			assertThat(product.unitPrice()).isGreaterThanOrEqualTo(java.math.BigDecimal.ZERO);
+			assertThat(product.name()).isNotBlank();
+			if (product.omitEnglishTranslation()) {
+				assertThat(product.sku()).isEqualTo(FoodMartCatalog.FALLBACK_MISSING_EN_SKU);
+				assertThat(product.nameEn()).isNull();
+				sawFallback = true;
+			}
+			else {
+				assertThat(product.nameEn()).isNotBlank();
+				assertThat(product.name()).isNotEqualTo(product.nameEn());
+			}
+			if (product.description() == null && product.descriptionEn() == null) {
+				sawNullDesc = true;
+			}
 		}
+
+		assertThat(sawFallback).as("missing-EN fallback fixture present").isTrue();
+		assertThat(sawNullDesc).as("null-description fixture present").isTrue();
 
 		assertThat(DemoSeedMarkers.productSkus()).contains("FOOD-FRUIT-BANANA-001");
 		assertThat(DemoSeedMarkers.productSkus()).doesNotContain("DEMO-ELEC-PHONE");

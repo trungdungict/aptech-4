@@ -35,6 +35,7 @@ public class PromotionCampaignService {
 	private final ProductRepository productRepository;
 	private final CategoryRepository categoryRepository;
 	private final PromotionCacheInvalidator promotionCacheInvalidator;
+	private final PromotionLocalizationService promotionLocalizationService;
 	private final Clock clock;
 
 	public PromotionCampaignService(
@@ -43,6 +44,7 @@ public class PromotionCampaignService {
 			ProductRepository productRepository,
 			CategoryRepository categoryRepository,
 			PromotionCacheInvalidator promotionCacheInvalidator,
+			PromotionLocalizationService promotionLocalizationService,
 			Clock clock
 	) {
 		this.campaignRepository = campaignRepository;
@@ -50,6 +52,7 @@ public class PromotionCampaignService {
 		this.productRepository = productRepository;
 		this.categoryRepository = categoryRepository;
 		this.promotionCacheInvalidator = promotionCacheInvalidator;
+		this.promotionLocalizationService = promotionLocalizationService;
 		this.clock = clock;
 	}
 
@@ -90,6 +93,7 @@ public class PromotionCampaignService {
 		campaign = campaignRepository.saveAndFlush(campaign);
 		applyEligibility(campaign, request.productIds(), request.categoryIds(), strategy.getType());
 		campaign = campaignRepository.saveAndFlush(campaign);
+		promotionLocalizationService.syncCanonicalViCampaign(campaign);
 		promotionCacheInvalidator.onPromotionMutation();
 		return PromotionCampaignResponse.from(requireFully(campaign.getId()), clock.instant());
 	}
@@ -115,6 +119,7 @@ public class PromotionCampaignService {
 		campaign.setNotes(request.notes());
 		applyEligibility(campaign, request.productIds(), request.categoryIds(), strategy.getType());
 		campaignRepository.saveAndFlush(campaign);
+		promotionLocalizationService.syncCanonicalViCampaign(campaign);
 		promotionCacheInvalidator.onPromotionMutation();
 		return PromotionCampaignResponse.from(requireFully(id), clock.instant());
 	}
@@ -251,7 +256,7 @@ public class PromotionCampaignService {
 
 	private PromotionCampaign requireFully(UUID id) {
 		return campaignRepository.findByIdFully(id).orElseThrow(() ->
-				new ApiException(HttpStatus.NOT_FOUND, "Not Found", "Promotion campaign not found")
+				ApiException.keyed(HttpStatus.NOT_FOUND, "Not Found", "api.error.not_found.campaign")
 		);
 	}
 

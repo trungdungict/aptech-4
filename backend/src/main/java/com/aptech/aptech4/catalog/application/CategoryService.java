@@ -24,17 +24,23 @@ public class CategoryService {
 
 	private final CategoryRepository categoryRepository;
 	private final CatalogCacheInvalidator catalogCacheInvalidator;
+	private final CatalogLocalizationService catalogLocalizationService;
 
 	public CategoryService(
 			CategoryRepository categoryRepository,
-			CatalogCacheInvalidator catalogCacheInvalidator
+			CatalogCacheInvalidator catalogCacheInvalidator,
+			CatalogLocalizationService catalogLocalizationService
 	) {
 		this.categoryRepository = categoryRepository;
 		this.catalogCacheInvalidator = catalogCacheInvalidator;
+		this.catalogLocalizationService = catalogLocalizationService;
 	}
 
 	@Transactional(readOnly = true)
-	@Cacheable(cacheNames = CatalogCacheNames.CATEGORIES_LIST, key = "T(com.aptech.aptech4.catalog.cache.CatalogCacheKeys).CATEGORIES_ALL")
+	@Cacheable(
+			cacheNames = CatalogCacheNames.CATEGORIES_LIST,
+			key = "T(com.aptech.aptech4.catalog.cache.CatalogCacheKeys).categoriesAll()"
+	)
 	public List<CategoryResponse> listPublicActive() {
 		return categoryRepository.findAllByActiveTrueOrderByNameAsc().stream()
 			.map(this::toResponse)
@@ -64,7 +70,9 @@ public class CategoryService {
 		String slug = uniqueSlug(Category.slugify(name), null);
 		Category category = Category.createNew(name, slug, blankToNull(request.description()), parent);
 		try {
-			CategoryResponse response = toResponse(categoryRepository.saveAndFlush(category));
+			Category saved = categoryRepository.saveAndFlush(category);
+			catalogLocalizationService.syncCanonicalViCategory(saved);
+			CategoryResponse response = toResponse(saved);
 			catalogCacheInvalidator.onCategoryMutation(response.id());
 			return response;
 		}
@@ -88,7 +96,9 @@ public class CategoryService {
 		category.setParent(parent);
 		category.touch();
 		try {
-			CategoryResponse response = toResponse(categoryRepository.saveAndFlush(category));
+			Category saved = categoryRepository.saveAndFlush(category);
+			catalogLocalizationService.syncCanonicalViCategory(saved);
+			CategoryResponse response = toResponse(saved);
 			catalogCacheInvalidator.onCategoryMutation(id);
 			return response;
 		}
@@ -147,11 +157,12 @@ public class CategoryService {
 
 	private CategoryResponse toResponse(Category category) {
 		UUID parentId = category.getParent() == null ? null : category.getParent().getId();
+		var text = catalogLocalizationService.categoryText(category);
 		return new CategoryResponse(
 				category.getId(),
-				category.getName(),
+				text.name(),
 				category.getSlug(),
-				category.getDescription(),
+				text.description(),
 				parentId,
 				category.isActive()
 		);
@@ -170,10 +181,10 @@ public class CategoryService {
 	}
 
 	private ApiException notFound() {
-		return new ApiException(HttpStatus.NOT_FOUND, "Not Found", "Category not found");
+		return ApiException.keyed(HttpStatus.NOT_FOUND, "Not Found", "api.error.not_found.category");
 	}
 
 	private ApiException nameConflict() {
-		return new ApiException(HttpStatus.CONFLICT, "Conflict", "Category name already exists");
+		return ApiException.keyed(HttpStatus.CONFLICT, "Conflict", "api.error.conflict.category_name");
 	}
 }

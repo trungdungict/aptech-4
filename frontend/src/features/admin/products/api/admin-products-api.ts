@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api/api-client'
+import type { AppLocale } from '@/lib/i18n'
 import { toQueryString } from '@/lib/api/query-string'
 import {
   isAllowedProductSort,
@@ -77,12 +78,20 @@ export function listAdminProducts(
   })
 }
 
-/** GET /api/v1/admin/products/{id} */
-export function getAdminProduct(id: string, signal?: AbortSignal): Promise<Product> {
+/**
+ * GET /api/v1/admin/products/{id}
+ * Pass `locale: 'vi'` to read the canonical Vietnamese base text (edit form) regardless of UI locale.
+ */
+export function getAdminProduct(
+  id: string,
+  signal?: AbortSignal,
+  locale?: AppLocale,
+): Promise<Product> {
   return apiRequest<Product>(`/admin/products/${encodeURIComponent(id)}`, {
     method: 'GET',
     auth: true,
     signal,
+    headers: locale ? { 'Accept-Language': locale } : undefined,
   })
 }
 

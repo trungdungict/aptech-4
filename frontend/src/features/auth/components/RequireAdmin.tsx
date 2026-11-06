@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Navigate, useLocation } from 'react-router-dom'
 
 import { hasAdminRole } from '../lib/roles'
@@ -13,13 +14,14 @@ type RequireAdminProps = {
  * Unauthenticated users are sent to login with a safe `next` destination.
  */
 export function RequireAdmin({ children }: RequireAdminProps) {
+  const { t } = useTranslation('admin')
   const { status, user } = useAuth()
   const location = useLocation()
 
   if (status === 'booting') {
     return (
       <p className="px-6 py-10 text-sm text-muted-foreground" role="status">
-        Checking session…
+        {t('shell.checkingSession')}
       </p>
     )
   }

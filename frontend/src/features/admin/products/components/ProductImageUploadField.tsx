@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +38,7 @@ export function ProductImageUploadField({
   onImageUrlChange,
   disabled = false,
 }: ProductImageUploadFieldProps) {
+  const { t } = useTranslation('admin')
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -109,7 +111,7 @@ export function ProductImageUploadField({
     try {
       const result = await uploadAdminProductImage(file)
       onImageUrlChange(result.imageUrl)
-      setUploadOk('Image uploaded. Save the product to persist this path.')
+      setUploadOk(t('products.image.uploaded'))
       // Drop blob preview; current image block now uses the uploaded path.
       clearPreview()
     } catch (error) {
@@ -117,7 +119,7 @@ export function ProductImageUploadField({
       if (error instanceof ApiClientError) {
         setLocalError(error.userMessage)
       } else {
-        setLocalError('Upload failed. Try again.')
+        setLocalError(t('products.image.uploadFailed'))
       }
       clearPreview()
     } finally {
@@ -142,16 +144,14 @@ export function ProductImageUploadField({
   return (
     <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
       <div className="space-y-1">
-        <Label htmlFor={inputId}>Product image</Label>
+        <Label htmlFor={inputId}>{t('products.image.label')}</Label>
         <p className="text-xs text-muted-foreground">
-          JPEG, PNG, or WebP — must be smaller than {formatBytes(productImageMaxSizeBytes)}. Uploaded
-          files are stored on the server; only the public path is saved with the product. Leaving the
-          file input empty keeps the current image on save.
+          {t('products.image.help', { max: formatBytes(productImageMaxSizeBytes) })}
         </p>
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground">Current product image</p>
+        <p className="text-sm font-medium text-foreground">{t('products.image.current')}</p>
         {showCurrentImage && currentSrc ? (
           <div className="flex items-start gap-3">
             <img
@@ -164,20 +164,20 @@ export function ProductImageUploadField({
               {imageUrl ? (
                 <p className="break-all font-mono text-[11px] text-foreground/80">{imageUrl}</p>
               ) : (
-                <p>Catalog display image (not stored as an upload path until you replace it).</p>
+                <p>{t('products.image.catalogFallback')}</p>
               )}
             </div>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground" role="status">
-            No product image
+            {t('products.image.none')}
           </p>
         )}
       </div>
 
       {showNewPreview && previewUrl ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-foreground">New image preview</p>
+          <p className="text-sm font-medium text-foreground">{t('products.image.newPreview')}</p>
           <div className="flex items-start gap-3">
             <img
               src={previewUrl}
@@ -194,7 +194,7 @@ export function ProductImageUploadField({
                   {selectedSize != null ? ` · ${formatBytes(selectedSize)}` : ''}
                 </p>
               ) : null}
-              <p>Selected file — upload in progress</p>
+              <p>{t('products.image.uploadInProgress')}</p>
             </div>
           </div>
         </div>
@@ -214,14 +214,14 @@ export function ProductImageUploadField({
         />
         {imageUrl || previewUrl ? (
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={handleClear}>
-            Clear image
+            {t('products.image.clear')}
           </Button>
         ) : null}
       </div>
 
       {uploading ? (
         <p className="text-sm text-muted-foreground" role="status">
-          Uploading…
+          {t('products.image.uploading')}
         </p>
       ) : null}
       {localError ? (

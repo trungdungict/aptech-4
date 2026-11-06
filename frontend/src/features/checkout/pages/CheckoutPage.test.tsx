@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
+import { changeAppLocale, i18n } from '@/lib/i18n'
 import { demoCustomerSession, renderWithProviders } from '@/test/render-app'
 
 function jsonResponse(status: number, body: unknown) {
@@ -289,7 +290,7 @@ describe('CheckoutPage', () => {
     renderWithProviders(<AppRouter />, { route: '/checkout', session: demoCustomerSession })
     await user.click(await screen.findByRole('button', { name: /place order/i }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/outcome is unknown/i)
+    expect(await screen.findByRole('alert')).toHaveTextContent(/could not confirm checkout outcome/i)
     await user.click(screen.getByRole('button', { name: /retry same attempt/i }))
 
     await waitFor(() => {
@@ -297,5 +298,25 @@ describe('CheckoutPage', () => {
     })
     expect(keys[0]).toBe(keys[1])
     expect(await screen.findByText(/order detail/i)).toBeInTheDocument()
+  })
+
+  it('renders Vietnamese checkout review after switching locale', async () => {
+    await changeAppLocale('vi')
+    mockFetchRouter((url, init) => {
+      if (url.includes('/addresses') && (!init?.method || init.method === 'GET')) {
+        return jsonResponse(200, [addressFixture])
+      }
+      if (url.includes('/cart')) {
+        return jsonResponse(200, cartFixture)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, { route: '/checkout', session: demoCustomerSession })
+
+    expect(await screen.findByText(i18n.t('checkout:orderReview'))).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: i18n.t('checkout:placeOrder') }),
+    ).toBeInTheDocument()
   })
 })

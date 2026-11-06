@@ -201,7 +201,7 @@ class CatalogCacheIntegrationTest {
 
 		Cache cache = cacheManager.getCache(CatalogCacheNames.CATEGORIES_LIST);
 		assertThat(cache).isNotNull();
-		assertThat(cache.get(CatalogCacheKeys.CATEGORIES_ALL)).isNotNull();
+		assertThat(cache.get(CatalogCacheKeys.categoriesAll())).isNotNull();
 
 		String admin = jwtService.createAccessToken(UUID.randomUUID(), "admin.cache@example.com", List.of("ADMIN"));
 
@@ -211,7 +211,7 @@ class CatalogCacheIntegrationTest {
 						.content("{\"active\":false}"))
 				.andExpect(status().isOk());
 
-		assertThat(cache.get(CatalogCacheKeys.CATEGORIES_ALL)).isNull();
+		assertThat(cache.get(CatalogCacheKeys.categoriesAll())).isNull();
 		List<CategoryResponse> after = categoryService.listPublicActive();
 		assertThat(after.stream().noneMatch(c -> c.id().equals(categoryId))).isTrue();
 

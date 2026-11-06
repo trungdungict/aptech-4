@@ -482,4 +482,135 @@ describe('Admin promotion pages', () => {
     await user.click(screen.getByRole('button', { name: /^activate$/i }))
     expect(await screen.findByText(/cannot activate a campaign after its endsat/i)).toBeInTheDocument()
   })
+
+  it('mounts the strategy name translations editor on edit only and reads canonical VI', async () => {
+    const user = userEvent.setup()
+    const acceptLanguage: string[] = []
+    const puts: unknown[] = []
+    mockAdminFetch((url, init) => {
+      const headers = (init?.headers ?? {}) as Record<string, string>
+      if (url.includes(`/admin/promotions/strategies/${strategy.id}/translations`)) {
+        if (init?.method === 'PUT') {
+          puts.push(JSON.parse(String(init.body)))
+        }
+        return jsonResponse(200, {
+          id: strategy.id,
+          translations: { vi: 'Banner VI', en: init?.method === 'PUT' ? 'Banner EN' : null },
+        })
+      }
+      if (url.includes(`/admin/promotions/strategies/${strategy.id}`)) {
+        acceptLanguage.push(headers['Accept-Language'])
+        return jsonResponse(200, strategy)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: `/admin/promotions/strategies/${strategy.id}/edit`,
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByLabelText('Name (VI)')).toHaveValue('Banner VI')
+    // UI locale is EN in tests, but the base form must load canonical VI.
+    expect(acceptLanguage).toContain('vi')
+    expect(screen.getByTestId('strategy-canonical-note')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText('Name (EN)'), 'Banner EN')
+    await user.click(screen.getByRole('button', { name: /save translations/i }))
+    expect(await screen.findByText('Translations saved.')).toBeInTheDocument()
+    expect(puts).toEqual([{ translations: { vi: 'Banner VI', en: 'Banner EN' } }])
+  })
+
+  it('shows the EN-after-save hint on strategy create without an editor', async () => {
+    mockAdminFetch(() => jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' }))
+
+    renderWithProviders(<AppRouter />, {
+      route: '/admin/promotions/strategies/new',
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByTestId('strategy-canonical-note')).toHaveTextContent(/after saving/i)
+    expect(screen.queryByTestId('strategy-translations-editor')).not.toBeInTheDocument()
+  })
+
+  it('mounts campaign name + per-placement translation editors on the campaign edit page', async () => {
+    const user = userEvent.setup()
+    const placement = {
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      campaignId: campaign.id,
+      placementKey: 'HOME_HERO',
+      title: 'Hero VI',
+      subtitle: null,
+      ctaLabel: null,
+      ctaType: 'NONE',
+      ctaProductId: null,
+      ctaCategoryId: null,
+      ctaCollectionKey: null,
+      ctaUrl: null,
+      desktopImageUrl: '/uploads/promotions/a.jpg',
+      mobileImageUrl: null,
+      displayOrder: 0,
+      startsAt: null,
+      endsAt: null,
+      enabled: true,
+    }
+    const placementPuts: unknown[] = []
+
+    mockAdminFetch((url, init) => {
+      if (url.includes(`/admin/promotions/campaigns/${campaign.id}/translations`)) {
+        return jsonResponse(200, {
+          id: campaign.id,
+          translations: { vi: 'Weekend Banner', en: null },
+        })
+      }
+      if (url.includes(`/admin/promotions/placements/${placement.id}/translations`)) {
+        if (init?.method === 'PUT') {
+          placementPuts.push(JSON.parse(String(init.body)))
+        }
+        return jsonResponse(200, {
+          id: placement.id,
+          translations: {
+            vi: { title: 'Hero VI', subtitle: null, ctaLabel: null },
+            en: { title: init?.method === 'PUT' ? 'Hero EN' : null, subtitle: null, ctaLabel: null },
+          },
+        })
+      }
+      if (url.includes(`/admin/promotions/campaigns/${campaign.id}/placements`)) {
+        return jsonResponse(200, [placement])
+      }
+      if (url.includes(`/admin/promotions/campaigns/${campaign.id}`)) {
+        return jsonResponse(200, campaign)
+      }
+      if (url.includes('/admin/promotions/strategies')) {
+        return jsonResponse(200, [strategy])
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: `/admin/promotions/campaigns/${campaign.id}`,
+      session: demoAdminSession,
+    })
+
+    // Campaign name translations live on the details tab.
+    expect(await screen.findByTestId('campaign-translations-editor')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Name (VI)')).toHaveValue('Weekend Banner')
+
+    await user.click(screen.getByRole('tab', { name: 'Placements' }))
+    await user.click(await screen.findByRole('button', { name: 'Translations' }))
+
+    expect(
+      await screen.findByTestId(`placement-translations-editor-${placement.id}`),
+    ).toBeInTheDocument()
+    await user.type(await screen.findByLabelText('Title (EN)'), 'Hero EN')
+    await user.click(screen.getByRole('button', { name: /save translations/i }))
+
+    await waitFor(() => expect(placementPuts).toHaveLength(1))
+    expect(placementPuts[0]).toEqual({
+      translations: {
+        vi: { title: 'Hero VI', subtitle: null, ctaLabel: null },
+        en: { title: 'Hero EN', subtitle: null, ctaLabel: null },
+      },
+    })
+  })
 })

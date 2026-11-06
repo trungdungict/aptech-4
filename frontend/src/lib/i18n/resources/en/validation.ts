@@ -1,0 +1,18 @@
+export const enValidation = {
+  emailRequired: 'Email is required',
+  emailInvalid: 'Enter a valid email',
+  emailTooLong: 'Email is too long',
+  passwordRequired: 'Password is required',
+  passwordTooLong: 'Password is too long',
+  passwordMin: 'Password must be at least 8 characters',
+  passwordMax: 'Password must be at most 72 characters',
+  fullNameRequired: 'Full name is required',
+  fullNameTooLong: 'Full name is too long',
+  recipientRequired: 'Recipient name is required',
+  addressLineRequired: 'Address line is required',
+  cityRequired: 'City is required',
+  countryCode: 'Use a 2-letter country code',
+  minPriceNumber: 'Minimum price must be a number ≥ 0',
+  maxPriceNumber: 'Maximum price must be a number ≥ 0',
+  priceRange: 'Minimum price cannot be greater than maximum price',
+} as const

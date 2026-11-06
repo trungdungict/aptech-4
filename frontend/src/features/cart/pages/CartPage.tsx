@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ImageIcon, MinusIcon, PlusIcon, ShoppingBagIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +13,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth'
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { formatProductPrice } from '@/features/catalog/lib/format-price'
 import { resolveProductImage } from '@/features/catalog/lib/resolve-product-image'
+import { useAppCurrency } from '@/features/i18n/hooks/useAppCurrency'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import * as cartApi from '../api/cart-api'
@@ -19,6 +21,8 @@ import { cartQueryKeys } from '../hooks/cart-query-keys'
 import { CART_MAX_QUANTITY, type Cart, type CartItem } from '../types'
 
 export function CartPage() {
+  const { t } = useTranslation('cart')
+  const { t: tc } = useTranslation('common')
   const { user } = useAuth()
   const userId = user?.id ?? ''
   const queryClient = useQueryClient()
@@ -77,9 +81,9 @@ export function CartPage() {
   return (
     <section className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Cart</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Quantities and prices come from the server. Stock is rechecked at checkout.
+          {t('subtitle')}
         </p>
       </div>
 
@@ -90,21 +94,21 @@ export function CartPage() {
           <p role="alert">
             {cartQuery.error instanceof ApiClientError
               ? cartQuery.error.status === 403
-                ? 'Cart is available for customer accounts only.'
+                ? t('customerOnly')
                 : cartQuery.error.userMessage
-              : 'Unable to load cart.'}
+              : t('loadError')}
           </p>
           <Button type="button" size="sm" onClick={() => void cartQuery.refetch()}>
-            Retry
+            {tc('actions.retry')}
           </Button>
         </div>
       ) : isEmpty ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
             <ShoppingBagIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">Your cart is empty.</p>
+            <p className="text-sm text-muted-foreground">{t('empty')}</p>
             <Button asChild>
-              <Link to="/products">Browse catalog</Link>
+              <Link to="/products">{t('browseCatalog')}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -116,7 +120,7 @@ export function CartPage() {
                 className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
                 role="status"
               >
-                Some items are no longer available. Remove them before checkout.
+                {t('unavailableBanner')}
               </p>
             ) : null}
 
@@ -127,7 +131,7 @@ export function CartPage() {
               >
                 {mutationError instanceof ApiClientError
                   ? mutationError.userMessage
-                  : 'Cart update failed.'}
+                  : t('updateFailed')}
               </p>
             ) : null}
 
@@ -153,11 +157,11 @@ export function CartPage() {
 
           <Card className="sticky top-20 shadow-sm">
             <CardHeader>
-              <CardTitle>Order summary</CardTitle>
+              <CardTitle>{t('orderSummary')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-muted-foreground">Subtotal</span>
+                <span className="text-muted-foreground">{t('subtotal')}</span>
                 <ProductPrice
                   unitPrice={cart.subtotal}
                   currency={cart.currency}
@@ -165,23 +169,22 @@ export function CartPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Shipping and final totals are confirmed by the server at checkout. No tax or
-                discount lines are applied in this demo.
+                {t('shippingNote')}
               </p>
             </CardContent>
             <Separator />
             <CardFooter className="flex flex-col gap-2 pt-4 sm:items-stretch">
               {canCheckout ? (
                 <Button asChild size="lg" className="w-full">
-                  <Link to="/checkout">Checkout</Link>
+                  <Link to="/checkout">{t('checkout')}</Link>
                 </Button>
               ) : (
                 <Button type="button" size="lg" className="w-full" disabled>
-                  Checkout unavailable
+                  {t('checkoutUnavailable')}
                 </Button>
               )}
               <Button asChild variant="outline" className="w-full">
-                <Link to="/products">Continue shopping</Link>
+                <Link to="/products">{t('continueShopping')}</Link>
               </Button>
               <Button
                 type="button"
@@ -193,7 +196,7 @@ export function CartPage() {
                   clearMutation.mutate()
                 }}
               >
-                {clearMutation.isPending ? 'Clearing…' : 'Clear cart'}
+                {clearMutation.isPending ? t('clearing') : t('clearCart')}
               </Button>
             </CardFooter>
           </Card>
@@ -211,6 +214,8 @@ type CartLineItemProps = {
 }
 
 function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemProps) {
+  const { t } = useTranslation('cart')
+  const { currency: displayCurrency } = useAppCurrency()
   const qtyDisabled = busy || !item.available
 
   return (
@@ -220,7 +225,7 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
           <Link
             to={`/products/${item.productId}`}
             className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={`View ${item.productName}`}
+            aria-label={t('viewAria', { name: item.productName })}
           >
             {(() => {
               const src = resolveProductImage({
@@ -236,7 +241,7 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
               ) : (
                 <span className="flex flex-col items-center gap-1 text-muted-foreground" aria-hidden="true">
                   <ImageIcon className="size-5 opacity-60" />
-                  <span className="text-[10px] font-medium">No image</span>
+                  <span className="text-[10px] font-medium">{t('noImage')}</span>
                 </span>
               )
             })()}
@@ -252,10 +257,17 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
                   {item.productName}
                 </Link>
                 <p className="text-sm text-muted-foreground">
-                  {formatProductPrice(item.unitPrice, item.currency)} each
+                  {t('each', {
+                    price: formatProductPrice(
+                      item.unitPrice,
+                      item.currency,
+                      undefined,
+                      displayCurrency,
+                    ),
+                  })}
                 </p>
               </div>
-              {!item.available ? <Badge variant="warning">Unavailable</Badge> : null}
+              {!item.available ? <Badge variant="warning">{t('unavailable')}</Badge> : null}
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -264,7 +276,7 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
                   type="button"
                   variant="outline"
                   size="icon-sm"
-                  aria-label={`Decrease ${item.productName} quantity`}
+                  aria-label={t('decreaseAria', { name: item.productName })}
                   disabled={qtyDisabled || item.quantity <= 1}
                   onClick={() => onQuantityChange(item.quantity - 1)}
                 >
@@ -276,7 +288,7 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
                   max={CART_MAX_QUANTITY}
                   value={item.quantity}
                   disabled={qtyDisabled}
-                  aria-label={`Quantity for ${item.productName}`}
+                  aria-label={t('quantityAria', { name: item.productName })}
                   className="w-16 text-center tabular-nums"
                   onChange={(event) => {
                     onQuantityChange(Number(event.target.value))
@@ -286,7 +298,7 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
                   type="button"
                   variant="outline"
                   size="icon-sm"
-                  aria-label={`Increase ${item.productName} quantity`}
+                  aria-label={t('increaseAria', { name: item.productName })}
                   disabled={qtyDisabled || item.quantity >= CART_MAX_QUANTITY}
                   onClick={() => onQuantityChange(item.quantity + 1)}
                 >
@@ -301,7 +313,7 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
               />
 
               <Button type="button" variant="outline" size="sm" disabled={busy} onClick={onRemove}>
-                Remove
+                {t('remove')}
               </Button>
             </div>
           </div>
@@ -312,9 +324,10 @@ function CartLineItem({ item, busy, onQuantityChange, onRemove }: CartLineItemPr
 }
 
 function CartLoadingSkeleton() {
+  const { t } = useTranslation('cart')
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]" role="status" aria-live="polite">
-      <p className="sr-only">Loading cart…</p>
+      <p className="sr-only">{t('loadingSr')}</p>
       <div className="space-y-3">
         {Array.from({ length: 2 }, (_, i) => (
           <Skeleton key={i} className="h-28 w-full rounded-xl" />

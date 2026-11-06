@@ -1,5 +1,6 @@
 import { MenuIcon } from 'lucide-react'
 import { Suspense, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { ErrorBoundary } from '@/app/ErrorBoundary'
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/sheet'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { LazyChatPanel } from '@/features/chat/components/LazyChatPanel'
+import { LanguageSwitcher } from '@/features/i18n/components/LanguageSwitcher'
 import { NotificationBell } from '@/features/notifications/components/NotificationBell'
 import { useMediaQuery } from '@/hooks/use-media-query'
 
@@ -21,18 +23,20 @@ import { AdminNav } from './AdminNav'
 import { AdminRouteFallback } from './AdminRouteFallback'
 
 function useAdminBreadcrumbLabel(pathname: string): string {
+  const { t } = useTranslation('admin')
   return useMemo(() => {
     if (pathname === '/admin' || pathname === '/admin/') {
-      return 'Overview'
+      return t('nav.overview.label')
     }
     const match = ADMIN_NAV_ITEMS.find(
       (item) => item.to != null && item.to !== '/admin' && pathname.startsWith(item.to),
     )
-    return match?.label ?? 'Admin'
-  }, [pathname])
+    return match ? t(`nav.${match.id}.label`) : t('shell.admin')
+  }, [pathname, t])
 }
 
 export function AdminLayout() {
+  const { t } = useTranslation('admin')
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -51,7 +55,7 @@ export function AdminLayout() {
       {isDesktop ? (
         <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card">
           <AdminNav
-            ariaLabel="Admin"
+            ariaLabel={t('shell.navAria')}
             onLogout={() => {
               void onLogout()
             }}
@@ -70,18 +74,18 @@ export function AdminLayout() {
                   type="button"
                   variant="outline"
                   size="icon"
-                  aria-label="Open admin menu"
+                  aria-label={t('shell.openMenu')}
                   onClick={() => setMobileOpen(true)}
                 >
                   <MenuIcon className="size-4" />
                 </Button>
                 <SheetContent side="left" className="w-[min(100%,18rem)] p-0 sm:max-w-xs">
                   <SheetHeader className="sr-only">
-                    <SheetTitle>Admin navigation</SheetTitle>
-                    <SheetDescription>Navigate admin modules</SheetDescription>
+                    <SheetTitle>{t('shell.navigationTitle')}</SheetTitle>
+                    <SheetDescription>{t('shell.navigationDescription')}</SheetDescription>
                   </SheetHeader>
                   <AdminNav
-                    ariaLabel="Admin menu"
+                    ariaLabel={t('shell.menuAria')}
                     onNavigate={() => setMobileOpen(false)}
                     onLogout={() => {
                       void onLogout()
@@ -94,12 +98,15 @@ export function AdminLayout() {
             ) : null}
             <div className="min-w-0">
               <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Admin
+                {t('shell.admin')}
               </p>
               <p className="truncate text-sm font-semibold text-foreground">{crumb}</p>
             </div>
           </div>
-          {user ? <NotificationBell key={user.id} /> : null}
+          <div className="flex shrink-0 items-center gap-2">
+            <LanguageSwitcher />
+            {user ? <NotificationBell key={user.id} /> : null}
+          </div>
         </header>
 
         <main className="flex-1 px-4 py-8 md:px-8">

@@ -5,17 +5,23 @@ import java.util.Locale;
 import java.util.UUID;
 
 import com.aptech.aptech4.catalog.application.ProductSortSupport;
+import com.aptech.aptech4.common.locale.AppLocale;
+import com.aptech.aptech4.common.locale.RequestLocaleHolder;
 
 /**
  * Deterministic cache keys for public catalog queries (ADR-015).
  * Absent optionals use {@code -} so null vs empty keyword do not collide incorrectly
  * (empty/blank keywords normalize to {@code -} same as null, matching service behavior).
+ * Localized payloads include the request {@link AppLocale} code.
  */
 public final class CatalogCacheKeys {
 
-	public static final String CATEGORIES_ALL = "all";
-
 	private CatalogCacheKeys() {
+	}
+
+	/** Locale-aware “all categories” key for the current request locale. */
+	public static String categoriesAll() {
+		return "all|" + currentLocaleCode();
 	}
 
 	public static String productList(
@@ -37,16 +43,22 @@ public final class CatalogCacheKeys {
 				nullToDash(inStock == null ? null : inStock.toString()),
 				Integer.toString(page),
 				Integer.toString(size),
-				normalizeSort(sort)
+				normalizeSort(sort),
+				currentLocaleCode()
 		);
 	}
 
 	public static String productDetail(UUID id) {
-		return id.toString();
+		return id.toString() + "|" + currentLocaleCode();
 	}
 
 	public static String categoryDetail(UUID id) {
-		return id.toString();
+		return id.toString() + "|" + currentLocaleCode();
+	}
+
+	static String currentLocaleCode() {
+		AppLocale locale = RequestLocaleHolder.get();
+		return locale == null ? AppLocale.DEFAULT.code() : locale.code();
 	}
 
 	static String normalizeKeyword(String q) {

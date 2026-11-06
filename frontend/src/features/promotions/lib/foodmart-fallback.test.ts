@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  FOODMART_HOMEPAGE_FALLBACK,
+  foodmartHomepageFallbackFor,
   isEmptyHomepagePromotions,
   withFoodmartHomepageFallback,
 } from './foodmart-fallback'
@@ -35,23 +35,37 @@ const liveTop: PublicPlacement = {
 }
 
 describe('withFoodmartHomepageFallback', () => {
-  it('returns full FoodMart fallback for null/empty payloads', () => {
-    expect(withFoodmartHomepageFallback(null)).toEqual(FOODMART_HOMEPAGE_FALLBACK)
+  it('builds VI FoodMart fallback from promotions:fallback.* for null/empty payloads', () => {
+    expect(foodmartHomepageFallbackFor('vi').hero[0]?.title).toBe('Thực phẩm tươi cho gian bếp')
+    expect(withFoodmartHomepageFallback(null, 'vi')).toEqual(foodmartHomepageFallbackFor('vi'))
     expect(
-      withFoodmartHomepageFallback({ hero: [], promoTop: null, promoBottom: null }),
-    ).toEqual(FOODMART_HOMEPAGE_FALLBACK)
+      withFoodmartHomepageFallback({ hero: [], promoTop: null, promoBottom: null }, 'vi'),
+    ).toEqual(foodmartHomepageFallbackFor('vi'))
     expect(isEmptyHomepagePromotions({ hero: [], promoTop: null, promoBottom: null })).toBe(true)
   })
 
+  it('selects EN copy when locale is en', () => {
+    const en = foodmartHomepageFallbackFor('en')
+    expect(en.hero[0]?.title).toBe('Fresh groceries for your kitchen')
+    expect(withFoodmartHomepageFallback(null, 'en')).toEqual(en)
+  })
+
+  it('defaults to the active app locale (tests run in EN)', () => {
+    expect(withFoodmartHomepageFallback(null).hero[0]?.title).toBe('Fresh groceries for your kitchen')
+  })
+
   it('keeps live hero and fills null promo slots from FoodMart', () => {
-    const merged = withFoodmartHomepageFallback({
-      hero: [liveHero],
-      promoTop: null,
-      promoBottom: null,
-    })
+    const merged = withFoodmartHomepageFallback(
+      {
+        hero: [liveHero],
+        promoTop: null,
+        promoBottom: null,
+      },
+      'vi',
+    )
     expect(merged.hero).toEqual([liveHero])
-    expect(merged.promoTop?.title).toBe(FOODMART_HOMEPAGE_FALLBACK.promoTop?.title)
-    expect(merged.promoBottom?.title).toBe(FOODMART_HOMEPAGE_FALLBACK.promoBottom?.title)
+    expect(merged.promoTop?.title).toBe(foodmartHomepageFallbackFor('vi').promoTop?.title)
+    expect(merged.promoBottom?.title).toBe(foodmartHomepageFallbackFor('vi').promoBottom?.title)
   })
 
   it('preserves live promoTop/promoBottom when present', () => {

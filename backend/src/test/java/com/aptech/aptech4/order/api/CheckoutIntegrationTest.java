@@ -33,9 +33,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.aptech.aptech4.catalog.domain.Category;
 import com.aptech.aptech4.catalog.domain.Inventory;
 import com.aptech.aptech4.catalog.domain.Product;
+import com.aptech.aptech4.catalog.domain.ProductTranslation;
 import com.aptech.aptech4.catalog.persistence.CategoryRepository;
 import com.aptech.aptech4.catalog.persistence.InventoryRepository;
 import com.aptech.aptech4.catalog.persistence.ProductRepository;
+import com.aptech.aptech4.catalog.persistence.ProductTranslationRepository;
 import com.aptech.aptech4.identity.domain.Address;
 import com.aptech.aptech4.identity.domain.UserAccount;
 import com.aptech.aptech4.identity.persistence.AddressRepository;
@@ -93,6 +95,9 @@ class CheckoutIntegrationTest {
 
 	@Autowired
 	InventoryRepository inventoryRepository;
+
+	@Autowired
+	ProductTranslationRepository productTranslationRepository;
 
 	@Autowired
 	AddressRepository addressRepository;
@@ -278,6 +283,36 @@ class CheckoutIntegrationTest {
 	}
 
 	@Test
+	void checkoutPlaceResponseKeepsCanonicalViNameUnderAcceptLanguageEn() throws Exception {
+		String suffix = UUID.randomUUID().toString().substring(0, 8);
+		String token = register("chk.loc." + suffix + "@example.com", "Checkout Locale");
+		UUID userId = jwtService.parseAccessToken(token).userId();
+		UUID addressId = seedAddress(userId, "ChkLoc-" + suffix);
+		String viName = "Sản phẩm checkout " + suffix;
+		String enName = "Checkout Product EN " + suffix;
+		UUID productId = seedProductWithEn("CHK-LOC-" + suffix, viName, enName, new BigDecimal("120.00"), 5);
+
+		addToCart(token, productId, 1);
+		mockMvc.perform(get("/api/v1/cart")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+				.header(HttpHeaders.ACCEPT_LANGUAGE, "en"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items[0].productName").value(enName));
+
+		mockMvc.perform(post("/api/v1/checkout")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+				.header(HttpHeaders.ACCEPT_LANGUAGE, "en")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "idempotencyKey": "chk-loc-%s", "addressId": "%s" }
+						""".formatted(suffix, addressId)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.orderStatus").value("PAID"))
+			.andExpect(jsonPath("$.items[0].productName").value(viName))
+			.andExpect(jsonPath("$.items[0].quantity").value(1));
+	}
+
+	@Test
 	void concurrentCheckoutDoesNotOversell() throws Exception {
 		String suffix = UUID.randomUUID().toString().substring(0, 8);
 		UUID productId = seedProduct("COC-" + suffix, new BigDecimal("20.00"), 1);
@@ -361,6 +396,26 @@ class CheckoutIntegrationTest {
 					category, sku, "Product " + sku, null, price, "VND", true
 			));
 			inventoryRepository.saveAndFlush(Inventory.forProduct(product, onHand));
+			return product.getId();
+		});
+	}
+
+	private UUID seedProductWithEn(String sku, String viName, String enName, BigDecimal price, int onHand) {
+		String slug = "chk-cat-" + sku.toLowerCase().replaceAll("[^a-z0-9]+", "-");
+		return transactionTemplate.execute(status -> {
+			Category category = categoryRepository.saveAndFlush(Category.createNew(
+					"Chk Loc Cat " + sku, slug, null, null
+			));
+			Product product = productRepository.saveAndFlush(Product.createNew(
+					category, sku, viName, null, price, "VND", true
+			));
+			inventoryRepository.saveAndFlush(Inventory.forProduct(product, onHand));
+			productTranslationRepository.saveAndFlush(ProductTranslation.createNew(
+					product, "vi", viName, null
+			));
+			productTranslationRepository.saveAndFlush(ProductTranslation.createNew(
+					product, "en", enName, null
+			));
 			return product.getId();
 		});
 	}

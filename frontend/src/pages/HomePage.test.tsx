@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
-import { FOODMART_HOMEPAGE_FALLBACK } from '@/features/promotions/lib/foodmart-fallback'
+import { foodmartHomepageFallbackFor } from '@/features/promotions/lib/foodmart-fallback'
+import { changeAppLocale, i18n } from '@/lib/i18n'
 import { renderWithProviders } from '@/test/render-app'
 
 function jsonResponse(status: number, body: unknown) {
@@ -173,10 +174,10 @@ describe('storefront home', () => {
     renderWithProviders(<AppRouter />, { route: '/' })
 
     expect(
-      await screen.findByText(FOODMART_HOMEPAGE_FALLBACK.hero[0]!.title),
+      await screen.findByText(foodmartHomepageFallbackFor('en').hero[0]!.title),
     ).toBeInTheDocument()
-    expect(screen.getByText(FOODMART_HOMEPAGE_FALLBACK.promoTop!.title)).toBeInTheDocument()
-    expect(screen.getByText(FOODMART_HOMEPAGE_FALLBACK.promoBottom!.title)).toBeInTheDocument()
+    expect(screen.getByText(foodmartHomepageFallbackFor('en').promoTop!.title)).toBeInTheDocument()
+    expect(screen.getByText(foodmartHomepageFallbackFor('en').promoBottom!.title)).toBeInTheDocument()
     expect(screen.queryByText('API Weekend Produce')).not.toBeInTheDocument()
   })
 
@@ -187,7 +188,7 @@ describe('storefront home', () => {
     expect(
       await screen.findByText(/showing foodmart artwork while promotions are unavailable/i),
     ).toBeInTheDocument()
-    expect(screen.getByText(FOODMART_HOMEPAGE_FALLBACK.hero[0]!.title)).toBeInTheDocument()
+    expect(screen.getByText(foodmartHomepageFallbackFor('en').hero[0]!.title)).toBeInTheDocument()
   })
 
   it('fills null promoTop/promoBottom with FoodMart while keeping live hero', async () => {
@@ -199,8 +200,8 @@ describe('storefront home', () => {
     renderWithProviders(<AppRouter />, { route: '/' })
 
     expect(await screen.findByText('API Weekend Produce')).toBeInTheDocument()
-    expect(screen.getByText(FOODMART_HOMEPAGE_FALLBACK.promoTop!.title)).toBeInTheDocument()
-    expect(screen.getByText(FOODMART_HOMEPAGE_FALLBACK.promoBottom!.title)).toBeInTheDocument()
+    expect(screen.getByText(foodmartHomepageFallbackFor('en').promoTop!.title)).toBeInTheDocument()
+    expect(screen.getByText(foodmartHomepageFallbackFor('en').promoBottom!.title)).toBeInTheDocument()
   })
 
   it('advances hero carousel controls when multiple slides are present', async () => {
@@ -225,5 +226,18 @@ describe('storefront home', () => {
     await waitFor(() => {
       expect(screen.getByText('Second API Hero')).toBeInTheDocument()
     })
+  })
+
+  it('renders Vietnamese hero and FoodMart fallback copy after switching locale', async () => {
+    await changeAppLocale('vi')
+    renderWithProviders(<AppRouter />, { route: '/' })
+
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('home:hero.title') }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText(i18n.t('promotions:fallback.hero1Title'))).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: i18n.t('common:nav.signIn') }).length).toBeGreaterThan(
+      0,
+    )
   })
 })

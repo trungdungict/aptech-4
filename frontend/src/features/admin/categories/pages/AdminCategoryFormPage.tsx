@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { catalogQueryKeys } from '@/features/catalog/hooks/catalog-query-keys'
+import { EntityTranslationsEditor } from '@/features/admin/translations'
 import { ApiClientError } from '@/lib/api/api-error'
 
 import {
@@ -25,12 +27,15 @@ import {
 
 import * as categoriesApi from '../api/admin-categories-api'
 import { adminCategoryQueryKeys } from '../hooks/admin-category-query-keys'
-import { adminCategoryFormSchema, type AdminCategoryFormValues } from '../schemas'
+import { createAdminCategoryFormSchema, type AdminCategoryFormValues } from '../schemas'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 type Mode = 'create' | 'edit'
+
+/** Base form edits canonical Vietnamese text (PUT writes VI base columns). */
+const CANONICAL_LOCALE = 'vi' as const
 
 export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
   const { categoryId = '' } = useParams<{ categoryId: string }>()
@@ -38,12 +43,13 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
   const idValid = !isEdit || UUID_RE.test(categoryId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { t } = useTranslation('admin')
   const [formError, setFormError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const categoriesQuery = useQuery({
-    queryKey: adminCategoryQueryKeys.list(),
-    queryFn: ({ signal }) => categoriesApi.listAdminCategories(signal),
+    queryKey: adminCategoryQueryKeys.list(CANONICAL_LOCALE),
+    queryFn: ({ signal }) => categoriesApi.listAdminCategories(signal, CANONICAL_LOCALE),
     enabled: true,
     retry: false,
   })
@@ -53,8 +59,9 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
     [categoriesQuery.data, categoryId],
   )
 
+  const resolver = useMemo(() => zodResolver(createAdminCategoryFormSchema(t)), [t])
   const form = useForm<AdminCategoryFormValues>({
-    resolver: zodResolver(adminCategoryFormSchema),
+    resolver,
     defaultValues: {
       name: '',
       description: '',
@@ -86,7 +93,7 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
     },
     onSuccess: async (saved) => {
       setFormError(null)
-      setSuccessMessage(isEdit ? 'Category updated.' : 'Category created.')
+      setSuccessMessage(isEdit ? t('categories.form.updated') : t('categories.form.created'))
       await queryClient.invalidateQueries({ queryKey: adminCategoryQueryKeys.all })
       await queryClient.invalidateQueries({ queryKey: catalogQueryKeys.all })
       void navigate(`/admin/categories/${saved.id}/edit`, { replace: true })
@@ -96,7 +103,7 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
         setFormError(error.userMessage)
         return
       }
-      setFormError('Unable to save category.')
+      setFormError(t('categories.form.saveError'))
     },
   })
 
@@ -105,14 +112,18 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
 
   if (isEdit && !idValid) {
     return (
-      <Unavailable title="Invalid category link" message="The category id in the URL is not valid." />
+      <Unavailable
+        title={t('categories.form.invalidLinkTitle')}
+        message={t('categories.form.invalidLinkMessage')}
+        backLabel={t('categories.form.backToCategories')}
+      />
     )
   }
 
   if (isEdit && categoriesQuery.isLoading) {
     return (
       <div className="mx-auto max-w-xl space-y-4" role="status" aria-live="polite">
-        <p className="sr-only">Loading category…</p>
+        <p className="sr-only">{t('categories.form.loading')}</p>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-56 w-full rounded-xl" />
       </div>
@@ -122,8 +133,9 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
   if (isEdit && categoriesQuery.isSuccess && !category) {
     return (
       <Unavailable
-        title="Category not found"
-        message="This category does not exist or is not available."
+        title={t('categories.form.notFoundTitle')}
+        message={t('categories.form.notFoundMessage')}
+        backLabel={t('categories.form.backToCategories')}
       />
     )
   }
@@ -131,28 +143,28 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
   return (
     <section className={`mx-auto max-w-xl ${adminPageSectionClass}`}>
       <div className="space-y-2">
-        <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+        <nav aria-label={t('shell.breadcrumb')} className="text-sm text-muted-foreground">
           <Link to="/admin/categories" className="font-medium text-primary hover:underline">
-            Categories
+            {t('categories.form.breadcrumbCategories')}
           </Link>
           <span aria-hidden="true"> / </span>
-          <span className="text-foreground">{isEdit ? 'Edit' : 'New'}</span>
+          <span className="text-foreground">{isEdit ? t('categories.form.breadcrumbEdit') : t('categories.form.breadcrumbNew')}</span>
         </nav>
         <h1 className={adminPageTitleClass}>
-          {isEdit ? 'Edit category' : 'Create category'}
+          {isEdit ? t('categories.form.editTitle') : t('categories.form.createTitle')}
         </h1>
         <p className={adminPageLeadClass}>
-          Slug is generated by the server from the name. Status is changed from the list page.
+          {t('categories.form.lead')}
         </p>
       </div>
 
       {isEdit && category ? (
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <span>
-            Slug: <span className="font-mono text-xs text-foreground">{category.slug}</span>
+            {t('categories.form.slug')}: <span className="font-mono text-xs text-foreground">{category.slug}</span>
           </span>
           <Badge variant={category.active ? 'success' : 'warning'}>
-            {category.active ? 'Active' : 'Inactive'}
+            {category.active ? t('common.active') : t('common.inactive')}
           </Badge>
         </div>
       ) : null}
@@ -160,9 +172,9 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>
-            <h2 className="text-base font-semibold">Category details</h2>
+            <h2 className="text-base font-semibold">{t('categories.form.detailsTitle')}</h2>
           </CardTitle>
-          <CardDescription>Name, description, and optional parent.</CardDescription>
+          <CardDescription>{t('categories.form.detailsDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -175,7 +187,7 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
             })}
           >
             <div className="space-y-1.5 text-sm">
-              <Label htmlFor="category-name">Name</Label>
+              <Label htmlFor="category-name">{t('categories.form.name')}</Label>
               <Input
                 id="category-name"
                 disabled={saveMutation.isPending}
@@ -188,7 +200,7 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
             </div>
 
             <div className="space-y-1.5 text-sm">
-              <Label htmlFor="category-description">Description</Label>
+              <Label htmlFor="category-description">{t('categories.form.description')}</Label>
               <Textarea
                 id="category-description"
                 rows={4}
@@ -201,10 +213,15 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
                   {form.formState.errors.description.message}
                 </p>
               ) : null}
+              <p className="text-xs text-muted-foreground" data-testid="category-canonical-note">
+                {isEdit
+                  ? t('categories.form.canonicalNote')
+                  : t('categories.form.createTranslationsHint')}
+              </p>
             </div>
 
             <div className="space-y-1.5 text-sm">
-              <Label htmlFor="category-parent">Parent category (optional)</Label>
+              <Label htmlFor="category-parent">{t('categories.form.parent')}</Label>
               <select
                 id="category-parent"
                 className={adminNativeSelectClass}
@@ -212,7 +229,7 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
                 aria-invalid={Boolean(form.formState.errors.parentId)}
                 {...form.register('parentId')}
               >
-                <option value="">None</option>
+                <option value="">{t('categories.form.parentNone')}</option>
                 {parentOptions.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name}
@@ -243,27 +260,43 @@ export function AdminCategoryFormPage({ mode }: { mode: Mode }) {
 
             <div className="flex flex-wrap gap-2 pt-2">
               <Button type="submit" disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Create category'}
+                {saveMutation.isPending
+                  ? t('categories.form.saving')
+                  : isEdit
+                    ? t('categories.form.save')
+                    : t('categories.form.create')}
               </Button>
               <Button asChild variant="outline">
-                <Link to="/admin/categories">Back to list</Link>
+                <Link to="/admin/categories">{t('categories.form.backToList')}</Link>
               </Button>
             </div>
           </form>
         </CardContent>
       </Card>
+
+      {isEdit && idValid && category ? (
+        <EntityTranslationsEditor kind="category" entityId={categoryId} />
+      ) : null}
     </section>
   )
 }
 
-function Unavailable({ title, message }: { title: string; message: string }) {
+function Unavailable({
+  title,
+  message,
+  backLabel,
+}: {
+  title: string
+  message: string
+  backLabel: string
+}) {
   return (
     <Card className="border-dashed shadow-none">
       <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground">{message}</p>
         <Button asChild variant="link">
-          <Link to="/admin/categories">Back to categories</Link>
+          <Link to="/admin/categories">{backLabel}</Link>
         </Button>
       </CardContent>
     </Card>

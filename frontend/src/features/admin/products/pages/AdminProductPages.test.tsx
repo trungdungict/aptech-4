@@ -664,6 +664,15 @@ describe('Admin product pages', () => {
       if (url.includes('/admin/categories')) {
         return jsonResponse(200, [category])
       }
+      if (url.includes(`/admin/products/${product.id}/translations`)) {
+        return jsonResponse(200, {
+          id: product.id,
+          translations: {
+            vi: { name: 'Demo Phone', description: 'Flagship' },
+            en: { name: null, description: null },
+          },
+        })
+      }
       if (url.includes(`/admin/products/${product.id}/inventory`)) {
         if (init?.method === 'PUT') {
           return jsonResponse(400, {
@@ -803,5 +812,66 @@ describe('Admin product pages', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/temporary failure/i)
     expect(screen.getByRole('button', { name: /deactivate/i })).toBeInTheDocument()
+  })
+
+  it('mounts the product translations editor on edit and loads the base form from canonical VI', async () => {
+    const acceptLanguage: string[] = []
+    mockAdminFetch((url, init) => {
+      const headers = (init?.headers ?? {}) as Record<string, string>
+      if (url.includes('/admin/categories') && !url.includes('/translations')) {
+        return jsonResponse(200, [category])
+      }
+      if (url.includes(`/admin/products/${product.id}/translations`)) {
+        return jsonResponse(200, {
+          id: product.id,
+          translations: {
+            vi: { name: 'Demo Phone', description: 'Flagship' },
+            en: { name: 'English Phone', description: null },
+          },
+        })
+      }
+      if (url.includes(`/admin/products/${product.id}/inventory`)) {
+        return jsonResponse(200, {
+          productId: product.id,
+          quantityOnHand: 5,
+          quantityReserved: 0,
+          available: 5,
+          updatedAt: null,
+        })
+      }
+      if (url.includes(`/admin/products/${product.id}`)) {
+        acceptLanguage.push(headers['Accept-Language'])
+        return jsonResponse(200, product)
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: `/admin/products/${product.id}/edit`,
+      session: demoAdminSession,
+    })
+
+    expect(await screen.findByTestId('product-translations-editor')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Name (EN)')).toHaveValue('English Phone')
+    expect(acceptLanguage).toContain('vi')
+    expect(screen.getByTestId('product-canonical-note')).toBeInTheDocument()
+  })
+
+  it('does not mount the translations editor on create and hints EN is editable after save', async () => {
+    mockAdminFetch((url) => {
+      if (url.includes('/admin/categories')) {
+        return jsonResponse(200, [category])
+      }
+      return jsonResponse(404, { status: 404, error: 'Not Found', message: 'missing' })
+    })
+
+    renderWithProviders(<AppRouter />, {
+      route: '/admin/products/new',
+      session: demoAdminSession,
+    })
+
+    await screen.findByRole('heading', { name: /create product/i })
+    expect(screen.queryByTestId('product-translations-editor')).not.toBeInTheDocument()
+    expect(screen.getByTestId('product-canonical-note')).toHaveTextContent(/after saving/i)
   })
 })

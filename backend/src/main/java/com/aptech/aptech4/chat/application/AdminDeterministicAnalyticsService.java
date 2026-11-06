@@ -242,7 +242,7 @@ public class AdminDeterministicAnalyticsService {
 		if (sb.isEmpty()) {
 			return vi ? "không lọc" : "no filter";
 		}
-		sb.append(vi ? " VND" : " VND");
+		sb.append(vi ? " USD" : " USD");
 		return sb.toString();
 	}
 

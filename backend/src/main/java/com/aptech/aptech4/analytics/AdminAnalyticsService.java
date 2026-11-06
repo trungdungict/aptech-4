@@ -178,7 +178,7 @@ public class AdminAnalyticsService {
 		body.put("from", range.from());
 		body.put("to", range.to());
 		body.put("timezone", AnalyticsMetrics.TIMEZONE);
-		body.put("currency", "VND");
+		body.put("currency", "USD");
 		body.put("revenueStatuses", AnalyticsMetrics.REVENUE_STATUSES.stream().map(Enum::name).toList());
 		body.put("revenueDefinition", AnalyticsMetrics.REVENUE_DEFINITION);
 		body.put("orderCount", orderCount);
@@ -409,7 +409,7 @@ public class AdminAnalyticsService {
 				range.from(),
 				range.to(),
 				AnalyticsMetrics.TIMEZONE,
-				"VND",
+				"USD",
 				AnalyticsMetrics.REVENUE_STATUSES.stream().map(Enum::name).toList(),
 				placedOrderCount,
 				revenueOrderCount,
@@ -573,7 +573,7 @@ public class AdminAnalyticsService {
 				range.from(),
 				range.to(),
 				AnalyticsMetrics.TIMEZONE,
-				"VND",
+				"USD",
 				AnalyticsMetrics.REVENUE_STATUSES.stream().map(Enum::name).toList(),
 				discountTotal,
 				ordersWithPromotionCount,

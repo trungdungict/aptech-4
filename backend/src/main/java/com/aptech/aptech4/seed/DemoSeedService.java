@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.aptech.aptech4.catalog.application.CatalogLocalizationService;
 import com.aptech.aptech4.catalog.cache.CatalogCacheInvalidator;
 import com.aptech.aptech4.catalog.domain.Category;
 import com.aptech.aptech4.catalog.domain.Inventory;
@@ -24,6 +25,8 @@ import com.aptech.aptech4.catalog.domain.Product;
 import com.aptech.aptech4.catalog.persistence.CategoryRepository;
 import com.aptech.aptech4.catalog.persistence.InventoryRepository;
 import com.aptech.aptech4.catalog.persistence.ProductRepository;
+import com.aptech.aptech4.catalog.persistence.ProductTranslationRepository;
+import com.aptech.aptech4.common.locale.AppLocale;
 import com.aptech.aptech4.identity.domain.Role;
 import com.aptech.aptech4.identity.domain.RoleCode;
 import com.aptech.aptech4.identity.domain.UserAccount;
@@ -53,6 +56,8 @@ public class DemoSeedService {
 	private final DemoResetService demoResetService;
 	private final DemoPromotionSeedService promotionSeedService;
 	private final FoodMartProductImages foodMartProductImages;
+	private final CatalogLocalizationService catalogLocalizationService;
+	private final ProductTranslationRepository productTranslationRepository;
 
 	public DemoSeedService(
 			DemoSeedProperties properties,
@@ -67,7 +72,9 @@ public class DemoSeedService {
 			DemoJourneySeedService journeySeedService,
 			DemoResetService demoResetService,
 			DemoPromotionSeedService promotionSeedService,
-			FoodMartProductImages foodMartProductImages
+			FoodMartProductImages foodMartProductImages,
+			CatalogLocalizationService catalogLocalizationService,
+			ProductTranslationRepository productTranslationRepository
 	) {
 		this.properties = properties;
 		this.environment = environment;
@@ -82,6 +89,8 @@ public class DemoSeedService {
 		this.demoResetService = demoResetService;
 		this.promotionSeedService = promotionSeedService;
 		this.foodMartProductImages = foodMartProductImages;
+		this.catalogLocalizationService = catalogLocalizationService;
+		this.productTranslationRepository = productTranslationRepository;
 	}
 
 	@Transactional
@@ -253,50 +262,108 @@ public class DemoSeedService {
 
 	private boolean upsertCategory(DemoSeedCatalog.CategoryFixture fixture) {
 		var existing = categoryRepository.findBySlug(fixture.slug());
+		Category category;
+		boolean created;
 		if (existing.isPresent()) {
-			Category category = existing.get();
+			category = existing.get();
 			category.setName(fixture.name());
 			category.setDescription(fixture.description());
 			category.setActive(fixture.active());
 			category.touch();
-			categoryRepository.save(category);
-			return false;
+			categoryRepository.saveAndFlush(category);
+			created = false;
 		}
-		Category created = Category.createNew(fixture.name(), fixture.slug(), fixture.description(), null);
-		created.setActive(fixture.active());
-		categoryRepository.save(created);
-		return true;
+		else {
+			category = Category.createNew(fixture.name(), fixture.slug(), fixture.description(), null);
+			category.setActive(fixture.active());
+			category = categoryRepository.saveAndFlush(category);
+			created = true;
+		}
+		syncCategoryTranslations(category, fixture);
+		return created;
 	}
 
 	private boolean upsertProduct(DemoSeedCatalog.ProductFixture fixture, Category category) {
 		String imageUrl = foodMartProductImages.ensurePersistedImageUrl(fixture.sku());
 		var existing = productRepository.findBySkuIgnoreCase(fixture.sku());
+		Product product;
+		boolean created;
 		if (existing.isPresent()) {
-			Product product = existing.get();
+			product = existing.get();
 			product.setCategory(category);
 			product.setName(fixture.name());
 			product.setDescription(fixture.description());
 			product.setUnitPrice(fixture.unitPrice());
-			product.setCurrency("VND");
+			product.setCurrency("USD");
 			product.setActive(fixture.active());
 			// Restore seed baseline image (matches other FoodMart field restores on re-seed).
 			product.setImageUrl(imageUrl);
 			product.touch();
-			productRepository.save(product);
-			return false;
+			productRepository.saveAndFlush(product);
+			created = false;
 		}
-		Product created = Product.createNew(
+		else {
+			product = Product.createNew(
+					category,
+					fixture.sku(),
+					fixture.name(),
+					fixture.description(),
+					fixture.unitPrice(),
+					"USD",
+					fixture.active()
+			);
+			product.setImageUrl(imageUrl);
+			product = productRepository.saveAndFlush(product);
+			created = true;
+		}
+		syncProductTranslations(product, fixture);
+		return created;
+	}
+
+	private void syncCategoryTranslations(Category category, DemoSeedCatalog.CategoryFixture fixture) {
+		catalogLocalizationService.upsertCategoryTranslation(
 				category,
-				fixture.sku(),
+				AppLocale.VI.code(),
 				fixture.name(),
-				fixture.description(),
-				fixture.unitPrice(),
-				"VND",
-				fixture.active()
+				fixture.description()
 		);
-		created.setImageUrl(imageUrl);
-		productRepository.save(created);
-		return true;
+		if (fixture.nameEn() != null && !fixture.nameEn().isBlank()) {
+			catalogLocalizationService.upsertCategoryTranslation(
+					category,
+					AppLocale.EN.code(),
+					fixture.nameEn().trim(),
+					blankToNull(fixture.descriptionEn())
+			);
+		}
+	}
+
+	private void syncProductTranslations(Product product, DemoSeedCatalog.ProductFixture fixture) {
+		catalogLocalizationService.upsertProductTranslation(
+				product,
+				AppLocale.VI.code(),
+				fixture.name(),
+				fixture.description()
+		);
+		if (fixture.omitEnglishTranslation()) {
+			// Keep missing-EN fallback stable across idempotent re-seeds (incl. after T03 EN backfill).
+			productTranslationRepository.deleteByProductIdAndLocale(product.getId(), AppLocale.EN.code());
+			return;
+		}
+		if (fixture.nameEn() != null && !fixture.nameEn().isBlank()) {
+			catalogLocalizationService.upsertProductTranslation(
+					product,
+					AppLocale.EN.code(),
+					fixture.nameEn().trim(),
+					blankToNull(fixture.descriptionEn())
+			);
+		}
+	}
+
+	private static String blankToNull(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		return value.trim();
 	}
 
 	private void upsertInventory(DemoSeedCatalog.ProductFixture fixture) {

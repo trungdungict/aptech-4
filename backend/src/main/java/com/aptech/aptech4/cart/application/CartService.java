@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,10 +21,13 @@ import com.aptech.aptech4.cart.domain.Cart;
 import com.aptech.aptech4.cart.domain.CartItem;
 import com.aptech.aptech4.cart.persistence.CartItemRepository;
 import com.aptech.aptech4.cart.persistence.CartRepository;
+import com.aptech.aptech4.catalog.application.CatalogLocalizationService;
 import com.aptech.aptech4.catalog.domain.Category;
 import com.aptech.aptech4.catalog.domain.Product;
 import com.aptech.aptech4.catalog.persistence.ProductRepository;
 import com.aptech.aptech4.common.api.ApiException;
+import com.aptech.aptech4.common.locale.LocalizedText;
+import com.aptech.aptech4.common.locale.RequestLocaleHolder;
 import com.aptech.aptech4.identity.domain.UserAccount;
 import com.aptech.aptech4.identity.persistence.UserAccountRepository;
 import com.aptech.aptech4.identity.security.CurrentUser;
@@ -35,17 +39,20 @@ public class CartService {
 	private final CartItemRepository cartItemRepository;
 	private final ProductRepository productRepository;
 	private final UserAccountRepository userAccountRepository;
+	private final CatalogLocalizationService catalogLocalizationService;
 
 	public CartService(
 			CartRepository cartRepository,
 			CartItemRepository cartItemRepository,
 			ProductRepository productRepository,
-			UserAccountRepository userAccountRepository
+			UserAccountRepository userAccountRepository,
+			CatalogLocalizationService catalogLocalizationService
 	) {
 		this.cartRepository = cartRepository;
 		this.cartItemRepository = cartItemRepository;
 		this.productRepository = productRepository;
 		this.userAccountRepository = userAccountRepository;
+		this.catalogLocalizationService = catalogLocalizationService;
 	}
 
 	@Transactional
@@ -162,13 +169,21 @@ public class CartService {
 	}
 
 	private CartResponse toResponse(Cart cart) {
-		List<CartItemResponse> items = cart.getItems().stream()
+		List<CartItem> sortedItems = cart.getItems().stream()
 			.sorted(Comparator.comparing(CartItem::getAddedAt).thenComparing(CartItem::getId))
-			.map(this::toItemResponse)
+			.toList();
+		List<Product> products = sortedItems.stream().map(CartItem::getProduct).toList();
+		Map<UUID, LocalizedText> localizedByProductId = catalogLocalizationService.productTexts(
+				products,
+				RequestLocaleHolder.get()
+		);
+
+		List<CartItemResponse> items = sortedItems.stream()
+			.map(item -> toItemResponse(item, localizedByProductId))
 			.toList();
 
 		BigDecimal subtotal = BigDecimal.ZERO.setScale(2, RoundingMode.UNNECESSARY);
-		String currency = "VND";
+		String currency = "USD";
 		boolean hasUnavailable = false;
 		for (CartItemResponse item : items) {
 			subtotal = subtotal.add(item.lineSubtotal());
@@ -180,16 +195,18 @@ public class CartService {
 		return new CartResponse(cart.getId(), items, subtotal, currency, hasUnavailable);
 	}
 
-	private CartItemResponse toItemResponse(CartItem item) {
+	private CartItemResponse toItemResponse(CartItem item, Map<UUID, LocalizedText> localizedByProductId) {
 		Product product = item.getProduct();
 		boolean available = isPurchasable(product);
 		BigDecimal unitPrice = product.getUnitPrice();
 		BigDecimal lineSubtotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()))
 			.setScale(2, RoundingMode.HALF_UP);
+		LocalizedText text = localizedByProductId.get(product.getId());
+		String productName = text != null ? text.name() : product.getName();
 		return new CartItemResponse(
 				item.getId(),
 				product.getId(),
-				product.getName(),
+				productName,
 				product.getImageUrl(),
 				item.getQuantity(),
 				unitPrice,

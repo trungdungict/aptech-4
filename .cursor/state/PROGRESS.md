@@ -1,33 +1,36 @@
 # PROGRESS
 
-Last updated: 2026-11-02 (P33-T02 Browser verification DONE)
+Last updated: 2026-11-03 (P35 COMPLETE — final audit/closeout; T01–T05 DONE)
 
 ## Summary counts (from TASKS.md)
 
 | Status | Count |
 |--------|------:|
-| DONE | 104 |
+| DONE | 119 |
 | IN_PROGRESS | 0 |
 | IN_REVIEW | 0 |
 | BLOCKED | 0 |
 | TODO | 10 |
 | DEFERRED | 0 |
-| **Total** | **114** |
+| **Total** | **129** |
 
-Completion ratio (DONE/total): **104/114**
+Completion ratio (DONE/total): **119/129**
 
 ## Current phase
 
-**Inventory + Analytics P25–P32 COMPLETE.**
+**P35 — Cart/order product-name localization — COMPLETE** (T01–T05 + closeout).  
+**P34** COMPLETE. **P25–P33** COMPLETE.
 
-**P33 COMPLETE** — T01 redesign/Refresh + T02 live browser verification.
+Next when approved: **P17** final acceptance.
 
 ## Verified completed (recent)
 
-- **P33-T02** — Browser verification of Analytics UX (live `:8088`; no defects)
-- **P33-T01** — Analytics UX redesign + Refresh fix
-- **P32-T01** — Browser E2E + flake hardening
-- **P31-T01** — Smoke + docs + final verification
+- **P35 closeout** — Policy + T05 evidence re-verified; phase marked COMPLETE
+- **P35-T05** — Locale coverage ITs (list EN, order/checkout snapshot under EN)
+- **P35-T04** — Locale flow audit
+- **P35-T03** — Peas missing EN intentional
+- **P35-T02** — Live cart Accept-Language
+- **P35-T01** — Cart/order contract audit
 
 ## Current blockers
 
@@ -35,8 +38,10 @@ B-001/B-002/B-005 mitigated; B-003 EC2; B-004 `gh`; D-MOBILE-DEVICE deferred.
 
 ## Next recommended task
 
-1. Resume non-analytics work (e.g. **P17-T01** acceptance checklist).
+1. Review P35 closeout.
+2. **P17-T01** — End-to-end acceptance checklist (when approved).
+3. Optional non-P35 follow-ups: Admin clear-EN; E2E order-line name language; fix known full-suite pre-existing failures.
 
 ## Confirmation
 
-P33-T02: live browser verification on Admin Analytics; no production code changes; no fabricated metrics; no commit/push/`.env`/volume changes. P25–P32 stay COMPLETE.
+P35: No Liquibase/schema/API field/seed changes in this phase. No `.env`/volume wipe. No commit/push. Chat locale remains independent.

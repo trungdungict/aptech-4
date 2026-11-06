@@ -1,3 +1,5 @@
+import { i18n } from '@/lib/i18n'
+
 /**
  * URL ↔ Instant helpers for analytics date controls.
  * Does not reimplement backend AnalyticsDateRange.normalize formulas.
@@ -49,22 +51,22 @@ export function validateInclusiveUtcRange(
   toInclusiveDay: string,
 ): string | null {
   if (!fromDay || !toInclusiveDay) {
-    return 'Both dates are required'
+    return i18n.t('analytics.range.bothRequired', { ns: 'admin' })
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDay) || !/^\d{4}-\d{2}-\d{2}$/.test(toInclusiveDay)) {
-    return 'Dates must use YYYY-MM-DD'
+    return i18n.t('analytics.range.format', { ns: 'admin' })
   }
   if (fromDay > toInclusiveDay) {
-    return 'From date must be on or before end date'
+    return i18n.t('analytics.range.fromAfterEnd', { ns: 'admin' })
   }
   const fromMs = Date.parse(utcDayStartIso(fromDay))
   const toMs = Date.parse(exclusiveToFromInclusiveEndDate(toInclusiveDay))
   if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || !(fromMs < toMs)) {
-    return 'From date must be before end date'
+    return i18n.t('analytics.range.fromBeforeEnd', { ns: 'admin' })
   }
   const days = (toMs - fromMs) / MS_PER_DAY
   if (days > MAX_RANGE_DAYS) {
-    return `Date range must be at most ${MAX_RANGE_DAYS} days`
+    return i18n.t('analytics.range.maxDays', { ns: 'admin', days: MAX_RANGE_DAYS })
   }
   return null
 }

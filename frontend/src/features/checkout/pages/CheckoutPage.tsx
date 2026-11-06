@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -21,7 +22,7 @@ import { ApiClientError } from '@/lib/api/api-error'
 import * as addressApi from '../api/address-api'
 import * as checkoutApi from '../api/checkout-api'
 import { addressQueryKeys } from '../hooks/address-query-keys'
-import { addressCreateSchema, type AddressCreateFormValues } from '../schemas'
+import { createAddressCreateSchema, type AddressCreateFormValues } from '../schemas'
 import type { CheckoutResult } from '../types'
 
 function newIdempotencyKey(): string {
@@ -32,6 +33,9 @@ function newIdempotencyKey(): string {
 }
 
 export function CheckoutPage() {
+  const { t } = useTranslation('checkout')
+  const { t: tc } = useTranslation('common')
+  const { t: tv } = useTranslation('validation')
   const { user } = useAuth()
   const userId = user?.id ?? ''
   const navigate = useNavigate()
@@ -59,8 +63,10 @@ export function CheckoutPage() {
     retry: false,
   })
 
+  const addressResolver = useMemo(() => zodResolver(createAddressCreateSchema(tv)), [tv])
+
   const addressForm = useForm<AddressCreateFormValues>({
-    resolver: zodResolver(addressCreateSchema),
+    resolver: addressResolver,
     defaultValues: {
       label: '',
       recipientName: '',
@@ -116,9 +122,7 @@ export function CheckoutPage() {
       }
       // Network / abort / unknown — do not invent success; keep same idempotency key.
       setUnknownOutcome(true)
-      setOutcomeMessage(
-        'Checkout outcome is unknown (network error). Do not assume failure or success. Check Orders, or retry with the same attempt key.',
-      )
+      setOutcomeMessage(null)
     },
   })
 
@@ -146,6 +150,8 @@ export function CheckoutPage() {
 
   const submitLockRef = useRef(false)
 
+  const displayedOutcomeMessage = unknownOutcome ? t('unknownOutcome') : outcomeMessage
+
   const submitCheckout = () => {
     if (!canSubmit || !effectiveAddressId || submitLockRef.current) {
       return
@@ -168,10 +174,9 @@ export function CheckoutPage() {
   return (
     <section className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Checkout</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Review your cart. The server revalidates prices and stock, then runs a mock payment (demo
-          only — not a real card charge). Totals below are informational until checkout succeeds.
+          {t('subtitle')}
         </p>
       </div>
 
@@ -184,14 +189,14 @@ export function CheckoutPage() {
         >
           {cartQuery.error instanceof ApiClientError
             ? cartQuery.error.userMessage
-            : 'Unable to load cart.'}
+            : t('loadError')}
         </p>
       ) : !cart || cart.items.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <p className="text-sm text-muted-foreground">Nothing to checkout.</p>
+            <p className="text-sm text-muted-foreground">{t('nothingToCheckout')}</p>
             <Button asChild variant="link">
-              <Link to="/cart">Back to cart</Link>
+              <Link to="/cart">{t('backToCart')}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -203,7 +208,7 @@ export function CheckoutPage() {
                 className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
                 role="status"
               >
-                Remove unavailable items from the cart before placing an order.
+                {t('removeUnavailable')}
               </p>
             ) : null}
 
@@ -211,8 +216,8 @@ export function CheckoutPage() {
               <CardHeader>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="space-y-1.5">
-                    <CardTitle>Shipping address</CardTitle>
-                    <CardDescription>Required before placing an order.</CardDescription>
+                    <CardTitle>{t('shippingAddress')}</CardTitle>
+                    <CardDescription>{t('addressRequired')}</CardDescription>
                   </div>
                   <Button
                     type="button"
@@ -220,7 +225,7 @@ export function CheckoutPage() {
                     className="h-auto px-0"
                     onClick={() => setShowAddressForm((v) => !v)}
                   >
-                    {showAddressForm ? 'Cancel' : 'Add address'}
+                    {showAddressForm ? t('cancelAddress') : t('addAddress')}
                   </Button>
                 </div>
               </CardHeader>
@@ -229,20 +234,19 @@ export function CheckoutPage() {
                   <p className="text-sm text-destructive" role="alert">
                     {addressesQuery.error instanceof ApiClientError
                       ? addressesQuery.error.userMessage
-                      : 'Unable to load addresses.'}
+                      : t('addressListError')}
                   </p>
                 ) : null}
 
                 {addresses.length === 0 && !showAddressForm ? (
                   <p className="text-sm text-muted-foreground">
-                    Add a shipping address to continue. Checkout requires a saved address owned by
-                    your account.
+                    {t('addAddressPrompt')}
                   </p>
                 ) : null}
 
                 {addresses.length > 0 ? (
                   <fieldset className="space-y-2">
-                    <legend className="sr-only">Choose shipping address</legend>
+                    <legend className="sr-only">{t('selectAddress')}</legend>
                     {addresses.map((address) => (
                       <label
                         key={address.id}
@@ -261,7 +265,7 @@ export function CheckoutPage() {
                           <span className="font-medium text-foreground">{address.recipientName}</span>
                           {address.defaultAddress ? (
                             <Badge variant="secondary" className="ml-2 align-middle">
-                              Default
+                              {t('defaultBadge')}
                             </Badge>
                           ) : null}
                           <br />
@@ -298,20 +302,20 @@ export function CheckoutPage() {
                   >
                     {(
                       [
-                        ['recipientName', 'Recipient name', true],
-                        ['line1', 'Address line 1', true],
-                        ['line2', 'Address line 2', false],
-                        ['city', 'City', true],
-                        ['stateRegion', 'State / region', false],
-                        ['postalCode', 'Postal code', false],
-                        ['countryCode', 'Country (ISO-2)', false],
-                        ['phone', 'Phone', false],
-                        ['label', 'Label', false],
+                        ['recipientName', 'fields.recipientName', true],
+                        ['line1', 'fields.line1', true],
+                        ['line2', 'fields.line2', false],
+                        ['city', 'fields.city', true],
+                        ['stateRegion', 'fields.stateRegion', false],
+                        ['postalCode', 'fields.postalCode', false],
+                        ['countryCode', 'fields.countryCode', false],
+                        ['phone', 'fields.phone', false],
+                        ['label', 'fields.label', false],
                       ] as const
-                    ).map(([name, label, required]) => (
+                    ).map(([name, labelKey, required]) => (
                       <div key={name} className="space-y-1.5 sm:col-span-1">
                         <Label htmlFor={`checkout-address-${name}`}>
-                          {label}
+                          {t(labelKey)}
                           {required ? ' *' : ''}
                         </Label>
                         <Input
@@ -331,7 +335,7 @@ export function CheckoutPage() {
                       <p className="sm:col-span-2 text-sm text-destructive" role="alert">
                         {createAddressMutation.error instanceof ApiClientError
                           ? createAddressMutation.error.userMessage
-                          : 'Could not save address.'}
+                          : t('addressSaveError')}
                       </p>
                     ) : null}
                     <Button
@@ -339,14 +343,14 @@ export function CheckoutPage() {
                       disabled={createAddressMutation.isPending}
                       className="sm:col-span-2"
                     >
-                      {createAddressMutation.isPending ? 'Saving…' : 'Save address'}
+                      {createAddressMutation.isPending ? t('savingAddress') : t('saveAddress')}
                     </Button>
                   </form>
                 ) : null}
               </CardContent>
             </Card>
 
-            {outcomeMessage ? (
+            {displayedOutcomeMessage ? (
               <div
                 className={`rounded-xl px-4 py-3 text-sm ${
                   unknownOutcome
@@ -355,11 +359,11 @@ export function CheckoutPage() {
                 }`}
                 role="alert"
               >
-                <p>{outcomeMessage}</p>
+                <p>{displayedOutcomeMessage}</p>
                 {unknownOutcome ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button asChild variant="outline" size="sm">
-                      <Link to="/orders">View orders</Link>
+                      <Link to="/orders">{t('viewOrders')}</Link>
                     </Button>
                     <Button
                       type="button"
@@ -367,10 +371,10 @@ export function CheckoutPage() {
                       disabled={checkoutMutation.isPending}
                       onClick={() => submitCheckout()}
                     >
-                      Retry same attempt
+                      {t('retrySame')}
                     </Button>
                     <Button type="button" variant="outline" size="sm" onClick={startNewAttempt}>
-                      Start new attempt
+                      {t('startNew')}
                     </Button>
                   </div>
                 ) : (
@@ -381,7 +385,7 @@ export function CheckoutPage() {
                     className="mt-3"
                     onClick={startNewAttempt}
                   >
-                    Dismiss and start new attempt
+                    {tc('actions.dismissStartNew')}
                   </Button>
                 )}
               </div>
@@ -390,8 +394,8 @@ export function CheckoutPage() {
 
           <Card className="sticky top-20 shadow-sm">
             <CardHeader>
-              <CardTitle>Order review</CardTitle>
-              <CardDescription>Lines and subtotal from your current cart.</CardDescription>
+              <CardTitle>{t('orderReview')}</CardTitle>
+              <CardDescription>{t('orderReviewDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <ul className="divide-y divide-border">
@@ -399,7 +403,7 @@ export function CheckoutPage() {
                   <li key={item.id} className="flex justify-between gap-4 py-3 text-sm">
                     <span className="text-foreground">
                       {item.productName} × {item.quantity}
-                      {!item.available ? ' (unavailable)' : ''}
+                      {!item.available ? ` ${t('itemUnavailable')}` : ''}
                     </span>
                     <ProductPrice
                       unitPrice={item.lineSubtotal}
@@ -411,7 +415,7 @@ export function CheckoutPage() {
               </ul>
               <Separator />
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-muted-foreground">Cart subtotal</span>
+                <span className="text-sm text-muted-foreground">{t('cartSubtotal')}</span>
                 <ProductPrice
                   unitPrice={cart.subtotal}
                   currency={cart.currency}
@@ -419,8 +423,7 @@ export function CheckoutPage() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Demo checkout uses mock payment only. Shipping is confirmed by the server (demo
-                shipping is zero).
+                {t('demoNote')}
               </p>
               <div className="flex flex-col gap-2 pt-2">
                 <Button
@@ -429,10 +432,10 @@ export function CheckoutPage() {
                   disabled={!canSubmit}
                   onClick={() => submitCheckout()}
                 >
-                  {checkoutMutation.isPending ? 'Placing order…' : 'Place order (mock payment)'}
+                  {checkoutMutation.isPending ? t('placing') : t('placeOrder')}
                 </Button>
                 <Button asChild variant="outline">
-                  <Link to="/cart">Back to cart</Link>
+                  <Link to="/cart">{t('backToCart')}</Link>
                 </Button>
               </div>
             </CardContent>
@@ -444,13 +447,14 @@ export function CheckoutPage() {
 }
 
 function CheckoutLoadingSkeleton() {
+  const { t } = useTranslation('checkout')
   return (
     <div
       className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
       role="status"
       aria-live="polite"
     >
-      <p className="sr-only">Loading checkout…</p>
+      <p className="sr-only">{t('loadingSr')}</p>
       <Skeleton className="h-64 w-full rounded-xl" />
       <Skeleton className="h-72 w-full rounded-xl" />
     </div>

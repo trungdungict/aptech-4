@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { PackageIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { Pagination, parsePageParam, writePageParam } from '@/components/pagination'
@@ -9,7 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/features/auth/hooks/useAuth'
 import { ProductPrice } from '@/features/catalog/components/ProductPrice'
 import { formatProductPrice } from '@/features/catalog/lib/format-price'
+import { useAppCurrency } from '@/features/i18n/hooks/useAppCurrency'
 import { ApiClientError } from '@/lib/api/api-error'
+import { formatDateTime } from '@/lib/i18n'
 
 import * as ordersApi from '../api/orders-api'
 import { OrderStatusBadge } from '../components/OrderStatusBadge'
@@ -17,18 +20,10 @@ import { orderQueryKeys } from '../hooks/order-query-keys'
 import { hasOrderDiscount } from '../lib/order-money'
 import { ORDER_DEFAULT_PAGE_SIZE, ORDER_DEFAULT_SORT } from '../types'
 
-function formatPlacedAt(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('vi-VN', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
-
 export function OrderHistoryPage() {
+  const { t } = useTranslation('orders')
+  const { t: tc } = useTranslation('common')
+  const { currency: displayCurrency } = useAppCurrency()
   const { user } = useAuth()
   const userId = user?.id ?? ''
   const [searchParams, setSearchParams] = useSearchParams()
@@ -56,10 +51,9 @@ export function OrderHistoryPage() {
   return (
     <section className="space-y-6">
       <div className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">Orders</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-foreground">{t('history.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Your order history from the API. Prices are snapshots from checkout, not live catalog
-          prices.
+          {t('history.subtitle')}
         </p>
       </div>
 
@@ -70,21 +64,21 @@ export function OrderHistoryPage() {
           <p role="alert">
             {ordersQuery.error instanceof ApiClientError
               ? ordersQuery.error.status === 403
-                ? 'Orders are available for customer accounts only.'
+                ? t('history.customerOnly')
                 : ordersQuery.error.userMessage
-              : 'Unable to load orders.'}
+              : t('history.loadError')}
           </p>
           <Button type="button" size="sm" onClick={() => void ordersQuery.refetch()}>
-            Retry
+            {tc('actions.retry')}
           </Button>
         </div>
       ) : data && data.items.length === 0 ? (
         <Card className="border-dashed shadow-none">
           <CardContent className="flex flex-col items-center gap-4 px-6 py-12 text-center">
             <PackageIcon className="size-10 text-muted-foreground opacity-60" aria-hidden="true" />
-            <p className="text-sm text-muted-foreground">No orders yet.</p>
+            <p className="text-sm text-muted-foreground">{t('history.empty')}</p>
             <Button asChild>
-              <Link to="/products">Browse catalog</Link>
+              <Link to="/products">{t('history.browseCatalog')}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -100,10 +94,11 @@ export function OrderHistoryPage() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0 space-y-2">
                       <p className="font-medium text-foreground">
-                        Order <span className="font-mono text-sm">{order.id}</span>
+                        {t('history.orderLabel')}{' '}
+                        <span className="font-mono text-sm">{order.id}</span>
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {formatPlacedAt(order.placedAt)}
+                        {formatDateTime(order.placedAt)}
                       </p>
                       <OrderStatusBadge status={order.status} />
                     </div>
@@ -115,8 +110,14 @@ export function OrderHistoryPage() {
                       />
                       {hasOrderDiscount(order.discountAmount) ? (
                         <p className="text-xs text-emerald-700">
-                          Includes −{formatProductPrice(order.discountAmount, order.currency)}{' '}
-                          discount
+                          {t('history.includesDiscount', {
+                            amount: formatProductPrice(
+                              order.discountAmount,
+                              order.currency,
+                              undefined,
+                              displayCurrency,
+                            ),
+                          })}
                         </p>
                       ) : null}
                     </div>
@@ -130,7 +131,7 @@ export function OrderHistoryPage() {
             totalPages={data.totalPages}
             totalElements={data.totalElements}
             pageSize={data.size}
-            itemLabel="orders"
+            itemLabel={t('history.results')}
             disabled={ordersQuery.isFetching}
             onPageChange={goToPage}
           />
@@ -141,9 +142,10 @@ export function OrderHistoryPage() {
 }
 
 function OrderHistorySkeleton() {
+  const { t } = useTranslation('orders')
   return (
     <div className="space-y-3" role="status" aria-live="polite">
-      <p className="sr-only">Loading orders…</p>
+      <p className="sr-only">{t('history.loadingSr')}</p>
       {Array.from({ length: 3 }, (_, i) => (
         <Skeleton key={i} className="h-24 w-full rounded-xl" />
       ))}

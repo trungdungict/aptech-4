@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { MinusIcon, PlusIcon, ShoppingCartIcon } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,7 @@ type ProductCardProps = {
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const { t } = useTranslation('catalog')
   const { status, user } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
@@ -36,7 +38,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const addMutation = useMutation({
     mutationFn: () => cartApi.addCartItem({ productId: product.id, quantity }),
     onSuccess: (cart) => {
-      setFeedback('Added to cart.')
+      setFeedback(t('card.added'))
       if (user?.id) {
         queryClient.setQueryData(cartQueryKeys.detail(user.id), cart)
       }
@@ -46,7 +48,7 @@ export function ProductCard({ product }: ProductCardProps) {
         setFeedback(error.userMessage)
         return
       }
-      setFeedback('Could not add to cart.')
+      setFeedback(t('card.addError'))
     },
   })
 
@@ -82,7 +84,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <Link
           to={`/products/${product.id}`}
           className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          aria-label={`View ${product.name}`}
+          aria-label={t('card.viewAria', { name: product.name })}
         >
           <ProductImage
             sku={product.sku}
@@ -117,13 +119,13 @@ export function ProductCard({ product }: ProductCardProps) {
               <div
                 className="inline-flex items-center gap-1 rounded-md border border-border bg-background p-0.5"
                 role="group"
-                aria-label={`Quantity for ${product.name}`}
+                aria-label={t('card.quantityGroupAria', { name: product.name })}
               >
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Decrease quantity for ${product.name}`}
+                  aria-label={t('card.decreaseAria', { name: product.name })}
                   disabled={!canDecrease || addMutation.isPending}
                   onClick={(event) => {
                     event.preventDefault()
@@ -144,7 +146,7 @@ export function ProductCard({ product }: ProductCardProps) {
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Increase quantity for ${product.name}`}
+                  aria-label={t('card.increaseAria', { name: product.name })}
                   disabled={!canIncrease || addMutation.isPending}
                   onClick={(event) => {
                     event.preventDefault()
@@ -161,7 +163,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 size="sm"
                 className="min-w-0 flex-1"
                 disabled={addDisabled}
-                aria-label={`Add ${product.name} to cart`}
+                aria-label={t('card.addAria', { name: product.name })}
                 onClick={(event) => {
                   event.preventDefault()
                   event.stopPropagation()
@@ -169,7 +171,7 @@ export function ProductCard({ product }: ProductCardProps) {
                 }}
               >
                 <ShoppingCartIcon aria-hidden="true" />
-                {addMutation.isPending ? 'Adding…' : 'Add to cart'}
+                {addMutation.isPending ? t('card.adding') : t('card.addToCart')}
               </Button>
             </div>
 

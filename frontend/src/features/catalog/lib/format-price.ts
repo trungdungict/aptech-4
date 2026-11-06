@@ -1,18 +1,15 @@
-/** Format product price using the API currency (typically VND). */
-export function formatProductPrice(unitPrice: string | number, currency: string): string {
-  const amount = typeof unitPrice === 'number' ? unitPrice : Number(unitPrice)
-  if (!Number.isFinite(amount)) {
-    return String(unitPrice)
-  }
+import { formatMoney, type AppCurrency, type AppLocale } from '@/lib/i18n'
 
-  try {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: currency || 'VND',
-      maximumFractionDigits: 0,
-    }).format(amount)
-  }
-  catch {
-    return `${amount} ${currency}`
-  }
+/**
+ * Format product / cart / order amounts for display.
+ * Uses the active currency preference (`aptech4.currency`, default USD) and
+ * converts from the API currency when needed (documented mock FX).
+ */
+export function formatProductPrice(
+  unitPrice: string | number,
+  currency: string,
+  locale?: AppLocale,
+  displayCurrency?: AppCurrency,
+): string {
+  return formatMoney(unitPrice, currency, { locale, displayCurrency })
 }

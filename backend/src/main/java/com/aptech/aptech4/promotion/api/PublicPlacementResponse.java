@@ -40,6 +40,15 @@ public record PublicPlacementResponse(
 	}
 
 	public static PublicPlacementResponse from(PromotionPlacement placement) {
+		return from(placement, placement.getTitle(), placement.getSubtitle(), placement.getCtaLabel());
+	}
+
+	public static PublicPlacementResponse from(
+			PromotionPlacement placement,
+			String title,
+			String subtitle,
+			String ctaLabel
+	) {
 		PromotionCtaType type = placement.getCtaType() == null ? PromotionCtaType.NONE : placement.getCtaType();
 		String href = switch (type) {
 			case PRODUCT -> placement.getCtaProductId() == null
@@ -58,9 +67,9 @@ public record PublicPlacementResponse(
 				placement.getId(),
 				placement.getCampaign().getId(),
 				placement.getPlacementKey(),
-				placement.getTitle(),
-				placement.getSubtitle(),
-				placement.getCtaLabel(),
+				title,
+				subtitle,
+				ctaLabel,
 				new PublicCta(
 						type,
 						placement.getCtaProductId(),

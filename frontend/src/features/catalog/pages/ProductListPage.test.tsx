@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AppRouter } from '@/app/router'
 import { clearSession } from '@/features/auth/session/session-coordinator'
+import { changeAppLocale, i18n } from '@/lib/i18n'
 import { renderWithProviders } from '@/test/render-app'
 
 const product = {
@@ -150,5 +151,20 @@ describe('ProductListPage', () => {
       expect(screen.getByLabelText(/^availability$/i)).toHaveValue('')
       expect(screen.getByLabelText(/^sort$/i)).toHaveValue('name,asc')
     })
+  })
+
+  it('renders Vietnamese catalog chrome and sort labels after switching locale', async () => {
+    await changeAppLocale('vi')
+    mockCatalogApis()
+    renderWithProviders(<AppRouter />, { route: '/products' })
+
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('catalog:list.title') }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('Demo Smartphone X')).toBeInTheDocument()
+    expect(
+      screen.getByRole('option', { name: i18n.t('catalog:sort.priceAsc') }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText(i18n.t('catalog:filters.sort'))).toBeInTheDocument()
   })
 })

@@ -27,9 +27,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.aptech.aptech4.catalog.domain.Category;
 import com.aptech.aptech4.catalog.domain.Inventory;
 import com.aptech.aptech4.catalog.domain.Product;
+import com.aptech.aptech4.catalog.domain.ProductTranslation;
 import com.aptech.aptech4.catalog.persistence.CategoryRepository;
 import com.aptech.aptech4.catalog.persistence.InventoryRepository;
 import com.aptech.aptech4.catalog.persistence.ProductRepository;
+import com.aptech.aptech4.catalog.persistence.ProductTranslationRepository;
 import com.aptech.aptech4.identity.security.JwtService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -80,6 +82,9 @@ class CartIntegrationTest {
 
 	@Autowired
 	InventoryRepository inventoryRepository;
+
+	@Autowired
+	ProductTranslationRepository productTranslationRepository;
 
 	@Autowired
 	TransactionTemplate transactionTemplate;
@@ -310,6 +315,86 @@ class CartIntegrationTest {
 			.andExpect(jsonPath("$.paths['/api/v1/cart']").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/cart/items']").exists())
 			.andExpect(jsonPath("$.paths['/api/v1/cart/items/{itemId}']").exists());
+	}
+
+	@Test
+	void cartProductNameFollowsAcceptLanguageWithFallback() throws Exception {
+		String suffix = UUID.randomUUID().toString().substring(0, 8);
+		String token = register("cart.loc." + suffix + "@example.com", "Cart Locale");
+
+		UUID[] withEnId = new UUID[1];
+		UUID[] missingEnId = new UUID[1];
+		String viWithEn = "Táo VI " + suffix;
+		String enName = "Apple EN " + suffix;
+		String viOnly = "Đậu VI " + suffix;
+
+		transactionTemplate.executeWithoutResult(status -> {
+			Category category = categoryRepository.saveAndFlush(Category.createNew(
+					"Cart Loc Cat " + suffix, "cart-loc-cat-" + suffix, null, null
+			));
+			Product withEn = productRepository.saveAndFlush(Product.createNew(
+					category, "CART-EN-" + suffix, viWithEn, "desc vi",
+					new BigDecimal("45.00"), "VND", true
+			));
+			inventoryRepository.saveAndFlush(Inventory.forProduct(withEn, 10));
+			productTranslationRepository.saveAndFlush(ProductTranslation.createNew(
+					withEn, "vi", withEn.getName(), withEn.getDescription()
+			));
+			productTranslationRepository.saveAndFlush(ProductTranslation.createNew(
+					withEn, "en", enName, "desc en"
+			));
+			withEnId[0] = withEn.getId();
+
+			Product missingEn = productRepository.saveAndFlush(Product.createNew(
+					category, "CART-FB-" + suffix, viOnly, "desc peas",
+					new BigDecimal("30.00"), "VND", true
+			));
+			inventoryRepository.saveAndFlush(Inventory.forProduct(missingEn, 5));
+			productTranslationRepository.saveAndFlush(ProductTranslation.createNew(
+					missingEn, "vi", missingEn.getName(), missingEn.getDescription()
+			));
+			missingEnId[0] = missingEn.getId();
+		});
+
+		mockMvc.perform(post("/api/v1/cart/items")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "productId": "%s", "quantity": 1 }
+						""".formatted(withEnId[0])))
+			.andExpect(status().isOk());
+		mockMvc.perform(post("/api/v1/cart/items")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "productId": "%s", "quantity": 1 }
+						""".formatted(missingEnId[0])))
+			.andExpect(status().isOk());
+
+		assertCartProductName(token, "vi", withEnId[0], viWithEn);
+		assertCartProductName(token, "vi", missingEnId[0], viOnly);
+		assertCartProductName(token, "en-US,en;q=0.9", withEnId[0], enName);
+		assertCartProductName(token, "en-US,en;q=0.9", missingEnId[0], viOnly);
+		assertCartProductName(token, "fr-FR", withEnId[0], viWithEn);
+	}
+
+	private void assertCartProductName(String token, String acceptLanguage, UUID productId, String expectedName)
+			throws Exception {
+		MvcResult result = mockMvc.perform(get("/api/v1/cart")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+				.header(HttpHeaders.ACCEPT_LANGUAGE, acceptLanguage))
+			.andExpect(status().isOk())
+			.andReturn();
+		JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString()).get("items");
+		String actual = null;
+		for (JsonNode item : items) {
+			if (productId.toString().equals(item.get("productId").asText())) {
+				actual = item.get("productName").asText();
+				break;
+			}
+		}
+		assertThat(actual).as("productName for %s under Accept-Language=%s", productId, acceptLanguage)
+			.isEqualTo(expectedName);
 	}
 
 	private String register(String email, String fullName) throws Exception {

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { MegaphoneIcon, TagsIcon } from 'lucide-react'
 
@@ -7,14 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { adminPageLeadClass, adminPageSectionClass, adminPageTitleClass } from '../../lib/admin-ui'
 
 export function AdminPromotionsHubPage() {
+  const { t } = useTranslation('admin')
   return (
     <section className={`mx-auto max-w-4xl ${adminPageSectionClass}`}>
       <div className="space-y-2">
-        <h1 className={adminPageTitleClass}>Promotions</h1>
+        <h1 className={adminPageTitleClass}>{t('promotions.hub.title')}</h1>
         <p className={`max-w-2xl ${adminPageLeadClass}`}>
-          Manage strategies (rule templates), campaigns (scheduled instances), eligibility, and
-          homepage placements. Checkout discount application is out of scope for this Admin module
-          (P22).
+          {t('promotions.hub.lead')}
         </p>
       </div>
 
@@ -24,15 +24,15 @@ export function AdminPromotionsHubPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <TagsIcon className="size-4 text-primary" aria-hidden="true" />
-                Strategies
+                {t('promotions.hub.strategiesTitle')}
               </CardTitle>
               <CardDescription>
-                Create reusable discount/banner templates and activate or deactivate them.
+                {t('promotions.hub.strategiesDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild>
-                <Link to="/admin/promotions/strategies">Open strategies</Link>
+                <Link to="/admin/promotions/strategies">{t('promotions.hub.openStrategies')}</Link>
               </Button>
             </CardContent>
           </Card>
@@ -42,15 +42,15 @@ export function AdminPromotionsHubPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <MegaphoneIcon className="size-4 text-primary" aria-hidden="true" />
-                Campaigns
+                {t('promotions.hub.campaignsTitle')}
               </CardTitle>
               <CardDescription>
-                Schedule campaigns, manage eligibility and placements, activate / pause / preview.
+                {t('promotions.hub.campaignsDescription')}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button asChild>
-                <Link to="/admin/promotions/campaigns">Open campaigns</Link>
+                <Link to="/admin/promotions/campaigns">{t('promotions.hub.openCampaigns')}</Link>
               </Button>
             </CardContent>
           </Card>

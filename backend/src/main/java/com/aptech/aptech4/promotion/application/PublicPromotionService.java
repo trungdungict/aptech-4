@@ -6,15 +6,17 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.aptech.aptech4.common.locale.RequestLocaleHolder;
 import com.aptech.aptech4.promotion.api.HomepagePromotionsResponse;
 import com.aptech.aptech4.promotion.api.PublicPlacementResponse;
-import com.aptech.aptech4.promotion.cache.PromotionCacheKeys;
 import com.aptech.aptech4.promotion.cache.PromotionCacheNames;
 import com.aptech.aptech4.promotion.domain.PromotionCampaign;
 import com.aptech.aptech4.promotion.domain.PromotionCampaignStatus;
@@ -25,22 +27,29 @@ import com.aptech.aptech4.promotion.persistence.PromotionCampaignRepository;
 /**
  * Public placement reads with short-TTL Redis cache (ADR-020 R7 / D8 / D9).
  * Empty responses are intentional — storefront applies static FoodMart fallback (P20).
+ * Cache keys include request locale (P34-T04).
  */
 @Service
 public class PublicPromotionService {
 
 	private final PromotionCampaignRepository campaignRepository;
+	private final PromotionLocalizationService promotionLocalizationService;
 	private final Clock clock;
 
-	public PublicPromotionService(PromotionCampaignRepository campaignRepository, Clock clock) {
+	public PublicPromotionService(
+			PromotionCampaignRepository campaignRepository,
+			PromotionLocalizationService promotionLocalizationService,
+			Clock clock
+	) {
 		this.campaignRepository = campaignRepository;
+		this.promotionLocalizationService = promotionLocalizationService;
 		this.clock = clock;
 	}
 
 	@Transactional(readOnly = true)
 	@Cacheable(
 			cacheNames = PromotionCacheNames.HOMEPAGE,
-			key = "T(com.aptech.aptech4.promotion.cache.PromotionCacheKeys).HOMEPAGE"
+			key = "T(com.aptech.aptech4.promotion.cache.PromotionCacheKeys).homepage()"
 	)
 	public HomepagePromotionsResponse homepage() {
 		List<PublicPlacementResponse> hero = loadVisible(EnumSet.of(PromotionPlacementKey.HOME_HERO));
@@ -96,7 +105,17 @@ public class PublicPromotionService {
 		visible.sort(Comparator
 				.comparingInt(PromotionPlacement::getDisplayOrder)
 				.thenComparing(PromotionPlacement::getId));
-		return visible.stream().map(PublicPlacementResponse::from).toList();
+		Map<UUID, PromotionLocalizationService.PlacementText> texts =
+				promotionLocalizationService.placementTexts(visible, RequestLocaleHolder.get());
+		return visible.stream()
+				.map(placement -> {
+					PromotionLocalizationService.PlacementText text = texts.get(placement.getId());
+					if (text == null) {
+						return PublicPlacementResponse.from(placement);
+					}
+					return PublicPlacementResponse.from(placement, text.title(), text.subtitle(), text.ctaLabel());
+				})
+				.toList();
 	}
 
 	private static PublicPlacementResponse firstOrNull(List<PublicPlacementResponse> items) {

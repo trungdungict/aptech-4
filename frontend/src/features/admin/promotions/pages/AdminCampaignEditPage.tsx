@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 
 import { listAdminCategories } from '@/features/admin/categories/api/admin-categories-api'
@@ -16,6 +17,10 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { ApiClientError } from '@/lib/api/api-error'
+import {
+  NameTranslationsEditor,
+  PlacementTranslationsEditor,
+} from '@/features/admin/translations'
 
 import {
   adminAlertErrorClass,
@@ -34,8 +39,8 @@ import { PromotionImageUploadField } from '../components/PromotionImageUploadFie
 import { adminPromotionQueryKeys } from '../hooks/admin-promotion-query-keys'
 import { formatUtcInstant, toApiUtcInstant } from '../lib/format-utc'
 import {
-  adminCampaignDetailsSchema,
-  adminPlacementFormSchema,
+  createAdminCampaignDetailsSchema,
+  createAdminPlacementFormSchema,
   type AdminCampaignDetailsInput,
   type AdminCampaignDetailsValues,
   type AdminPlacementFormInput,
@@ -49,6 +54,10 @@ import type {
   PromotionPlacementKey,
 } from '../types'
 import { CTA_TYPES, PLACEMENT_KEYS } from '../types'
+import { useAppLocale } from '@/features/i18n/hooks/useAppLocale'
+
+/** Admin base PUT writes the canonical VI column, so edit forms always read VI text. */
+const CANONICAL_LOCALE = 'vi' as const
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -56,12 +65,17 @@ const UUID_RE =
 type Tab = 'details' | 'eligibility' | 'placements' | 'preview'
 type Mode = 'create' | 'edit'
 
-const TABS: Array<{ id: Tab; label: string }> = [
-  { id: 'details', label: 'Details' },
-  { id: 'eligibility', label: 'Eligibility' },
-  { id: 'placements', label: 'Placements' },
-  { id: 'preview', label: 'Preview' },
-]
+const TABS: Tab[] = ['details', 'eligibility', 'placements', 'preview']
+
+const CAMPAIGN_STATUS_KEYS = ['DRAFT', 'SCHEDULED', 'ACTIVE', 'PAUSED', 'EXPIRED'] as const
+
+function useCampaignStatusLabel() {
+  const { t } = useTranslation('admin')
+  return (status: string) =>
+    (CAMPAIGN_STATUS_KEYS as readonly string[]).includes(status)
+      ? t(`promotions.campaignStatus.${status as (typeof CAMPAIGN_STATUS_KEYS)[number]}`)
+      : status
+}
 
 export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
   const { campaignId = '' } = useParams<{ campaignId: string }>()
@@ -69,6 +83,8 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
   const idValid = !isEdit || UUID_RE.test(campaignId)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { locale } = useAppLocale()
+  const { t } = useTranslation('admin')
   const [searchParams, setSearchParams] = useSearchParams()
   const tabParam = searchParams.get('tab')
   const tab: Tab =
@@ -80,20 +96,30 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const strategiesQuery = useQuery({
-    queryKey: adminPromotionQueryKeys.strategies(),
+    queryKey: adminPromotionQueryKeys.strategies(locale),
     queryFn: ({ signal }) => api.listAdminStrategies(signal),
     retry: false,
   })
 
   const campaignQuery = useQuery({
-    queryKey: adminPromotionQueryKeys.campaign(campaignId),
+    queryKey: adminPromotionQueryKeys.campaign(locale, campaignId),
     queryFn: ({ signal }) => api.getAdminCampaign(campaignId, signal),
     enabled: isEdit && idValid,
     retry: false,
   })
 
+  // Canonical VI copy feeds the base edit form so saving from an EN UI cannot overwrite VI text.
+  const canonicalQuery = useQuery({
+    queryKey: adminPromotionQueryKeys.campaign(CANONICAL_LOCALE, campaignId),
+    queryFn: ({ signal }) => api.getAdminCampaign(campaignId, signal, CANONICAL_LOCALE),
+    enabled: isEdit && idValid,
+    retry: false,
+  })
+
+  const detailsResolver = useMemo(() => zodResolver(createAdminCampaignDetailsSchema(t)), [t])
+
   const form = useForm<AdminCampaignDetailsInput, unknown, AdminCampaignDetailsValues>({
-    resolver: zodResolver(adminCampaignDetailsSchema),
+    resolver: detailsResolver,
     defaultValues: {
       strategyId: '',
       name: '',
@@ -107,8 +133,8 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
   })
 
   useEffect(() => {
-    if (isEdit && campaignQuery.data) {
-      const c = campaignQuery.data
+    if (isEdit && canonicalQuery.data) {
+      const c = canonicalQuery.data
       form.reset({
         strategyId: c.strategy.id,
         name: c.name,
@@ -120,7 +146,7 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
         notes: c.notes ?? '',
       })
     }
-  }, [campaignQuery.data, form, isEdit])
+  }, [canonicalQuery.data, form, isEdit])
 
   const saveMutation = useMutation({
     mutationFn: async (values: AdminCampaignDetailsValues) => {
@@ -143,12 +169,14 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
     },
     onSuccess: async (saved) => {
       setFormError(null)
-      setSuccessMessage(isEdit ? 'Campaign updated.' : 'Campaign created as DRAFT.')
+      setSuccessMessage(
+        isEdit ? t('promotions.campaigns.edit.updated') : t('promotions.campaigns.edit.created'),
+      )
       await queryClient.invalidateQueries({ queryKey: adminPromotionQueryKeys.all })
       void navigate(`/admin/promotions/campaigns/${saved.id}?tab=details`, { replace: true })
     },
     onError: (error) => {
-      setFormError(error instanceof ApiClientError ? error.userMessage : 'Unable to save campaign.')
+      setFormError(error instanceof ApiClientError ? error.userMessage : t('promotions.campaigns.edit.saveError'))
     },
   })
 
@@ -160,11 +188,11 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
     },
     onSuccess: async () => {
       setFormError(null)
-      setSuccessMessage('Campaign lifecycle updated.')
+      setSuccessMessage(t('promotions.campaigns.edit.lifecycleUpdated'))
       await queryClient.invalidateQueries({ queryKey: adminPromotionQueryKeys.all })
     },
     onError: (error) => {
-      setFormError(error instanceof ApiClientError ? error.userMessage : 'Lifecycle action failed.')
+      setFormError(error instanceof ApiClientError ? error.userMessage : t('promotions.campaigns.edit.lifecycleFailed'))
     },
   })
 
@@ -175,10 +203,10 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
   }
 
   if (isEdit && !idValid) {
-    return <p className={adminAlertErrorClass}>Invalid campaign id.</p>
+    return <p className={adminAlertErrorClass}>{t('promotions.campaigns.edit.invalidId')}</p>
   }
 
-  if (isEdit && campaignQuery.isLoading) {
+  if (isEdit && (campaignQuery.isLoading || canonicalQuery.isLoading)) {
     return (
       <div className="space-y-4" role="status">
         <Skeleton className="h-8 w-56" />
@@ -187,12 +215,13 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
     )
   }
 
-  if (isEdit && campaignQuery.isError) {
+  if (isEdit && (campaignQuery.isError || canonicalQuery.isError)) {
+    const loadError = campaignQuery.error ?? canonicalQuery.error
     return (
       <p className={adminAlertErrorClass} role="alert">
-        {campaignQuery.error instanceof ApiClientError
-          ? campaignQuery.error.userMessage
-          : 'Campaign not found.'}
+        {loadError instanceof ApiClientError
+          ? loadError.userMessage
+          : t('promotions.campaigns.edit.notFound')}
       </p>
     )
   }
@@ -202,37 +231,42 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
   return (
     <section className={adminPageSectionClass}>
       <div className="space-y-2">
-        <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+        <nav aria-label={t('shell.breadcrumb')} className="text-sm text-muted-foreground">
           <Link to="/admin/promotions/campaigns" className="font-medium text-primary hover:underline">
-            Campaigns
+            {t('promotions.breadcrumb.campaigns')}
           </Link>
           <span aria-hidden="true"> / </span>
-          <span className="text-foreground">{isEdit ? 'Manage' : 'New'}</span>
+          <span className="text-foreground">{isEdit ? t('promotions.breadcrumb.manage') : t('promotions.breadcrumb.new')}</span>
         </nav>
         <h1 className={adminPageTitleClass}>
-          {isEdit ? campaign?.name ?? 'Campaign' : 'Create campaign'}
+          {isEdit
+            ? campaign?.name ?? t('promotions.campaigns.edit.fallbackTitle')
+            : t('promotions.campaigns.edit.createTitle')}
         </h1>
         <p className={adminPageLeadClass}>
-          Enter schedule times as ISO-8601 <strong>UTC</strong> (must end with <code>Z</code> or an
-          offset). Values are shown and submitted without silent local conversion.
+          <Trans
+            i18nKey="promotions.campaigns.edit.lead"
+            ns="admin"
+            components={{ strong: <strong />, code: <code /> }}
+          />
         </p>
       </div>
 
       {isEdit && campaign ? <CampaignStatusBar campaign={campaign} /> : null}
 
       {isEdit ? (
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Campaign sections">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label={t('promotions.campaigns.edit.tabsAria')}>
           {TABS.map((item) => (
             <Button
-              key={item.id}
+              key={item}
               type="button"
               role="tab"
-              aria-selected={tab === item.id}
-              variant={tab === item.id ? 'default' : 'outline'}
+              aria-selected={tab === item}
+              variant={tab === item ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setTab(item.id)}
+              onClick={() => setTab(item)}
             >
-              {item.label}
+              {t(`promotions.campaigns.edit.tabs.${item}`)}
             </Button>
           ))}
         </div>
@@ -251,14 +285,15 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
           strategies={strategiesQuery.data ?? []}
           strategiesLoading={strategiesQuery.isLoading}
           isEdit={isEdit}
+          campaignId={isEdit ? campaignId : null}
           saving={saveMutation.isPending}
           lifecyclePending={lifecycleMutation.isPending}
           onSave={(values) => saveMutation.mutate(values)}
           onLifecycle={(action) => {
             const labels = {
-              activate: 'Activate this campaign? It may stay ACTIVE before startsAt (not yet effective).',
-              pause: 'Pause this campaign? Placements and pricing become non-effective immediately.',
-              schedule: 'Mark this campaign SCHEDULED? startsAt must be in the future.',
+              activate: t('promotions.campaigns.edit.confirmActivate'),
+              pause: t('promotions.campaigns.edit.confirmPause'),
+              schedule: t('promotions.campaigns.edit.confirmSchedule'),
             }
             if (!window.confirm(labels[action])) {
               return
@@ -296,14 +331,18 @@ export function AdminCampaignEditPage({ mode }: { mode: Mode }) {
 }
 
 function CampaignStatusBar({ campaign }: { campaign: AdminPromotionCampaign }) {
+  const { t } = useTranslation('admin')
+  const statusLabel = useCampaignStatusLabel()
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm">
-      <Badge>{campaign.status}</Badge>
-      <span className="text-muted-foreground">effective:</span>
-      <Badge variant="outline">{campaign.effectiveStatus}</Badge>
+      <Badge>{statusLabel(campaign.status)}</Badge>
+      <span className="text-muted-foreground">{t('promotions.campaigns.edit.effectiveLabel')}</span>
+      <Badge variant="outline">{statusLabel(campaign.effectiveStatus)}</Badge>
       <span className="text-muted-foreground">
-        pricing {campaign.pricingEffective ? 'on' : 'off'} · placement{' '}
-        {campaign.placementEffective ? 'on' : 'off'}
+        {t('promotions.campaigns.edit.pricingPlacement', {
+          pricing: campaign.pricingEffective ? t('promotions.flag.on') : t('promotions.flag.off'),
+          placement: campaign.placementEffective ? t('promotions.flag.on') : t('promotions.flag.off'),
+        })}
       </span>
       <span className="font-mono text-xs text-muted-foreground">
         {formatUtcInstant(campaign.startsAt)} → {formatUtcInstant(campaign.endsAt)}
@@ -317,6 +356,7 @@ function DetailsTab({
   strategies,
   strategiesLoading,
   isEdit,
+  campaignId,
   saving,
   lifecyclePending,
   onSave,
@@ -326,30 +366,37 @@ function DetailsTab({
   strategies: Array<{ id: string; name: string; type: string; active: boolean }>
   strategiesLoading: boolean
   isEdit: boolean
+  campaignId: string | null
   saving: boolean
   lifecyclePending: boolean
   onSave: (values: AdminCampaignDetailsValues) => void
   onLifecycle: (action: 'activate' | 'pause' | 'schedule') => void
 }) {
+  const { t } = useTranslation('admin')
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Campaign details</CardTitle>
+        <CardTitle className="text-base">{t('promotions.campaigns.details.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={form.handleSubmit(onSave)} noValidate>
           <div className="space-y-1.5">
-            <Label htmlFor="strategyId">Strategy</Label>
+            <Label htmlFor="strategyId">{t('promotions.campaigns.details.strategy')}</Label>
             <select
               id="strategyId"
               className={adminNativeSelectClass}
               disabled={strategiesLoading}
               {...form.register('strategyId')}
             >
-              <option value="">Select strategy…</option>
+              <option value="">{t('promotions.campaigns.details.selectStrategy')}</option>
               {strategies.map((strategy) => (
                 <option key={strategy.id} value={strategy.id}>
-                  {strategy.name} ({strategy.type}){strategy.active ? '' : ' — inactive'}
+                  {t('promotions.campaigns.details.strategyOption', {
+                    name: strategy.name,
+                    type: strategy.type,
+                    suffix: strategy.active ? '' : t('promotions.campaigns.details.inactiveSuffix'),
+                  })}
                 </option>
               ))}
             </select>
@@ -357,33 +404,37 @@ function DetailsTab({
               <p className="text-xs text-destructive">{form.formState.errors.strategyId.message}</p>
             ) : null}
             <p className="text-xs text-muted-foreground">
-              Changing strategy on an ACTIVE campaign is allowed (R4); historical order snapshots stay
-              unchanged.
+              {t('promotions.campaigns.details.strategyHint')}
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{t('promotions.campaigns.details.name')}</Label>
               <Input id="name" {...form.register('name')} />
               {form.formState.errors.name ? (
                 <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
               ) : null}
+              <p className="text-xs text-muted-foreground" data-testid="campaign-canonical-note">
+                {isEdit
+                  ? t('promotions.campaigns.details.canonicalNote')
+                  : t('promotions.campaigns.details.createHint')}
+              </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="slug">Slug (optional)</Label>
+              <Label htmlFor="slug">{t('promotions.campaigns.details.slug')}</Label>
               <Input id="slug" {...form.register('slug')} />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="startsAt">startsAt (UTC)</Label>
+              <Label htmlFor="startsAt">{t('promotions.campaigns.details.startsAt')}</Label>
               <Input id="startsAt" placeholder="2026-11-01T00:00:00Z" {...form.register('startsAt')} />
               {form.formState.errors.startsAt ? (
                 <p className="text-xs text-destructive">{form.formState.errors.startsAt.message}</p>
               ) : null}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="endsAt">endsAt (UTC)</Label>
+              <Label htmlFor="endsAt">{t('promotions.campaigns.details.endsAt')}</Label>
               <Input id="endsAt" placeholder="2026-11-07T23:59:59Z" {...form.register('endsAt')} />
               {form.formState.errors.endsAt ? (
                 <p className="text-xs text-destructive">{form.formState.errors.endsAt.message}</p>
@@ -392,21 +443,25 @@ function DetailsTab({
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
-              <Label htmlFor="priority">Priority</Label>
+              <Label htmlFor="priority">{t('promotions.campaigns.details.priority')}</Label>
               <Input id="priority" type="number" {...form.register('priority')} />
             </div>
             <label className="flex items-center gap-2 self-end text-sm">
               <input type="checkbox" {...form.register('stackable')} />
-              Stackable
+              {t('promotions.campaigns.details.stackable')}
             </label>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="notes">{t('promotions.campaigns.details.notes')}</Label>
             <Textarea id="notes" rows={3} {...form.register('notes')} />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={saving}>
-              {saving ? 'Saving…' : isEdit ? 'Save details' : 'Create campaign'}
+              {saving
+                ? t('promotions.campaigns.details.saving')
+                : isEdit
+                  ? t('promotions.campaigns.details.saveDetails')
+                  : t('promotions.campaigns.details.create')}
             </Button>
             {isEdit ? (
               <>
@@ -416,7 +471,7 @@ function DetailsTab({
                   disabled={lifecyclePending}
                   onClick={() => onLifecycle('activate')}
                 >
-                  Activate
+                  {t('promotions.campaigns.details.activate')}
                 </Button>
                 <Button
                   type="button"
@@ -424,7 +479,7 @@ function DetailsTab({
                   disabled={lifecyclePending}
                   onClick={() => onLifecycle('pause')}
                 >
-                  Pause
+                  {t('promotions.campaigns.details.pause')}
                 </Button>
                 <Button
                   type="button"
@@ -432,17 +487,19 @@ function DetailsTab({
                   disabled={lifecyclePending}
                   onClick={() => onLifecycle('schedule')}
                 >
-                  Schedule
+                  {t('promotions.campaigns.details.schedule')}
                 </Button>
               </>
             ) : null}
             <Button asChild type="button" variant="ghost">
-              <Link to="/admin/promotions/campaigns">Back</Link>
+              <Link to="/admin/promotions/campaigns">{t('promotions.campaigns.details.back')}</Link>
             </Button>
           </div>
         </form>
       </CardContent>
     </Card>
+    {campaignId ? <NameTranslationsEditor kind="campaign" entityId={campaignId} /> : null}
+    </div>
   )
 }
 
@@ -455,6 +512,8 @@ function EligibilityTab({
   onError: (message: string | null) => void
   onSuccess: (message: string) => Promise<void>
 }) {
+  const { locale } = useAppLocale()
+  const { t } = useTranslation('admin')
   const [productIds, setProductIds] = useState<string[]>(campaign.productIds)
   const [categoryIds, setCategoryIds] = useState<string[]>(campaign.categoryIds)
 
@@ -464,13 +523,13 @@ function EligibilityTab({
   }, [campaign])
 
   const categoriesQuery = useQuery({
-    queryKey: adminCategoryQueryKeys.list(),
+    queryKey: adminCategoryQueryKeys.list(locale),
     queryFn: ({ signal }) => listAdminCategories(signal),
     retry: false,
   })
 
   const productsQuery = useQuery({
-    queryKey: adminProductQueryKeys.list({ page: 0, size: 100, sort: 'name,asc' }),
+    queryKey: adminProductQueryKeys.list(locale, { page: 0, size: 100, sort: 'name,asc' }),
     queryFn: ({ signal }) =>
       listAdminProducts({ page: 0, size: 100, sort: 'name,asc', active: true }, signal),
     retry: false,
@@ -481,10 +540,10 @@ function EligibilityTab({
       api.replaceAdminCampaignEligibility(campaign.id, { productIds, categoryIds }),
     onSuccess: async () => {
       onError(null)
-      await onSuccess('Eligibility updated.')
+      await onSuccess(t('promotions.campaigns.eligibility.updated'))
     },
     onError: (error) => {
-      onError(error instanceof ApiClientError ? error.userMessage : 'Eligibility update failed.')
+      onError(error instanceof ApiClientError ? error.userMessage : t('promotions.campaigns.eligibility.failed'))
     },
   })
 
@@ -497,21 +556,21 @@ function EligibilityTab({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Eligibility</CardTitle>
+        <CardTitle className="text-base">{t('promotions.campaigns.eligibility.title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
           {requiresProducts
-            ? 'PRODUCT_DISCOUNT requires at least one product.'
+            ? t('promotions.campaigns.eligibility.requiresProducts')
             : requiresCategories
-              ? 'CATEGORY_DISCOUNT requires at least one category.'
+              ? t('promotions.campaigns.eligibility.requiresCategories')
               : emptyMeansAll
-                ? 'Empty product and category sets mean all cart lines (for this strategy type).'
-                : 'BANNER_ONLY eligibility is optional (placements only).'}
+                ? t('promotions.campaigns.eligibility.emptyMeansAll')
+                : t('promotions.campaigns.eligibility.bannerOptional')}
         </p>
         <div className="grid gap-6 lg:grid-cols-2">
           <MultiCheckList
-            title="Products"
+            title={t('promotions.campaigns.eligibility.products')}
             loading={productsQuery.isLoading}
             items={(productsQuery.data?.items ?? []).map((p) => ({
               id: p.id,
@@ -521,11 +580,11 @@ function EligibilityTab({
             onChange={setProductIds}
           />
           <MultiCheckList
-            title="Categories"
+            title={t('promotions.campaigns.eligibility.categories')}
             loading={categoriesQuery.isLoading}
             items={(categoriesQuery.data ?? []).map((c) => ({
               id: c.id,
-              label: `${c.name}${c.active ? '' : ' (inactive)'}`,
+              label: `${c.name}${c.active ? '' : t('promotions.campaigns.eligibility.inactiveSuffix')}`,
             }))}
             selected={categoryIds}
             onChange={setCategoryIds}
@@ -536,7 +595,9 @@ function EligibilityTab({
           disabled={saveMutation.isPending}
           onClick={() => saveMutation.mutate()}
         >
-          {saveMutation.isPending ? 'Saving…' : 'Save eligibility'}
+          {saveMutation.isPending
+            ? t('promotions.campaigns.eligibility.saving')
+            : t('promotions.campaigns.eligibility.save')}
         </Button>
       </CardContent>
     </Card>
@@ -556,16 +617,17 @@ function MultiCheckList({
   selected: string[]
   onChange: (ids: string[]) => void
 }) {
+  const { t } = useTranslation('admin')
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">{title}</h3>
-        <span className="text-xs text-muted-foreground">{selected.length} selected</span>
+        <span className="text-xs text-muted-foreground">{t('promotions.campaigns.eligibility.selected', { n: selected.length })}</span>
       </div>
       {loading ? (
         <Skeleton className="h-40 w-full" />
       ) : items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No options available.</p>
+        <p className="text-sm text-muted-foreground">{t('promotions.campaigns.eligibility.noOptions')}</p>
       ) : (
         <ul className="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-border p-3">
           {items.map((item) => {
@@ -604,25 +666,35 @@ function PlacementsTab({
   onError: (message: string | null) => void
   onSuccess: (message: string) => Promise<void>
 }) {
+  const { locale } = useAppLocale()
+  const { t } = useTranslation('admin')
   const queryClient = useQueryClient()
   const placementsQuery = useQuery({
-    queryKey: adminPromotionQueryKeys.placements(campaign.id),
+    queryKey: adminPromotionQueryKeys.placements(locale, campaign.id),
     queryFn: ({ signal }) => api.listAdminCampaignPlacements(campaign.id, signal),
+    retry: false,
+  })
+  // Canonical VI copy for the base form (same cache entry as the list when the UI locale is VI).
+  const canonicalPlacementsQuery = useQuery({
+    queryKey: adminPromotionQueryKeys.placements(CANONICAL_LOCALE, campaign.id),
+    queryFn: ({ signal }) =>
+      api.listAdminCampaignPlacements(campaign.id, signal, CANONICAL_LOCALE),
     retry: false,
   })
 
   const [editing, setEditing] = useState<AdminPromotionPlacement | null>(null)
   const [creating, setCreating] = useState(false)
+  const [translatingId, setTranslatingId] = useState<string | null>(null)
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteAdminPlacement(id),
     onSuccess: async () => {
       onError(null)
-      await queryClient.invalidateQueries({ queryKey: adminPromotionQueryKeys.placements(campaign.id) })
-      await onSuccess('Placement deleted.')
+      await queryClient.invalidateQueries({ queryKey: adminPromotionQueryKeys.placements(locale, campaign.id) })
+      await onSuccess(t('promotions.campaigns.placements.deleted'))
     },
     onError: (error) => {
-      onError(error instanceof ApiClientError ? error.userMessage : 'Delete failed.')
+      onError(error instanceof ApiClientError ? error.userMessage : t('promotions.campaigns.placements.deleteFailed'))
     },
   })
 
@@ -630,7 +702,7 @@ function PlacementsTab({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          Homepage slots: HOME_HERO (carousel), HOME_PROMO_TOP, HOME_PROMO_BOTTOM.
+          {t('promotions.campaigns.placements.slotsHint')}
         </p>
         <Button
           type="button"
@@ -640,7 +712,7 @@ function PlacementsTab({
             setCreating(true)
           }}
         >
-          Add placement
+          {t('promotions.campaigns.placements.add')}
         </Button>
       </div>
 
@@ -656,30 +728,38 @@ function PlacementsTab({
             setCreating(false)
             setEditing(null)
             await queryClient.invalidateQueries({
-              queryKey: adminPromotionQueryKeys.placements(campaign.id),
+              queryKey: adminPromotionQueryKeys.placements(locale, campaign.id),
             })
-            await onSuccess(editing ? 'Placement updated.' : 'Placement created.')
+            await onSuccess(
+              editing
+                ? t('promotions.campaigns.placements.updated')
+                : t('promotions.campaigns.placements.created'),
+            )
           }}
           onError={onError}
         />
+      ) : null}
+
+      {translatingId ? (
+        <PlacementTranslationsEditor key={translatingId} placementId={translatingId} />
       ) : null}
 
       {placementsQuery.isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : placementsQuery.isError ? (
         <p className={adminAlertErrorClass} role="alert">
-          Unable to load placements.
+          {t('promotions.campaigns.placements.loadError')}
         </p>
       ) : (
         <div className={adminTableWrapClass}>
           <table className={`${adminTableClass} min-w-[40rem]`}>
             <thead className="border-b border-border bg-muted/40 text-muted-foreground">
               <tr>
-                <th className={adminThClass}>Key</th>
-                <th className={adminThClass}>Title</th>
-                <th className={adminThClass}>Order</th>
-                <th className={adminThClass}>Enabled</th>
-                <th className={adminThClass}>Actions</th>
+                <th className={adminThClass}>{t('promotions.campaigns.placements.columns.key')}</th>
+                <th className={adminThClass}>{t('promotions.campaigns.placements.columns.title')}</th>
+                <th className={adminThClass}>{t('promotions.campaigns.placements.columns.order')}</th>
+                <th className={adminThClass}>{t('promotions.campaigns.placements.columns.enabled')}</th>
+                <th className={adminThClass}>{t('promotions.campaigns.placements.columns.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -690,7 +770,7 @@ function PlacementsTab({
                   </td>
                   <td className={adminTdClass}>{placement.title}</td>
                   <td className={adminTdClass}>{placement.displayOrder}</td>
-                  <td className={adminTdClass}>{placement.enabled ? 'yes' : 'no'}</td>
+                  <td className={adminTdClass}>{placement.enabled ? t('promotions.flag.yes') : t('promotions.flag.no')}</td>
                   <td className={`${adminTdClass} space-x-2`}>
                     <Button
                       type="button"
@@ -698,23 +778,45 @@ function PlacementsTab({
                       className="h-auto p-0"
                       onClick={() => {
                         setCreating(false)
-                        setEditing(placement)
+                        setEditing(
+                          canonicalPlacementsQuery.data?.find((p) => p.id === placement.id) ??
+                            placement,
+                        )
                       }}
                     >
-                      Edit
+                      {t('promotions.campaigns.placements.edit')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-expanded={translatingId === placement.id}
+                      onClick={() =>
+                        setTranslatingId((current) => (current === placement.id ? null : placement.id))
+                      }
+                    >
+                      {translatingId === placement.id
+                        ? t('promotions.campaigns.placements.closeTranslations')
+                        : t('promotions.campaigns.placements.translations')}
                     </Button>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        if (!window.confirm(`Delete placement “${placement.title}”?`)) {
+                        if (
+                          !window.confirm(
+                            t('promotions.campaigns.placements.confirmDelete', {
+                              title: placement.title,
+                            }),
+                          )
+                        ) {
                           return
                         }
                         deleteMutation.mutate(placement.id)
                       }}
                     >
-                      Delete
+                      {t('promotions.campaigns.placements.delete')}
                     </Button>
                   </td>
                 </tr>
@@ -722,7 +824,9 @@ function PlacementsTab({
             </tbody>
           </table>
           {(placementsQuery.data ?? []).length === 0 ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">No placements yet.</p>
+            <p className="px-4 py-6 text-sm text-muted-foreground">
+              {t('promotions.campaigns.placements.empty')}
+            </p>
           ) : null}
         </div>
       )}
@@ -743,20 +847,24 @@ function PlacementForm({
   onSaved: () => Promise<void>
   onError: (message: string | null) => void
 }) {
+  const { locale } = useAppLocale()
+  const { t } = useTranslation('admin')
   const categoriesQuery = useQuery({
-    queryKey: adminCategoryQueryKeys.list(),
+    queryKey: adminCategoryQueryKeys.list(locale),
     queryFn: ({ signal }) => listAdminCategories(signal),
     retry: false,
   })
   const productsQuery = useQuery({
-    queryKey: adminProductQueryKeys.list({ page: 0, size: 100, sort: 'name,asc' }),
+    queryKey: adminProductQueryKeys.list(locale, { page: 0, size: 100, sort: 'name,asc' }),
     queryFn: ({ signal }) =>
       listAdminProducts({ page: 0, size: 100, sort: 'name,asc', active: true }, signal),
     retry: false,
   })
 
+  const resolver = useMemo(() => zodResolver(createAdminPlacementFormSchema(t)), [t])
+
   const form = useForm<AdminPlacementFormInput, unknown, AdminPlacementFormValues>({
-    resolver: zodResolver(adminPlacementFormSchema),
+    resolver,
     defaultValues: {
       placementKey: initial?.placementKey ?? 'HOME_HERO',
       title: initial?.title ?? '',
@@ -809,14 +917,16 @@ function PlacementForm({
       await onSaved()
     },
     onError: (error) => {
-      onError(error instanceof ApiClientError ? error.userMessage : 'Unable to save placement.')
+      onError(error instanceof ApiClientError ? error.userMessage : t('promotions.campaigns.placementForm.saveError'))
     },
   })
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{initial ? 'Edit placement' : 'New placement'}</CardTitle>
+        <CardTitle className="text-base">{initial
+            ? t('promotions.campaigns.placementForm.editTitle')
+            : t('promotions.campaigns.placementForm.newTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form
@@ -826,7 +936,7 @@ function PlacementForm({
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Placement key</Label>
+              <Label>{t('promotions.campaigns.placementForm.key')}</Label>
               <select className={adminNativeSelectClass} {...form.register('placementKey')}>
                 {PLACEMENT_KEYS.map((key) => (
                   <option key={key} value={key}>
@@ -836,29 +946,32 @@ function PlacementForm({
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label>Display order</Label>
+              <Label>{t('promotions.campaigns.placementForm.displayOrder')}</Label>
               <Input type="number" {...form.register('displayOrder')} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="placement-title">Title</Label>
+            <Label htmlFor="placement-title">{t('promotions.campaigns.placementForm.title')}</Label>
             <Input id="placement-title" {...form.register('title')} />
             {form.formState.errors.title ? (
               <p className="text-xs text-destructive">{form.formState.errors.title.message}</p>
             ) : null}
+            <p className="text-xs text-muted-foreground" data-testid="placement-canonical-note">
+              {t('promotions.campaigns.placementForm.canonicalNote')}
+            </p>
           </div>
           <div className="space-y-1.5">
-            <Label>Subtitle</Label>
+            <Label>{t('promotions.campaigns.placementForm.subtitle')}</Label>
             <Input {...form.register('subtitle')} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <PromotionImageUploadField
-              label="Desktop image"
+              label={t('promotions.campaigns.placementForm.desktopImage')}
               imageUrl={desktopImageUrl || null}
               onImageUrlChange={(url) => form.setValue('desktopImageUrl', url ?? '', { shouldValidate: true })}
             />
             <PromotionImageUploadField
-              label="Mobile image (optional)"
+              label={t('promotions.campaigns.placementForm.mobileImage')}
               imageUrl={mobileImageUrl || null}
               onImageUrlChange={(url) => form.setValue('mobileImageUrl', url ?? '')}
             />
@@ -868,7 +981,7 @@ function PlacementForm({
           ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>CTA type</Label>
+              <Label>{t('promotions.campaigns.placementForm.ctaType')}</Label>
               <select className={adminNativeSelectClass} {...form.register('ctaType')}>
                 {CTA_TYPES.map((type) => (
                   <option key={type} value={type}>
@@ -878,15 +991,15 @@ function PlacementForm({
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label>CTA label</Label>
+              <Label>{t('promotions.campaigns.placementForm.ctaLabel')}</Label>
               <Input {...form.register('ctaLabel')} />
             </div>
           </div>
           {ctaType === 'PRODUCT' ? (
             <div className="space-y-1.5">
-              <Label>CTA product</Label>
+              <Label>{t('promotions.campaigns.placementForm.ctaProduct')}</Label>
               <select className={adminNativeSelectClass} {...form.register('ctaProductId')}>
-                <option value="">Select…</option>
+                <option value="">{t('promotions.campaigns.placementForm.select')}</option>
                 {(productsQuery.data?.items ?? []).map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -897,9 +1010,9 @@ function PlacementForm({
           ) : null}
           {ctaType === 'CATEGORY' ? (
             <div className="space-y-1.5">
-              <Label>CTA category</Label>
+              <Label>{t('promotions.campaigns.placementForm.ctaCategory')}</Label>
               <select className={adminNativeSelectClass} {...form.register('ctaCategoryId')}>
-                <option value="">Select…</option>
+                <option value="">{t('promotions.campaigns.placementForm.select')}</option>
                 {(categoriesQuery.data ?? []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -910,13 +1023,13 @@ function PlacementForm({
           ) : null}
           {ctaType === 'COLLECTION' ? (
             <div className="space-y-1.5">
-              <Label>Collection key</Label>
+              <Label>{t('promotions.campaigns.placementForm.collectionKey')}</Label>
               <Input {...form.register('ctaCollectionKey')} />
             </div>
           ) : null}
           {ctaType === 'URL' ? (
             <div className="space-y-1.5">
-              <Label>CTA URL (http(s) or /path)</Label>
+              <Label>{t('promotions.campaigns.placementForm.ctaUrl')}</Label>
               <Input {...form.register('ctaUrl')} />
               {form.formState.errors.ctaUrl ? (
                 <p className="text-xs text-destructive">{form.formState.errors.ctaUrl.message}</p>
@@ -925,24 +1038,26 @@ function PlacementForm({
           ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Optional startsAt (UTC)</Label>
+              <Label>{t('promotions.campaigns.placementForm.optionalStartsAt')}</Label>
               <Input placeholder="2026-11-01T00:00:00Z" {...form.register('startsAt')} />
             </div>
             <div className="space-y-1.5">
-              <Label>Optional endsAt (UTC)</Label>
+              <Label>{t('promotions.campaigns.placementForm.optionalEndsAt')}</Label>
               <Input placeholder="2026-11-07T23:59:59Z" {...form.register('endsAt')} />
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" {...form.register('enabled')} />
-            Enabled
+            {t('promotions.campaigns.placementForm.enabled')}
           </label>
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? 'Saving…' : 'Save placement'}
+              {saveMutation.isPending
+                ? t('promotions.campaigns.placementForm.saving')
+                : t('promotions.campaigns.placementForm.save')}
             </Button>
             <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
+              {t('promotions.campaigns.placementForm.cancel')}
             </Button>
           </div>
         </form>
@@ -952,6 +1067,7 @@ function PlacementForm({
 }
 
 function PreviewTab({ campaignId }: { campaignId: string }) {
+  const { t } = useTranslation('admin')
   const [at, setAt] = useState('')
   const [preview, setPreview] = useState<AdminCampaignPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -964,7 +1080,7 @@ function PreviewTab({ campaignId }: { campaignId: string }) {
     },
     onError: (err) => {
       setPreview(null)
-      setError(err instanceof ApiClientError ? err.userMessage : 'Preview failed.')
+      setError(err instanceof ApiClientError ? err.userMessage : t('promotions.campaigns.preview.failed'))
     },
   })
 
@@ -973,19 +1089,18 @@ function PreviewTab({ campaignId }: { campaignId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Schedule preview</CardTitle>
+        <CardTitle className="text-base">{t('promotions.campaigns.preview.title')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Reports status / effectiveStatus / pricingEffective / placementEffective at a UTC instant.
-          Discount amount calculation is deferred to checkout (P22).
+          {t('promotions.campaigns.preview.lead')}
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
-            <Label htmlFor="previewAt">Evaluate at (UTC, optional)</Label>
+            <Label htmlFor="previewAt">{t('promotions.campaigns.preview.evaluateAt')}</Label>
             <Input
               id="previewAt"
-              placeholder="Leave blank for server now"
+              placeholder={t('promotions.campaigns.preview.placeholder')}
               value={at}
               onChange={(event) => setAt(event.target.value)}
             />
@@ -995,7 +1110,9 @@ function PreviewTab({ campaignId }: { campaignId: string }) {
             disabled={previewMutation.isPending}
             onClick={() => previewMutation.mutate()}
           >
-            {previewMutation.isPending ? 'Running…' : 'Run preview'}
+            {previewMutation.isPending
+              ? t('promotions.campaigns.preview.running')
+              : t('promotions.campaigns.preview.run')}
           </Button>
         </div>
         {error ? (

@@ -12,7 +12,7 @@ public record CartResponse(
 		@Schema(description = "Line items") List<CartItemResponse> items,
 		@Schema(description = "Sum of line subtotals (available and unavailable lines)", type = "number", format = "decimal")
 		BigDecimal subtotal,
-		@Schema(description = "Currency for monetary fields", example = "VND") String currency,
+		@Schema(description = "Currency for monetary fields", example = "USD") String currency,
 		@Schema(description = "True when at least one line is not currently purchasable") boolean hasUnavailableItems
 ) {
 }

@@ -15,15 +15,26 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
 
+import com.aptech.aptech4.common.locale.ApiMessageResolver;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+	private final ApiMessageResolver messages;
+
+	public GlobalExceptionHandler(ApiMessageResolver messages) {
+		this.messages = messages;
+	}
+
 	@ExceptionHandler(ApiException.class)
 	ResponseEntity<ApiError> handleApiException(ApiException ex, HttpServletRequest request) {
+		String message = ex.getMessageKey() != null
+				? messages.get(ex.getMessageKey(), ex.getMessageArgs())
+				: ex.getMessage();
 		return ResponseEntity.status(ex.getStatus())
-			.body(ApiError.of(ex.getStatus().value(), ex.getError(), ex.getMessage(), request.getRequestURI()));
+			.body(ApiError.of(ex.getStatus().value(), ex.getError(), message, request.getRequestURI()));
 	}
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
@@ -32,20 +43,36 @@ public class GlobalExceptionHandler {
 			.map(GlobalExceptionHandler::formatFieldError)
 			.toList();
 		return ResponseEntity.badRequest()
-			.body(ApiError.of(400, "Bad Request", "Validation failed", request.getRequestURI(), details));
+			.body(ApiError.of(
+					400,
+					"Bad Request",
+					messages.get("api.error.validation_failed"),
+					request.getRequestURI(),
+					details
+			));
 	}
 
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
 		String name = ex.getName() == null ? "parameter" : ex.getName();
 		return ResponseEntity.badRequest()
-			.body(ApiError.of(400, "Bad Request", "Invalid value for '" + name + "'", request.getRequestURI()));
+			.body(ApiError.of(
+					400,
+					"Bad Request",
+					messages.get("api.error.invalid_parameter", name),
+					request.getRequestURI()
+			));
 	}
 
 	@ExceptionHandler({ BadCredentialsException.class, DisabledException.class })
 	ResponseEntity<ApiError> handleBadCredentials(AuthenticationException ex, HttpServletRequest request) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-			.body(ApiError.of(401, "Unauthorized", "Invalid email or password", request.getRequestURI()));
+			.body(ApiError.of(
+					401,
+					"Unauthorized",
+					messages.get("api.error.unauthorized"),
+					request.getRequestURI()
+			));
 	}
 
 	@ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -54,7 +81,7 @@ public class GlobalExceptionHandler {
 			.body(ApiError.of(
 					400,
 					"Bad Request",
-					"Image must be smaller than the configured upload size limit",
+					messages.get("api.error.upload_too_large"),
 					request.getRequestURI()
 			));
 	}
@@ -62,7 +89,12 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(MultipartException.class)
 	ResponseEntity<ApiError> handleMultipart(MultipartException ex, HttpServletRequest request) {
 		return ResponseEntity.badRequest()
-			.body(ApiError.of(400, "Bad Request", "Invalid multipart upload", request.getRequestURI()));
+			.body(ApiError.of(
+					400,
+					"Bad Request",
+					messages.get("api.error.upload_invalid"),
+					request.getRequestURI()
+			));
 	}
 
 	private static String formatFieldError(FieldError error) {

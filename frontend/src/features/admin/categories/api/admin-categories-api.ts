@@ -1,4 +1,5 @@
 import { apiRequest } from '@/lib/api/api-client'
+import type { AppLocale } from '@/lib/i18n'
 import type { Category } from '@/features/catalog/types'
 
 /** Matches backend CategoryCreateRequest / CategoryUpdateRequest. */
@@ -12,9 +13,17 @@ export type AdminCategoryStatusPayload = {
   active: boolean
 }
 
-/** GET /api/v1/admin/categories — includes inactive; no pagination. */
-export function listAdminCategories(signal?: AbortSignal): Promise<Category[]> {
-  return apiRequest<Category[]>('/admin/categories', { method: 'GET', auth: true, signal })
+/**
+ * GET /api/v1/admin/categories — includes inactive; no pagination.
+ * Pass `locale: 'vi'` to read canonical Vietnamese base text regardless of UI locale.
+ */
+export function listAdminCategories(signal?: AbortSignal, locale?: AppLocale): Promise<Category[]> {
+  return apiRequest<Category[]>('/admin/categories', {
+    method: 'GET',
+    auth: true,
+    signal,
+    headers: locale ? { 'Accept-Language': locale } : undefined,
+  })
 }
 
 /** POST /api/v1/admin/categories */
